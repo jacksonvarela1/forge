@@ -1,0 +1,16 @@
+{
+  "name": "The Forge",
+  "short_name": "The Forge",
+  "description": "10 week solo MMA striking camp. The coach calls your stations and combos out loud.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F1319",
+  "theme_color": "#EA8C3A",
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

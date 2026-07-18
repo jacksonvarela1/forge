@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The Forge · 10 Week Striking Camp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0F1319;--surface:#171C24;--surface-2:#1F262F;--line:#2A323D;--bone:#ECE6DA;--muted:#8A94A3;--ember:#EA8C3A;--steel:#6FA8C7;--restore:#7E9B8A;--violet:#9B8AC4;--p1:#6FA8C7;--p2:#8B9DC9;--p3:#9B8AC4;--p4:#EA8C3A;--p5:#D9A441;--barh:78px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{background:var(--bg);color:var(--bone);font-family:'Inter',system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--barh) + env(safe-area-inset-bottom));}
+  .wrap{max-width:640px;margin:0 auto;padding:0 18px;}
+  header{padding:24px 0 14px;border-bottom:1px solid var(--line);}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.28em;color:var(--ember);text-transform:uppercase;margin-bottom:8px;}
+  h1{font-family:'Oswald',sans-serif;font-weight:700;font-size:2.5rem;line-height:.92;text-transform:uppercase;}
+  h1 .em{color:var(--ember);}
+  .sub{color:var(--muted);font-size:.87rem;margin-top:9px;}
+  .viewtoggle{display:inline-flex;margin-top:14px;border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+  .vbtn{font-family:'Oswald',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;padding:8px 22px;background:transparent;color:var(--muted);border:none;cursor:pointer;}
+  .vbtn.active{background:var(--ember);color:#1a1206;}
+  .vbtn:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+
+  .weekstrip{display:flex;gap:6px;padding:14px 0 2px;overflow-x:auto;scrollbar-width:none;}
+  .weekstrip::-webkit-scrollbar{display:none;}
+  .wchip{flex:1 0 auto;min-width:38px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.78rem;background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:3px;padding:8px 0;cursor:pointer;text-align:center;}
+  .wchip.active{background:var(--ember);border-color:var(--ember);color:#1a1206;}
+  .wchip.done{border-color:var(--restore);color:var(--restore);}
+  .wchip:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .wlabel{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;padding:8px 0 0;}
+
+  nav{position:sticky;top:0;z-index:40;background:rgba(15,19,25,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);border-top:1px solid var(--line);}
+  .days{display:flex;overflow-x:auto;scrollbar-width:none;}
+  .days::-webkit-scrollbar{display:none;}
+  .daytab{flex:1 0 auto;min-width:50px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;padding:10px 6px 8px;text-align:center;font-family:'Oswald',sans-serif;}
+  .daytab .abbr{font-weight:600;font-size:.8rem;letter-spacing:.06em;display:block;}
+  .daytab .dot{display:block;width:15px;height:3px;border-radius:2px;background:var(--line);margin:5px auto 0;}
+  .daytab.active{color:var(--bone);border-bottom-color:var(--ember);}
+  .daytab:focus-visible{outline:2px solid var(--steel);outline-offset:-2px;}
+
+  main{padding:18px 0 8px;}
+  .phase{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--violet);border-radius:3px;padding:11px 13px;margin-bottom:18px;}
+  .phase .ph{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--violet);}
+  .phase .th{font-family:'Oswald',sans-serif;font-weight:600;font-size:1rem;text-transform:uppercase;letter-spacing:.04em;margin-top:3px;}
+  .phase .nt{color:var(--muted);font-size:.83rem;margin-top:5px;line-height:1.45;}
+  .dhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .dtitle{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.8rem;line-height:1;text-transform:uppercase;}
+  .dfocus{color:var(--muted);font-size:.87rem;margin-top:6px;max-width:92%;}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;padding:5px 8px;border-radius:2px;white-space:nowrap;border:1px solid;}
+  .meter{display:flex;gap:5px;margin:14px 0 18px;align-items:center;}
+  .seg{height:6px;flex:1;border-radius:2px;background:var(--line);}
+  .mlabel{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;color:var(--muted);margin-left:8px;text-transform:uppercase;white-space:nowrap;}
+  .block{border-top:1px solid var(--line);padding:14px 0;}
+  .blabel{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+  .blabel .name{font-family:'Oswald',sans-serif;font-weight:500;font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;}
+  .blabel .dur{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--ember);white-space:nowrap;}
+  ul.items{list-style:none;display:flex;flex-direction:column;gap:8px;}
+  ul.items li{position:relative;padding-left:15px;font-size:.9rem;line-height:1.4;}
+  ul.items li::before{content:"";position:absolute;left:0;top:.52em;width:5px;height:5px;background:var(--ember);border-radius:1px;}
+  ul.items li .cue{color:var(--muted);}
+  ul.items li b{font-weight:600;}
+  .block.sec ul.items li::before{background:var(--steel);}
+  .flag{margin-top:11px;font-size:.79rem;color:var(--restore);border-left:2px solid var(--restore);padding:2px 0 2px 11px;line-height:1.45;}
+  .notes{margin-top:28px;border-top:1px solid var(--line);padding-top:22px;}
+  .notes h2{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.05rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);margin-bottom:14px;}
+  .note{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .note:last-child{border-bottom:none;}
+  .note .n{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.82rem;color:var(--steel);flex:0 0 auto;padding-top:1px;}
+  .note .t{font-size:.88rem;}
+  .note .t b{color:var(--bone);font-weight:600;}
+  .note .t span{color:var(--muted);}
+  footer{color:var(--muted);font-size:.7rem;text-align:center;padding:24px 0 12px;line-height:1.6;}
+
+  .catbar{position:sticky;top:0;z-index:40;background:rgba(15,19,25,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);}
+  .catbar .inr{display:flex;overflow-x:auto;scrollbar-width:none;}
+  .catbar .inr::-webkit-scrollbar{display:none;}
+  .catchip{flex:0 0 auto;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Oswald',sans-serif;font-weight:600;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;padding:11px 12px;cursor:pointer;white-space:nowrap;}
+  .catchip.active{color:var(--bone);border-bottom-color:var(--ember);}
+  .catchip:focus-visible{outline:2px solid var(--steel);outline-offset:-2px;}
+  .mintro{color:var(--muted);font-size:.87rem;padding:18px 0 2px;}
+  .msection{padding:18px 0 2px;scroll-margin-top:50px;}
+  .mshead{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.4rem;text-transform:uppercase;color:var(--ember);}
+  .numbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ember);border-radius:3px;padding:11px 13px;margin:11px 0 2px;font-size:.87rem;line-height:1.6;}
+  .numbox b{color:var(--ember);font-weight:600;}
+  .move{border-top:1px solid var(--line);padding:14px 0;}
+  .mtop{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
+  .mname{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.05rem;letter-spacing:.03em;text-transform:uppercase;}
+  .mtag{color:var(--muted);font-size:.83rem;}
+  .move ul{list-style:none;display:flex;flex-direction:column;gap:5px;margin:9px 0;}
+  .move ul li{position:relative;padding-left:14px;font-size:.88rem;line-height:1.4;}
+  .move ul li::before{content:"";position:absolute;left:0;top:.52em;width:4px;height:4px;background:var(--steel);border-radius:1px;}
+  .mcue{font-size:.83rem;background:var(--surface-2);border-radius:3px;padding:8px 11px;line-height:1.45;}
+  .mcue b{color:var(--ember);font-weight:600;letter-spacing:.06em;}
+  .mvid{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--steel);margin-top:7px;padding-left:1px;line-height:1.5;}
+  .mvid b{color:var(--muted);letter-spacing:.1em;}
+
+  .gitem{display:flex;gap:13px;border-top:1px solid var(--line);padding:14px 0;}
+  .gitem:first-child{border-top:none;}
+  .gwk{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.72rem;color:var(--ember);flex:0 0 46px;padding-top:3px;letter-spacing:.04em;}
+  .gname{font-family:'Oswald',sans-serif;font-weight:600;font-size:1rem;text-transform:uppercase;letter-spacing:.03em;}
+  .gprice{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);margin-left:8px;text-transform:none;letter-spacing:0;}
+  .gwhy{color:var(--muted);font-size:.85rem;margin-top:4px;line-height:1.45;}
+  .glink{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--steel);margin-top:6px;text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:1px;word-break:break-all;}
+  .gtotal{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ember);border-radius:3px;padding:11px 13px;margin:16px 0 4px;font-size:.87rem;line-height:1.6;}
+  .gtotal b{color:var(--ember);font-weight:600;}
+
+  .timerbar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(0,0,0,.35);}
+  .tinner{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:13px;}
+  .tphase{font-family:'Oswald',sans-serif;font-weight:600;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;width:42px;flex:0 0 auto;color:var(--muted);}
+  .tclock{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.85rem;line-height:1;min-width:92px;}
+  .tround{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);flex:1;}
+  .tbtns{display:flex;gap:8px;flex:0 0 auto;}
+  .tbtn{font-family:'Oswald',sans-serif;font-weight:600;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);border-radius:3px;padding:9px 12px;cursor:pointer;}
+  .tbtn.go{background:var(--ember);border-color:var(--ember);color:#1a1206;}
+  .tbtn:disabled{opacity:.35;cursor:not-allowed;}
+  .tbtn:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .flow{display:flex;gap:3px;margin:0 0 16px;align-items:stretch;}
+  .fseg{background:var(--surface-2);border:1px solid var(--line);border-radius:2px;padding:5px 0;text-align:center;min-width:0;overflow:hidden;}
+  .fseg .fl{display:block;font-family:'Oswald',sans-serif;font-weight:600;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
+  .fseg .fm{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--ember);}
+  .ftot{flex:0 0 auto;display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bone);padding:0 2px 0 7px;white-space:nowrap;}
+  ul.items li.exp{padding-left:0;}
+  ul.items li.exp::before{display:none;}
+  .lbtn{display:block;position:relative;padding:0 0 0 16px;text-align:left;background:none;border:none;color:var(--bone);font:inherit;width:100%;cursor:pointer;line-height:1.4;}
+  .lbtn::before{content:"";position:absolute;left:0;top:.52em;width:5px;height:5px;background:var(--ember);border-radius:1px;}
+  .block.sec .lbtn::before{background:var(--steel);}
+  .chev{color:var(--steel);font-size:.68rem;margin-left:7px;display:inline-block;transition:transform .18s ease;}
+  li.exp.open .chev{transform:rotate(90deg);}
+  .ldet{display:none;margin:8px 0 4px 16px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--steel);border-radius:3px;padding:10px 12px;}
+  li.exp.open .ldet{display:block;}
+  .ldtag{color:var(--muted);font-size:.8rem;margin-bottom:7px;}
+  .ldet ul{list-style:none;display:flex;flex-direction:column;gap:4px;margin:0 0 8px;}
+  .ldet ul li{position:relative;padding-left:13px;font-size:.84rem;line-height:1.4;}
+  .ldet ul li::before{content:"";position:absolute;left:0;top:.5em;width:4px;height:4px;background:var(--steel);border-radius:1px;}
+  .ldcue{font-size:.8rem;background:var(--surface-2);border-radius:3px;padding:7px 10px;margin-bottom:6px;}
+  .ldcue b{color:var(--ember);font-weight:600;}
+  .ldvid{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--steel);}
+  .ldvid b{color:var(--muted);}
+  .gsec{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ember);padding:20px 0 6px;border-bottom:1px solid var(--line);margin-bottom:2px;}
+  .gown .gwk,.gown .gname{color:var(--restore);}
+  .gnon .gwk{color:var(--muted);}
+  .tinner{display:block;}
+  .tnames{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;min-height:1em;}
+  .tname{font-family:'Oswald',sans-serif;font-weight:600;font-size:.9rem;letter-spacing:.04em;text-transform:uppercase;color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tnext{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;}
+  .trow{display:flex;align-items:center;gap:12px;}
+  .tclock{font-size:1.7rem;min-width:84px;}
+  .tbtn{padding:9px 10px;}
+  .tround{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .tprog{position:absolute;left:0;top:0;height:2px;background:var(--ember);width:100%;transition:width .95s linear;}
+  .timerbar{position:relative;}
+  .dbtnwrap{margin-top:18px;}
+  .dbtn{width:100%;font-family:'Oswald',sans-serif;font-weight:600;font-size:.86rem;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:4px;padding:13px;cursor:pointer;}
+  .dbtn.on{background:var(--restore);border-color:var(--restore);color:#0f1319;}
+  .dbtn:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .daytab .dot.dn{background:var(--restore)!important;}
+  .wchip.full{border-color:var(--restore);color:var(--restore);}
+  .wchip.full.active{background:var(--ember);border-color:var(--ember);color:#1a1206;}
+  .stats{display:flex;gap:8px;padding:20px 0 4px;}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:11px 10px;text-align:center;}
+  .stat .sv{font-family:'Oswald',sans-serif;font-weight:700;font-size:1.5rem;line-height:1;color:var(--ember);}
+  .stat .sl{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:5px;}
+  .grow{display:flex;align-items:center;gap:5px;margin-bottom:5px;}
+  .gwn{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);flex:0 0 34px;}
+  .gph{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;color:var(--muted);flex:0 0 34px;text-transform:uppercase;}
+  .gcell{flex:1;aspect-ratio:1;background:var(--surface-2);border:1px solid var(--line);border-radius:2px;cursor:pointer;padding:0;min-width:0;}
+  .gcell.on{background:var(--restore);border-color:var(--restore);}
+  .gcell.today{border-color:var(--ember);border-width:2px;}
+  .gcell:focus-visible{outline:2px solid var(--steel);outline-offset:1px;}
+  .ghead{display:flex;gap:5px;margin-bottom:6px;}
+  .ghead .gwn{flex:0 0 34px;}
+  .ghd{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;min-width:0;}
+  .srch{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;color:var(--bone);font-family:'Inter',sans-serif;font-size:.9rem;padding:10px 12px;margin:16px 0 2px;}
+  .srch:focus{outline:none;border-color:var(--ember);}
+  .srch::placeholder{color:var(--muted);}
+  .msection.hide{display:none;}
+  .move.hide{display:none;}
+
+  .viewtoggle{display:flex;width:100%;margin-top:14px;border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+  .vbtn{flex:1;padding:9px 3px;font-size:.68rem;letter-spacing:.06em;}
+  .swrow{display:flex;gap:7px;margin:0 0 14px;}
+  .sw{flex:1;font-family:'Oswald',sans-serif;font-weight:600;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:3px;padding:7px 4px;cursor:pointer;}
+  .sw.on{border-color:var(--ember);color:var(--ember);}
+  .sw:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .qcard{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:20px 16px;margin:14px 0;}
+  .qcat{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+  .qname{font-family:'Oswald',sans-serif;font-weight:700;font-size:1.9rem;line-height:1.05;text-transform:uppercase;margin:6px 0 4px;}
+  .qtag{color:var(--muted);font-size:.86rem;}
+  .qask{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);margin-top:16px;}
+  .qans{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;}
+  .qans ul{list-style:none;display:flex;flex-direction:column;gap:5px;margin:0 0 10px;}
+  .qans ul li{position:relative;padding-left:14px;font-size:.86rem;line-height:1.4;}
+  .qans ul li::before{content:"";position:absolute;left:0;top:.5em;width:4px;height:4px;background:var(--steel);border-radius:1px;}
+  .qcue{font-size:.87rem;background:var(--surface-2);border-radius:3px;padding:10px 12px;line-height:1.5;}
+  .qcue b{color:var(--ember);font-weight:600;}
+  .qbtns{display:flex;gap:8px;margin-top:14px;}
+  .qbtn{flex:1;font-family:'Oswald',sans-serif;font-weight:600;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);border-radius:4px;padding:13px;cursor:pointer;}
+  .qbtn.rev{background:var(--ember);border-color:var(--ember);color:#1a1206;}
+  .qbtn.good{border-color:var(--restore);color:var(--restore);}
+  .qbtn.bad{border-color:var(--muted);color:var(--muted);}
+  .qbtn:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+
+  /* ---- phase spectrum: cool to hot across the camp ---- */
+  .wchip{position:relative;transition:transform .12s ease,background .15s ease;}
+  .wchip:active{transform:scale(.94);}
+  .wchip.full::after{content:"";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--restore);}
+  .wchip.full.active::after{background:#1a1206;}
+  .newrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;}
+  .nchip{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--bone);background:var(--surface-2);border:1px solid var(--line);border-radius:2px;padding:3px 6px;}
+  .nlab{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:11px;}
+  .mwk{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;color:var(--muted);border:1px solid var(--line);border-radius:2px;padding:2px 5px;}
+  .empty{text-align:center;color:var(--muted);font-size:.87rem;padding:34px 16px;border:1px dashed var(--line);border-radius:4px;margin:14px 0;line-height:1.6;}
+  .empty b{color:var(--bone);display:block;font-family:'Oswald',sans-serif;font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+
+  /* ---- focus mode ---- */
+  .fbtn{background:none;border:none;padding:0;cursor:pointer;font:inherit;color:inherit;display:flex;align-items:center;gap:5px;}
+  .fexp{color:var(--muted);font-size:.62rem;}
+  .focus{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:space-between;padding:22px 20px calc(22px + env(safe-area-inset-bottom));background:var(--bg);}
+  .focus.on{display:flex;}
+  .focus.fwork{background:radial-gradient(circle at 50% 42%,#2B1B0B 0%,#12161C 62%,#0F1319 100%);}
+  .focus.frest{background:radial-gradient(circle at 50% 42%,#0E2430 0%,#111A21 62%,#0F1319 100%);}
+  .focus.fprep{background:radial-gradient(circle at 50% 42%,#1C222B 0%,#0F1319 70%);}
+  .ftop{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:520px;}
+  .fround{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;}
+  .fx{background:none;border:1px solid var(--line);border-radius:3px;color:var(--muted);font-size:.8rem;padding:6px 11px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
+  .fx:focus-visible,.fbtn:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .fmid{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%;}
+  .ringwrap{position:relative;width:min(74vw,272px);aspect-ratio:1;flex:0 0 auto;}
+  .ring{width:100%;height:100%;display:block;}
+  .rbg{fill:none;stroke:var(--line);stroke-width:5;}
+  .rfg{fill:none;stroke:var(--ember);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .95s linear,stroke .2s ease;}
+  .rin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+  .fphase{font-family:'Oswald',sans-serif;font-weight:600;font-size:.72rem;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);}
+  .fclock{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(2.7rem,15vw,3.9rem);line-height:1;letter-spacing:.01em;}
+  .fname{font-family:'Oswald',sans-serif;font-weight:700;font-size:clamp(1.5rem,6.6vw,2.2rem);line-height:1.06;text-transform:uppercase;text-align:center;max-width:520px;}
+  .fcue{color:var(--muted);font-size:.88rem;text-align:center;max-width:420px;line-height:1.5;min-height:1.2em;}
+  .fbot{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:520px;}
+  .fnext{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);text-align:center;min-height:1em;}
+  .fctl{display:flex;gap:9px;width:100%;}
+  .fc{flex:1;font-family:'Oswald',sans-serif;font-weight:600;font-size:.86rem;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);border-radius:4px;padding:16px 8px;cursor:pointer;}
+  .fc.go{background:var(--ember);border-color:var(--ember);color:#1a1206;flex:2;}
+  .fc:focus-visible{outline:2px solid var(--steel);outline-offset:2px;}
+  .fc:active{transform:translateY(1px);}
+  @media (prefers-reduced-motion:reduce){.rfg{transition:none;}.wchip{transition:none;}}
+
+  #panel,#moves{animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){#panel,#moves{animation:none;}}
+  @media (min-width:560px){.daytab{min-width:0;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">10 Week Solo Camp · Bag From Week 5</div>
+    <h1>The <span class="em">Forge</span></h1>
+    <p class="sub">Foundation to fight-ready. The coach calls your stations and your combos out loud. Put the phone down and work.</p>
+    <div class="viewtoggle" role="tablist">
+      <button class="vbtn active" id="vWeek" role="tab">Week</button>
+      <button class="vbtn" id="vMoves" role="tab">Moves</button>
+      <button class="vbtn" id="vGear" role="tab">Gear</button>
+      <button class="vbtn" id="vLog" role="tab">Log</button>
+      <button class="vbtn" id="vIQ" role="tab">IQ</button>
+    </div>
+  </header>
+</div>
+
+<div id="weekView">
+  <div class="wrap">
+    <div class="wlabel">Week</div>
+    <div class="weekstrip" id="weekstrip"></div>
+  </div>
+  <nav><div class="wrap"><div class="days" id="days"></div></div></nav>
+  <div class="wrap">
+    <main>
+      <div id="panel"></div>
+      <section class="notes">
+        <h2>Corner Notes</h2>
+        <div class="note"><div class="n">01</div><div class="t"><b>The skeleton never moves.</b> <span>Mon kicks, Tue combos, Wed boxing, Thu output, Fri counters, Sat hands, Sun restore. Built around your Wed/Sat squats. Only the content changes week to week.</span></div></div>
+        <div class="note"><div class="n">02</div><div class="t"><b>Volume is capped, density is not.</b> <span>7 MMA days on 4-5 lifts is your ceiling. Weeks get harder, never longer. Same 40 min, more packed in.</span></div></div>
+        <div class="note"><div class="n">03</div><div class="t"><b>Tap any drill.</b> <span>The how-to now lives under it: steps, the one fix, and the exact video search. Moves tab keeps the full library.</span></div></div>
+        <div class="note"><div class="n">04</div><div class="t"><b>Gear is trimmed to essentials.</b> <span>Gloves and mirror: owned. Wraps now, bag hunted or ordered week 4. Nonessentials are labeled exactly that.</span></div></div>
+        <div class="note"><div class="n">05</div><div class="t"><b>Grass, not concrete.</b> <span>July pavement runs 140F+. It is a burn and a blister, and it grabs your foot mid-pivot and torques the knee.</span></div></div>
+        <div class="note"><div class="n">06</div><div class="t"><b>The timer runs the session.</b> <span>It calls every 30 second station on conditioning days, names each round on skill days, and shows what is next. The double arrow skips ahead.</span></div></div>
+        <div class="note"><div class="n">07</div><div class="t"><b>Autoregulate, do not white-knuckle.</b> <span>Ten weeks with no deload on top of 4-5 lifts is real. If your squat drops two sessions running, or you wake up stiff three days straight, cut Thu and Sat to 3 rounds for a week. Skill days stay. That is the deload, and taking it is not falling behind.</span></div></div>
+        <div class="note"><div class="n">08</div><div class="t"><b>Screen and speaker.</b> <span>The screen stays awake while the timer runs. Connect your Bluetooth speaker first, then hit Start, and the coach follows it. If you cannot hear the coach, check the ring silent switch. If the phone does lock anyway, unlocking snaps the timer to exactly where you should be and the coach tells you.</span></div></div>
+        <div class="note"><div class="n">09</div><div class="t"><b>On kicking volume.</b> <span>Capped before the bag on purpose, because your legs squat twice a week. The teep primer now opens Tue and Fri, Tuesday chains kicks into every combo, and from week 5 the bag pulls kicking toward half the work.</span></div></div>
+      </section>
+      <footer>Week selector remembers where you are.<br>Day tabs open to today automatically.</footer>
+    </main>
+  </div>
+</div>
+
+<div id="movesView" style="display:none">
+  <div class="catbar"><div class="wrap"><div class="inr" id="catbar"></div></div></div>
+  <div class="wrap">
+    <input class="srch" id="srch" type="search" placeholder="Search 81 moves. Try check hook, teep, wrap...">
+    <p class="mintro">Every technique in all 10 weeks. Tag says what it is, bullets say what video will not tell you, CUE is the error, VIDEO is the exact search.</p>
+    <div id="moves"></div>
+    <footer>Learn it here, drill it in the Week tab.</footer>
+  </div>
+</div>
+
+<div id="gearView" style="display:none">
+  <div class="wrap">
+    <p class="mintro">Trimmed to what the program actually needs. You already own the big two.</p>
+    <div class="gsec">Owned</div>
+    <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">16 oz gloves</div><div class="gwhy">Done. They cover bag work now and sparring later.</div></div></div>
+    <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">Mirror</div><div class="gwhy">Done. Live-feed coach. Phone film stays the weekly review.</div></div></div>
+    <div class="gsec">Essential</div>
+    <div class="gitem"><div class="gwk">NOW</div><div><div class="gname">Hand wraps, 180 inch <span class="gprice">$10-20</span></div><div class="gwhy">Two pairs so one is always dry. Practice wrapping before the bag lands. How-to is under Bag Work in Moves.</div><a class="glink" href="https://www.amazon.com/s?k=180+inch+boxing+hand+wraps" target="_blank" rel="noopener">amazon.com/s?k=180+inch+boxing+hand+wraps</a></div></div>
+    <div class="gitem"><div class="gwk">WK 4</div><div><div class="gname">Heavy bag <span class="gprice">$55-250</span></div><div class="gwhy">Hunt or order this week so it is ready for Week 5. Cheapest real path: a used 70-100 lb bag on Facebook Marketplace for $40-100 plus a $15 hanging kit on a garage joist, porch beam, or thick branch. New with a stand runs $150-250. Skip the $350 free-standing unless you truly have nowhere to hang one.</div><a class="glink" href="https://www.facebook.com/marketplace/search?query=heavy%20bag" target="_blank" rel="noopener">facebook.com/marketplace: heavy bag</a><br><a class="glink" href="https://www.amazon.com/s?k=heavy+bag+hanging+kit" target="_blank" rel="noopener">amazon.com/s?k=heavy+bag+hanging+kit</a><br><a class="glink" href="https://www.amazon.com/s?k=100lb+heavy+bag+with+stand" target="_blank" rel="noopener">amazon.com/s?k=100lb+heavy+bag+with+stand</a></div></div>
+    <div class="gitem"><div class="gwk">WK 9</div><div><div class="gname">Mouthguard <span class="gprice">$10-25</span></div><div class="gwhy">Essential only once the gym starts. Boil-and-bite is fine.</div><a class="glink" href="https://www.amazon.com/s?k=boil+and+bite+mouthguard" target="_blank" rel="noopener">amazon.com/s?k=boil+and+bite+mouthguard</a></div></div>
+    <div class="gsec">Nonessential</div>
+    <div class="gitem gnon"><div class="gwk">ANY</div><div><div class="gname">Reflex ball <span class="gprice">$15-25</span></div><div class="gwhy">Timing toy for study breaks. Fun, fully skippable.</div><a class="glink" href="https://www.amazon.com/s?k=boxing+reflex+ball" target="_blank" rel="noopener">amazon.com/s?k=boxing+reflex+ball</a></div></div>
+    <div class="gtotal"><b>Cash to finish the camp:</b> about $90-150 if you hunt the bag used, $185-295 buying new. Everything else you own or is free.</div>
+    <footer>Nonessential means exactly that.</footer>
+  </div>
+</div>
+
+<div id="logView" style="display:none">
+  <div class="wrap">
+    <div class="stats" id="stats"></div>
+    <p class="mintro">Tap any cell to mark it done. Rows are weeks, columns are days. It saves itself.</p>
+    <div class="empty" id="logempty" style="display:none"><b>Nothing logged yet</b>Finish a session, hit Mark session done, and it starts here. Or tap a cell for anything you already did.</div>
+    <div id="grid"></div>
+    <footer>70 sessions in the camp. Missing one is a miss, not a reset.</footer>
+  </div>
+</div>
+
+<div id="iqView" style="display:none">
+  <div class="wrap">
+    <div class="stats" id="iqstats"></div>
+    <p class="mintro" id="iqnote">Think of the fix, reveal, grade yourself honestly.</p>
+    <div id="card"></div>
+  </div>
+</div>
+
+<div class="focus" id="focus">
+  <div class="ftop">
+    <span class="fround" id="fround"></span>
+    <button class="fx" id="fx" type="button">Close</button>
+  </div>
+  <div class="fmid">
+    <div class="fname" id="fname">Ready</div>
+    <div class="ringwrap">
+      <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="rbg" cx="100" cy="100" r="92"></circle>
+        <circle class="rfg" id="rfg" cx="100" cy="100" r="92" transform="rotate(-90 100 100)"></circle>
+      </svg>
+      <div class="rin">
+        <span class="fphase" id="fphase">Ready</span>
+        <span class="fclock" id="fclock">00:00</span>
+      </div>
+    </div>
+    <div class="fcue" id="fcue"></div>
+  </div>
+  <div class="fbot">
+    <div class="fnext" id="fnext"></div>
+    <div class="fctl">
+      <button class="fc" id="fskip" type="button">Skip &#187;</button>
+      <button class="fc go" id="fgo" type="button">Start</button>
+      <button class="fc" id="freset" type="button">Reset</button>
+    </div>
+  </div>
+</div>
+
+<video id="wakevid" playsinline webkit-playsinline muted loop preload="auto" src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMRbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAjt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAIAAAACAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAAAGzbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAQABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABXm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAR5zdGJsAAAAunN0c2QAAAAAAAAAAQAAAKphdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAIAAgBIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMGF2Y0MBQsAK/+EAGGdCwArZH4iIwEQAAAMABAAAAwAIPEiZIAEABWjLg8sgAAAAEHBhc3AAAAABAAAAAQAAABRidHJ0AAAAAAAAFDAAABQwAAAAGHN0dHMAAAAAAAAAAQAAAAEAAEAAAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAQAAABRzdHN6AAAAAAAAAoYAAAABAAAAFHN0Y28AAAAAAAAAAQAAA0EAAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAACjm1kYXQAAAJwBgX//2zcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MCByZWY9MyBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAADmWIhAV///8PRQABQt+A" style="position:fixed;left:-20px;top:-20px;width:2px;height:2px;opacity:0;pointer-events:none"></video>
+<audio id="keep" loop preload="auto" style="display:none"></audio>
+<div class="timerbar" id="timerbar">
+  <div class="tprog" id="tprog"></div>
+  <div class="tinner">
+    <div class="tnames"><span class="tname" id="tname">Ready</span><span class="tnext" id="tnext"></span></div>
+    <div class="trow">
+      <div class="tphase" id="tphase">Ready</div>
+      <button class="fbtn" id="tfocus" type="button" aria-label="Open focus mode"><span class="tclock" id="tclock">00:00</span><span class="fexp">&#9974;</span></button>
+      <div class="tround" id="tround"></div>
+      <div class="tbtns">
+        <button class="tbtn go" id="tgo">Start</button>
+        <button class="tbtn" id="tskip" aria-label="Skip to next">&#187;</button>
+        <button class="tbtn" id="treset">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('error',function(e){try{console.warn('forge:',e.message);}catch(_){}});
+const DAYMETA = {
+  mon:{abbr:'MON',title:'Kicks & Hips',type:'technical',intensity:3,warm:'hips',cool:'hips',focus:'Leg-heavy skill day, on fresh legs.',flag:'Fresh legs, two days out from Wednesday\u2019s squat. Only leg-loaded skill day.'},
+  tue:{abbr:'TUE',title:'Combinations',type:'moderate',intensity:4,warm:'upperk',cool:'upper',focus:'Chain it. Hands-led so legs stay fresh for Wednesday.',flag:'Day before your squat. Hands-dominant on purpose.'},
+  wed:{abbr:'WED',title:'Boxing',type:'technical',intensity:2,warm:'upper',cool:'upper',focus:'Leg day. Hands and upper only.',flag:'Squat day. Zero kicks, light feet. Stacks clean with the lift.'},
+  thu:{abbr:'THU',title:'Output & Core',type:'hard',intensity:5,warm:'full',cool:'full',focus:'Hard day. Upper and core, legs are cooked from Wednesday.',flag:'Push the pace on the hands, not the quads.'},
+  fri:{abbr:'FRI',title:'Defense & Counters',type:'technical',intensity:2,warm:'upperk',cool:'upper',focus:'Read and punish. Lightest day of the week.',flag:'Low-leg before Saturday\u2019s squat.'},
+  sat:{abbr:'SAT',title:'Hands & Core',type:'hard',intensity:5,warm:'upper',cool:'upper',focus:'Hard day and leg day. Upper and core only.',flag:'Biggest total-load day. Run it later than the lift, or trim a round if gassed.'},
+  sun:{abbr:'SUN',title:'Restore',type:'recovery',intensity:1,warm:null,cool:null,focus:'Form, mobility, film. No power.',flag:'Lands on your rest day.'}
+};
+
+const WARM = {
+  hips:[['Leg swings x15 each','front-back, then side-side'],['Deep squat hold','3 x 30 sec'],['90/90 hip switch x10 each','both knees stay down'],['Ankle circles + calf raises x20','the pivot lives here']],
+  upper:[['Towel dislocates x15','arms straight, slow arc'],['Neck circles x10 each way'],['Torso rotations x20','let the arms swing'],['Light shadow 2 min','build up slow']],
+  upperk:[['Towel dislocates x15','arms straight, slow arc'],['Torso rotations x20','let the arms swing'],['Teep primer x10 each leg','zero load, balance and range'],['Check primer x10 each','knee up, shin out'],['Light shadow 2 min','build up slow']],
+  full:[['Light shadow 2 min'],['Arm circles + jacks 30 sec'],['Slow sprawls x5','wake up the hips']]
+};
+const COOL = {
+  hips:[['Pigeon 60 sec each'],['Hamstring + groin 60 sec each']],
+  upper:[['Shoulders, lats, wrists','60 sec each'],['Neck + chest','60 sec each']],
+  full:[['Full body 60 sec each'],['Nasal breathing','bring the HR down']]
+};
+
+const W = [
+/* ================= WEEK 1 ================= */
+{n:1,phase:'Phase 1 · Foundation',theme:'The Tools',note:'One strike at a time. You are cutting the groove, not testing it. Slow and correct beats fast and sloppy every single rep.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Lead teep x15','knee up first, push the sole, snap back'],['Rear teep x15','more power, aim sternum'],['Leg kick x15 each','pivot the base foot, shin to outer thigh'],['Body roundhouse x15 each','taller chamber, shin to ribs'],['Checks x20 each','knee up and turned out']],
+   r:[['R1 teeps + footwork','teep in, step-drag out, circle, teep to reset'],['R2 kick to hands','leg kick, then 1-2 as the foot lands'],['R3 free','all kicks + 1-2s, land balanced every time']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['1-2 x20','jab face, cross chin'],['1-2-3 x15','hook to the jaw, pivot the lead foot'],['2-3-2 x15','weight shifts side to side'],['1-2 into rear leg kick x12 each','sell high, land low']],
+   r:[['R1','1-2 only, pivot after every one'],['R2','1-2-3, angle off after each'],['R3','every combo ends on a leg kick'],['R4','free, 2-3 strikes max']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Stance hold 2 min','mirror or phone, fix what is off'],['Footwork','step-drag x10 each, pivot x10 each'],['Jab x15 head, x10 body','bend the knees for the body jab'],['Cross x15','back heel spins out'],['Hooks x12 each','elbow at 90, turn the hips'],['Uppercuts x12 each','legs lift it, arm delivers']],
+   r:[['R1 jab only','stick it, double it, body then head'],['R2','1-2, slip, 2'],['R3 all hands','no kicks, chain 3']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest between rounds.'],['30s 1-2 nonstop','max clean output'],['30s push-ups'],['30s fast shadow'],['30s mountain climbers'],['30s sprawls'],['30s 1-2-3 shadow']],
+   r:[['Finisher, 5 min'],['Plank 3 x 45 sec'],['Hollow hold 3 x 30 sec'],['Leg raises 3 x 15'],['Russian twists 3 x 30']]},
+  fri:{tm:{work:150,rest:60,rounds:3},
+   t:[['Slip jab x15','outside'],['Slip cross x15','inside'],['Roll x15','under the hook, up the far side'],['Parry x15','tap it off line'],['Slip into counter x12 each','slip, then fire']],
+   r:[['R1','pure defense, make it miss'],['R2','defense into one counter'],['R3','defend, counter 2, pivot out']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s max 1-2'],['30s push-up variations'],['30s 1-2, slip, 2'],['30s slips + counters'],['30s plank shoulder taps'],['30s 2-3-2 full speed']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 20'],['Side plank 3 x 30 sec each'],['Bicycles 3 x 30']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','every strike from the week, zero power'],['Mobility 15 min','pigeon, 90/90, deep squat, t-spine, shoulders'],['Film 10 min','the jab and nothing else. GSP or Volkanovski.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 2 ================= */
+{n:2,phase:'Phase 1 · Foundation',theme:'Sharpening',note:'Same tools, more of them, and the body opens up. Volume climbs about 20%. Add the calf kick and the switch kick.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Lead teep x20 / Rear teep x20','step in behind the rear one'],['Calf kick x20 each','below the knee, outside, chopping down'],['Leg kick x20 each'],['Body roundhouse x20 each'],['Switch kick x12 each','hop-switch, rear kick to the body'],['Checks x20 each']],
+   r:[['R1 long range','teeps + calf kicks only'],['R2 kick-hand-kick','leg kick, 1-2, body kick'],['R3 free','all kicks + 1-2s']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['1-1-2 x15','double jab, cross'],['1-2-3-2 x15'],['1-2-5-2 x12','jab, cross, lead uppercut, cross'],['Kick-hand-kick x10 each','leg kick, 1-2, leg kick']],
+   r:[['R1','double jab everything'],['R2','every combo starts with a kick'],['R3','every combo ends with a kick'],['R4','free, 3-4 strikes']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Footwork','step-drag, lateral, pivot x10 each'],['Jab x20 head, x15 body'],['Cross x20 head, x12 body'],['Hooks x15 each','head and ribs'],['Uppercuts x15 each'],['1-6-3 x10','jab, rear uppercut, lead hook']],
+   r:[['R1','jab + body jab, change levels'],['R2 head-body-head','1, 2 to the body, 3 to the head'],['R3','all hands, 3-4 punch chains']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s 1-2-3 nonstop'],['30s push-ups'],['30s shadow with level changes'],['30s mountain climbers'],['30s sprawl and pop up'],['30s 1-2-3-2']],
+   r:[['Finisher, 5 min'],['Plank 3 x 50 sec'],['Hollow hold 3 x 35 sec'],['Leg raises 3 x 18'],['Russian twists 3 x 35']]},
+  fri:{tm:{work:150,rest:60,rounds:3},
+   t:[['Slip x20 each side'],['Slip-slip x15','both sides, stay in the pocket'],['Roll x15'],['Parry + counter x12 each'],['Catch the jab, return the jab x12']],
+   r:[['R1','slip-slip-reset only'],['R2','slip into the cross counter'],['R3','roll into the hook counter']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s 1-2-3 max'],['30s push-ups'],['30s body-head hands'],['30s slip counter'],['30s up-downs'],['30s 1-6-3 full speed']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 25'],['Side plank 3 x 35 sec each'],['Bicycles 3 x 40']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','the new stuff: calf kick, switch kick, 1-6-3'],['Mobility 15 min'],['Film 10 min','calf and body kicks. Gaethje low, Barboza body.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 3 ================= */
+{n:3,phase:'Phase 2 · Connection',theme:'Chains',note:'Strikes stop being singles. Hand to kick to hand, and back. Long chains, both stances. This is where it starts to feel like striking instead of drilling.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Rear teep + step-in cross x15'],['Calf kick x20 each'],['Leg kick x15 each'],['Body roundhouse x15 each'],['Switch kick x15 each'],['Question mark kick x10 each','chamber low like a leg kick, snap it up high']],
+   r:[['R1 kick chains','leg, body, leg on the same side'],['R2 hand-kick-hand','1-2, leg kick, 2'],['R3 switch stance','switch feet, kick, switch back']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['1-2-3-2-3 x12','five strikes, one motion'],['1-2 body, 3 head x12'],['Hand-kick-hand x12 each'],['Kick-hand-kick x12 each'],['1-2, level fake, 1-2 x10']],
+   r:[['R1','five-strike chains only'],['R2','kick in the middle, not the end'],['R3','level-change fake in every combo'],['R4','free flow, 4-5 strikes']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['1-1-2-3 x12'],['1-2-3-2-3 x12'],['2-3-2 to the body x12'],['1-6-3-2 x10'],['3-2-3 x12','lead with the hook']],
+   r:[['R1','lead with anything except the jab'],['R2','body-head chains, 4+ punches'],['R3','pivot after every chain']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s five-punch chains'],['30s push-ups'],['30s shadow + sprawl mixed'],['30s mountain climbers'],['30s sprawl into 1-2'],['30s body-head chains']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 40 sec'],['Leg raises 3 x 20'],['Russian twists 3 x 40']]},
+  fri:{tm:{work:150,rest:60,rounds:3},
+   t:[['Slip into 2-3 punch counter x12 each'],['Catch and counter x12'],['Roll into 3-2 x12'],['Shell, pivot, counter x10'],['Check the kick, kick back x12 each']],
+   r:[['R1','defense into 2-3 punch counters'],['R2','check the kick, return the kick'],['R3','defend, counter, angle out']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s five-punch chains max'],['30s push-up variations'],['30s body-head'],['30s catch-counter'],['30s up-downs'],['30s free chains']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 25'],['Side plank 3 x 40 sec each'],['Bicycles 3 x 40']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','every chain slow, both stances'],['Mobility 15 min','extra hips, the switch kicks tax them'],['Film 10 min','hands into kicks. Pereira, 1-2 into the left low kick.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 4 ================= */
+{n:4,phase:'Phase 2 · Connection',theme:'Setups',note:'Nothing lands cold. Every strike is bought with a feint, a level change, or a hand that opens the leg. This is the week that separates you from a guy swinging in his yard.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Hand feint into leg kick x12 each','flash the jab, kick low'],['Level change into head kick x10 each','they cover low, you go high'],['Teep feint into leg kick x12 each'],['Question mark kick x12 each'],['Body kick then head kick, same side x10 each']],
+   r:[['R1','every kick gets a hand feint first'],['R2 low-low-high','two leg kicks, then the head kick'],['R3','free kicks, always set up']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['Jab feint into 2-3 x15'],['Level fake into 1-2-3 x12'],['Body feint into head shot x12'],['1-2 body, 3 head x12'],['Feint, kick, hands x10 each']],
+   r:[['R1','feint before every combo'],['R2','body first, head second, always'],['R3','fake the shot, come up throwing'],['R4','free, everything set up']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Jab feint x15','sell it with the shoulder, not the hand'],['Feint into 2 x15'],['Double jab, feint, cross x12'],['Body feint into uppercut x12'],['Shoulder feint into hook x12']],
+   r:[['R1 feints only','no real strikes, just sell them'],['R2','feint into one real shot'],['R3','mix real and fake at random']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s feint-combo nonstop'],['30s push-ups'],['30s shadow with feints'],['30s mountain climbers'],['30s sprawl into counter'],['30s body-head chains']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 40 sec'],['Leg raises 3 x 20'],['Russian twists 3 x 40']]},
+  fri:{tm:{work:150,rest:60,rounds:3},
+   t:[['Pull counter x12','lean back, they miss, cross'],['Slip outside into 3 x12'],['Catch, step, counter x12'],['Check into counter cross x12 each'],['Long guard, frame, counter x10']],
+   r:[['R1','pull counters only'],['R2','defense into a set-up counter'],['R3','defend, feint, counter']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s feint into combo, max'],['30s push-up variations'],['30s body-head'],['30s pull counter'],['30s up-downs'],['30s free chains with feints']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 40 sec each'],['Bicycles 3 x 45']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','every setup, sell each feint'],['Mobility 15 min'],['Film 10 min','feints only. Ilia or Volkanovski, watch the shoulder.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 5 ================= */
+{n:5,phase:'Phase 3 · Reaction',theme:'Counters',note:'Stop initiating everything. Read, react, punish. The bag lands this week: run every Rounds block on it, kicks at 60-70% while the shins adapt. No bag yet means shadow it, but it should already be on the truck.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Check into return kick x15 each'],['Catch the teep, return the leg kick x12'],['Counter the jab with a lead teep x12'],['Intercept the step-in, rear teep x12'],['Counter the kick with a cross x12 each']],
+   r:[['R1','counter every imagined kick with a kick'],['R2','teep to intercept them coming in'],['R3','free counters']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['Counter the jab: slip outside, 3 x15'],['Counter the cross: slip inside, 2 x15'],['Counter the hook: roll, 3-2 x12'],['Counter the kick: check, 2-3 x12'],['Counter the shot: sprawl, uppercut x10']],
+   r:[['R1','counters only, never lead'],['R2','counter into your own chain'],['R3','counter, then angle'],['R4','mix leading and countering']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Check hook x15','pivot away as you hook, catch them coming in'],['Pull counter x15'],['Shoulder roll into 2 x12'],['Cross counter x15','over the top of their jab'],['Uppercut on the level change x12']],
+   r:[['R1','check hook only'],['R2','pull counter only'],['R3','free counter boxing']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s counter chains'],['30s push-ups'],['30s slip-counter shadow'],['30s mountain climbers'],['30s sprawl to uppercut'],['30s free counters']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 22'],['Russian twists 3 x 45']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['Check hook x12'],['Pull counter x12'],['Cross counter x12'],['Roll counter x12'],['Sprawl counter x12'],['Check and return x12 each']],
+   r:[['R1','counter only, no leads'],['R2','counter into a 3-strike chain'],['R3','counter, angle out, re-enter']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s counter chains max'],['30s push-up variations'],['30s check hook'],['30s pull counter'],['30s up-downs'],['30s free counter boxing']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 6 ================= */
+{n:6,phase:'Phase 3 · Reaction',theme:'Timing & Angles',note:'Same strikes, better real estate. Stop trading in front of people. Hit from where they are not looking, and never end a combo where you started it.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Step off-angle, then kick x12 each'],['Kick, pivot, kick x10 each'],['Switch stance, kick, switch back x12'],['Southpaw leg kick x12','switch and kick from the other side'],['Teep to create the angle x12']],
+   r:[['R1','angle before every kick'],['R2','kick from both stances'],['R3','free, always off-angle']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['1-2, pivot, 3 x15'],['Chain, angle, chain x12'],['Circle away from the power hand, 2 min'],['Step-in 1-2, step out, re-enter x12'],['Combo, angle, kick x12']],
+   r:[['R1','pivot after every single combo'],['R2','in and out, never stand still'],['R3','circle one way the whole round, then the other'],['R4','free, constant angles']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Pivot drills x20 each way'],['1-2, pivot left, 1-2 x12'],['Jab, step off-line, cross x12'],['Cut the angle, hook x12'],['In-out-in x15','step in, out, back in with a shot']],
+   r:[['R1 footwork only','no punches, just move'],['R2','only punch off an angle'],['R3','free, never square up']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s combo-angle-combo'],['30s push-ups'],['30s shadow, constant movement'],['30s mountain climbers'],['30s sprawl, pop up, angle out'],['30s free with angles']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 22'],['Russian twists 3 x 45']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['Slip, counter, angle x12 each'],['Check hook into pivot x12'],['Pull counter into step-off x12'],['Roll, counter, circle out x12'],['Catch, angle, counter x12']],
+   r:[['R1','counter then immediately angle'],['R2','never counter from where you defended'],['R3','free, counter and reposition']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s combo-angle-combo max'],['30s push-up variations'],['30s in-out-in'],['30s counter and pivot'],['30s up-downs'],['30s free, always moving']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','angles only, slow'],['Mobility 15 min'],['Film 10 min','feet only. Volkanovski, ignore his hands entirely.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 7 ================= */
+{n:7,phase:'Phase 4 · Power',theme:'Heavy Hands',note:'First full bag phase. Power is a skill air cannot teach: ground force through rotation into a real object. Sit down on every shot, kick through the bag, kicks at 80% while the shins adapt. NO BAG YET: run it as shadow, chase snap and full retraction instead of impact, add one round per session, and treat Power as postponed rather than skipped.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Range check 2 min','stand where the shin lands, not the foot'],['Leg kick x15 each','80%, kick through it, bag folds around the shin'],['Body kick x15 each','hip turns all the way over on contact'],['Power teep x15 each','rock it straight back'],['Switch kick x12 each','the bag tells you if the hip loaded']],
+   r:[['R1 kicks only','through the bag, never at it'],['R2 kick-hand-kick','leg kick, 1-2, body kick'],['R3 free kicks','step back to range after every strike']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['1-2 at 80% x20','sit down, make the bag jump'],['1-2-3 x15','hook meets the bag swinging back'],['Hand-kick-hand x12 each','1-2, leg kick, 2'],['3-2 in close x12','short and heavy'],['Chain into low kick x10','1-2-3-2, finish on the leg']],
+   r:[['R1','power 1-2 only, full sit-down'],['R2','every chain ends on a kick'],['R3','in close, hooks and uppercuts only'],['R4','free power chains']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Body jab x15','bend the knees, dig it in'],['Body hooks x15 each','rip under the elbows'],['Uppercuts in close x12 each','bag on your chest, dig up'],['Head-body-head x12','1 up, 2 down, 3 up']],
+   r:[['R1 jab only','real contact, real snap'],['R2 body only','invest downstairs all round'],['R3 all hands 70%','light feet, you squatted today']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec on the bag. 1:00 rest.'],['30s max output'],['30s push-ups'],['30s body shots only'],['30s mountain climbers'],['30s sprawl into 1-2 on the bag'],['30s free hands']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 25'],['Russian twists 3 x 50']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['Touch, slip, counter x15 each','tap the bag as their jab, slip, cross back'],['Counter then angle x12','land it, circle off, reset'],['Check into cross x12 each'],['Pull, then 2 x12'],['Roll, then 3-2 x12']],
+   r:[['R1','slip-counter on the bag only'],['R2','every counter ends with an angle'],['R3','free counters']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands on the bag. 1:00 rest.'],['30s max straights'],['30s push-up variations'],['30s body-head'],['30s slip-counter'],['30s up-downs'],['30s free hands']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 35'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','no bag today, groove the clean form back in'],['Mobility 15 min','shins and hips took new impact, take all of it'],['Film 10 min','a power puncher. Ngannou or Ilia, watch the rear heel and knees.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 8 ================= */
+{n:8,phase:'Phase 4 · Power',theme:'Pressure & Pace',note:'The bag swings, and the swing is an opponent moving. Hit it coming in, chase it going out, hold fight pace throughout. Hardest week of the camp. Kicks to full power. NO BAG YET: shadow the same drills against an imagined opponent who advances and retreats, and keep the pace honest since pace is the real lesson here.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Teep the advance x15','it swings at you, stop it'],['10 leg kicks straight x3 each side','power can drop, form cannot'],['Chase kick x12 each','it swings away, body kick follows it'],['Knees x15 each','cup the top, pull it onto the knee'],['Check, return kick x12 each']],
+   r:[['R1 volume','kick output, feet never stop'],['R2 the swing','time every kick to it coming in'],['R3 free','kicks and knees at fight pace']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['Walk-down combo x12','cut it off, combo, step with it'],['6-strike chains x10','hands and kicks, no pauses'],['Hit the return x12','it swings back, you are already throwing'],['Elbows in close x12 each','bag on your chest, short and sharp'],['Level fake into 1-2 x10']],
+   r:[['R1 pressure','walk it down all round'],['R2 long chains','nothing under 5 strikes'],['R3 close range','elbows, uppercuts, knees'],['R4 fight pace','free, no coasting']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Hit the advance x15','1-2 as it swings in, that is timing'],['In-out on the swing x12','in behind the jab, out before it returns'],['Punch-out 30 sec x3','nonstop straights, form holds to the buzzer'],['Body-head tired x12','when the arms burn, dig the body']],
+   r:[['R1 timing','only punch when it comes to you'],['R2 in-and-out','never flat, never square'],['R3','free, last 30 sec is a punch-out']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec on the bag. 1:00 rest. Hardest session of the camp.'],['30s all-out'],['30s push-ups'],['30s body shots'],['30s mountain climbers'],['30s sprawl into a burst'],['30s punch-out, straights only']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 25'],['Russian twists 3 x 50']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['The swing is the attack','it comes in, you make it miss'],['Slip the swing, 2-3 x15'],['Pivot off it, hook x12'],['Frame it off, knee x12','long guard into the clinch knee'],['Bait: wait, slip late, counter x10']],
+   r:[['R1','pure reaction, no leads'],['R2','counter, angle, re-enter'],['R3','free, make it miss then make it pay']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands on the bag. 1:00 rest.'],['30s punch-out'],['30s push-up variations'],['30s hit the advance'],['30s slip-counter'],['30s up-downs'],['30s fight pace free']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 35'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','slow everything back down'],['Mobility 15 min','biggest week yet, take every minute'],['Film 10 min','cage cutting. Khabib or Merab, cutting not chasing.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 9 ================= */
+{n:9,phase:'Phase 5 · Creation',theme:'Rhythm',note:'A readable rhythm is how you get hit. Fast, slow, pause, burst, on the bag now. Same strikes on a beat nobody can count. This is the week it starts being fun.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Broken-rhythm kicks x12','pause mid-combo, then kick'],['Fast-fast-slow kick chains x10'],['Double leg kick, same side x12 each'],['Kick on the half beat x12','kick while they reset'],['Fake the kick, kick anyway x10']],
+   r:[['R1','change speed every combo'],['R2','pause, then explode'],['R3','free, no rhythm they can read']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['Fast-fast-slow chains x12'],['Pause mid-chain, restart x12'],['Triple jab into 2-3 x10'],['Half-beat cross x12'],['Burst: 6 strikes fast x8']],
+   r:[['R1','speed changes only'],['R2','burst, reset, burst'],['R3','pause and go'],['R4','free, unreadable']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Rhythm jab x20','fast, slow, double, pause'],['Fast-fast-slow hands x15'],['Broken chains x12'],['Burst of 6 x10'],['Stutter step into 2 x12']],
+   r:[['R1','vary the jab rhythm all round'],['R2','bursts only'],['R3','free rhythm']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s burst, reset, burst'],['30s push-ups'],['30s broken-rhythm shadow'],['30s mountain climbers'],['30s sprawl into a burst'],['30s free rhythm']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 25'],['Russian twists 3 x 50']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['Counter on the half beat x12','catch them mid-rhythm'],['Bait, then pull counter x12','give them a target on purpose'],['Slow the pace, then counter fast x12'],['Feint, draw the shot, counter x12'],['Check hook off a rhythm break x12']],
+   r:[['R1','bait and counter'],['R2','counter on the half beat'],['R3','free, make them commit then punish']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s bursts max'],['30s push-up variations'],['30s fast-fast-slow'],['30s bait and counter'],['30s up-downs'],['30s free rhythm boxing']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 35'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Shadow 40-50%, 15 min','play with tempo, no power'],['Mobility 15 min'],['Film 10 min','pace changes. Max Holloway, count the beats.']],
+   r:[]}
+ }},
+
+/* ================= WEEK 10 ================= */
+{n:10,phase:'Phase 5 · Creation',theme:'Free',note:'No prescribed combos. Everything you built, unscripted, on the bag and in the air. Run the 5-point checkpoint Sunday, then book the trial class.',
+ d:{
+  mon:{tm:{work:180,rest:60,rounds:3},
+   t:[['Free kick flow, 8 min','no script, everything you know'],['Both stances, 2 min each'],['Entry, kick, exit x12','get in, land it, get out clean']],
+   r:[['R1','orthodox free'],['R2','southpaw free'],['R3','switch freely, mid-combo']]},
+  tue:{tm:{work:180,rest:60,rounds:4},
+   t:[['Free flow, 15 min','kicks, hands, feints, counters, angles, rhythm. All of it, no script.']],
+   r:[['R1','you lead the exchange'],['R2','you counter the exchange'],['R3','your choice, switch mid-round'],['R4 fight sim','imagine a full round against someone real']]},
+  wed:{tm:{work:180,rest:60,rounds:3},
+   t:[['Free boxing, 15 min','every punch, every setup, every counter, unscripted']],
+   r:[['R1','free, pretend it is round 1'],['R2','free, pretend you are down'],['R3','free, pretend you are ahead and managing']]},
+  thu:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec. 1:00 rest.'],['30s free max output'],['30s push-ups'],['30s free shadow'],['30s mountain climbers'],['30s sprawl into free'],['30s free, whatever comes']],
+   r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 25'],['Russian twists 3 x 50']]},
+  fri:{tm:{work:180,rest:60,rounds:3},
+   t:[['Free defensive flow, 15 min','every defense, every counter, pure reaction']],
+   r:[['R1','pure reaction, no leads'],['R2','defend, counter, angle, repeat'],['R3','free']]},
+  sat:{tm:{work:180,rest:60,rounds:5},
+   t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s free max'],['30s push-up variations'],['30s free hands'],['30s free counters'],['30s up-downs'],['30s fight sim pace']],
+   r:[['Finisher, 5 min'],['Hollow rocks 3 x 35'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
+  sun:{tm:null,
+   t:[['Film one full round','then run the checkpoint below'],['1. Hands','return to guard every time, zero drops'],['2. Feet','never cross, never square, never flat'],['3. Pivot','every kick pivots, every landing balanced'],['4. Flow','1-2-3 is one motion, not three decisions'],['5. Gas','last round looks like the first']],
+   r:[['Pass all 5?','Book the free trial class. You are gym-ready.'],['Miss any?','Rerun the phase that owns it, not the whole camp.']]}
+ }}
+];
+
+const CATS = [
+{cat:'Stance & Footwork',moves:[
+ {name:'Stance',tag:'Orthodox. Bladed, not square.',steps:['Feet just past shoulder width, lead toe at the target, rear foot 45, rear heel up.','Weight 50/50, knees soft. Hands: lead at the eyebrow, rear on the cheek.'],cue:'Square and flat-footed is how you get slept. Stay bladed, stay on the balls of your feet.',vid:'MMA stance fundamentals orthodox'},
+ {name:'Step-Drag',tag:'Move without crossing your feet.',steps:['Near foot steps, far foot drags to restore the width. Every direction.','Width never changes, so you can strike or defend on any frame.'],cue:'The moment your feet cross or come together you cannot punch and you cannot defend.',vid:'boxing footwork step drag drill'},
+ {name:'Pivot',tag:'Change the angle you face.',steps:['Plant the lead foot, swing the rear foot around it.','Now you are on their side while they still face where you were.'],cue:'Pivot on the ball of the lead foot, not the heel. Hands stay up through the turn.',vid:'boxing pivot footwork drill'},
+ {name:'Switch Stance',tag:'Trade orthodox for southpaw.',steps:['Small hop, feet trade places. Lead hand becomes rear hand.','Opens the other side of the body for kicks and changes every angle.'],cue:'Do it between strikes, not during one. Switching while they punch is how you get caught mid-air.',vid:'switch stance striking MMA'},
+ {name:'Cutting the Angle',tag:'Step off the centerline, then hit.',steps:['Step your lead foot outside their lead foot, then pivot in.','You end up facing their chest while they face empty air.'],cue:'Angle first, then punch. Punching then angling is just running away.',vid:'cutting angles striking footwork'},
+ {name:'In-and-Out',tag:'Enter, land, leave.',steps:['Explode in behind a strike, land, immediately step-drag out or pivot off.'],cue:'Never end a combo standing where you threw it. That is where the return shot lands.',vid:'in and out footwork boxing'}
+]},
+
+{cat:'Punches',numbox:'<b>1</b> jab · <b>2</b> cross · <b>3</b> lead hook · <b>4</b> rear hook · <b>5</b> lead uppercut · <b>6</b> rear uppercut. So 1-2-3 is jab, cross, lead hook. Every combo in the program uses these.',moves:[
+ {name:'Jab (1)',tag:'Lead straight. Range finder, setup, interrupter.',steps:['Straight out, fist turns palm-down on landing, retracts on the same line.','Body jab: bend the knees to change level, do not bend at the waist.'],cue:'No wind-up, no telegraph. The rear hand never leaves your cheek while it is out.',vid:'how to throw a jab technique breakdown'},
+ {name:'Cross (2)',tag:'Rear straight. Your power hand.',steps:['Ball of the rear foot drives, hip and shoulder rotate through, hand follows.','Rear heel spins out. Lead hand stays home.'],cue:'It is a hip rotation with a hand attached. If your head travels past your front knee, you are falling into it.',vid:'cross punch hip rotation technique'},
+ {name:'Lead Hook (3)',tag:'Lead-side horizontal. Head or ribs.',steps:['Elbow to about 90, roughly parallel to the floor.','Pivot the lead foot, turn the hips, the arm just carries the fist.'],cue:'Tight arc, whole body turns. Wide and loopy has no power and shows up a mile away.',vid:'lead hook technique boxing pivot'},
+ {name:'Rear Hook (4)',tag:'Rear-side horizontal. Short range.',steps:['Rear arm to 90, back hip rotates through, swings across.'],cue:'Huge power, terrible range, and it opens your whole side. Finish with it, never lead with it.',vid:'rear hook boxing technique'},
+ {name:'Lead Uppercut (5)',tag:'Rising, up the middle.',steps:['Small knee dip, drive up through the chin as the legs extend.'],cue:'Legs and hips lift it. If you wind the arm back first, they see it coming.',vid:'lead uppercut technique boxing'},
+ {name:'Rear Uppercut (6)',tag:'Rising, rear hand. Splits a tight guard.',steps:['Small dip, drive up off the back leg and hip.'],cue:'Best punch in the game against someone hiding behind a high guard.',vid:'rear uppercut technique boxing'},
+ {name:'Body Shots',tag:'Any punch, lower target.',steps:['Change level with the knees, keep the spine stacked, land on the ribs or the liver.','Then come back up top. The hands drop to protect the body, the head opens.'],cue:'Body work is an investment. It does not pay in round 1, it pays in round 3.',vid:'body punching technique level change'}
+]},
+
+{cat:'Kicks',moves:[
+ {name:'Teep',tag:'Push kick. The jab of your legs.',steps:['Knee up first, then extend, sole or ball drives into the gut or sternum.','Snap it back to stance immediately, do not leave it hanging.'],cue:'Chamber the knee before you extend, or it becomes a slow front-raise they catch and dump you on.',vid:'teep push kick muay thai technique'},
+ {name:'Roundhouse',tag:'The power kick. Lands with the shin.',steps:['Lead foot steps slightly out to open the hip.','Base foot pivots 45 to 90 away from the target. Hip turns all the way over.','Leg swings through like a bat, shin makes contact, not the foot.'],cue:'The base-foot pivot is the whole kick. No pivot means no power and a torqued knee.',vid:'muay thai roundhouse kick technique pivot'},
+ {name:'Leg Kick',tag:'Roundhouse to the thigh.',steps:['Same mechanics, shin into the outside or inside of the thigh.','Kick through the leg, not at it.'],cue:'Nobody gets dropped by one. They get dropped by twenty. Keep buying it.',vid:'low kick technique muay thai'},
+ {name:'Calf Kick',tag:'Low leg kick, below the knee.',steps:['Same pivot, target the outside of the calf just under the knee.','Shorter arc, faster, harder to check.'],cue:'Cheaper and faster than a thigh kick, and it wrecks mobility fast. Ask anyone who has eaten Gaethje calf kicks.',vid:'calf kick technique breakdown'},
+ {name:'Body Kick',tag:'Roundhouse to the ribs.',steps:['Taller chamber, same pivot, shin lands just under the elbow on the liver or floating ribs.'],cue:'Aim through them, not at the surface. Turn the hip completely over or it just slaps.',vid:'body kick technique muay thai'},
+ {name:'Head Kick',tag:'Roundhouse, high.',steps:['Same kick, more hip and more base-foot pivot. Range of motion decides the height.'],cue:'Only as high as your hips allow. Forcing it wrecks your balance and your back. Mobility earns this one.',vid:'head kick technique flexibility'},
+ {name:'Switch Kick',tag:'Lead-leg roundhouse with a power switch.',steps:['Fast hop, feet trade places, immediately roundhouse with the new rear leg.'],cue:'The switch loads the hip so your lead-side kick lands like a rear kick instead of a slap.',vid:'switch kick muay thai technique'},
+ {name:'Question Mark Kick',tag:'Fakes low, lands high.',steps:['Chamber exactly like a leg kick so they drop the elbow to check.','Snap the knee up and over the top into the head instead.'],cue:'It only works if your leg kick is real. The setup is 8 weeks of low kicks.',vid:'question mark kick technique'},
+ {name:'Check',tag:'Block a leg kick with your shin.',steps:['Knee up, turn it out, point the shin at their incoming shin.','Bone meets bone. Their shin, your shin.'],cue:'Lift the knee. Just turning the foot leaves your thigh out there to get chopped.',vid:'how to check a leg kick'}
+]},
+
+{cat:'Knees & Elbows',moves:[
+ {name:'Knee',tag:'Close-range. Hip thrust with a knee on it.',steps:['Hands control the head or the collar tie, thrust the hips forward, drive the knee up.','Toe pointed down, pull down with the hands as the knee rises.'],cue:'It is a hip thrust, not a leg lift. If your hips are not driving, it is a nudge.',vid:'muay thai knee technique clinch'},
+ {name:'Elbow',tag:'Short, sharp, close only.',steps:['Elbow up, swing horizontally, land the point or the edge, body turns like a tight hook.'],cue:'Never hurts your hands, always opens theirs. Keep it short, turn the body.',vid:'muay thai elbow technique'}
+]},
+
+{cat:'Defense',moves:[
+ {name:'Slip',tag:'Head off the line of a straight.',steps:['Jab comes: dip and rotate, head goes outside it.','Cross comes: rotate the other way, head goes inside it.'],cue:'Small dip from the legs and core. A big lean is just a slower way to get hit.',vid:'slipping punches boxing drill'},
+ {name:'Roll',tag:'Under a hook, up the other side.',steps:['Knees bend, head travels a small U under the arc, come up in stance.'],cue:'Bend the knees, not the waist. Folding at the waist puts your head where the knee goes.',vid:'bob and weave technique boxing'},
+ {name:'Parry',tag:'Tap a straight off line.',steps:['Small tap on their jab with the rear hand, on their cross with the lead.'],cue:'Redirect, do not reach. Reaching for it opens the lane you were covering.',vid:'parry technique boxing defense'},
+ {name:'Catch',tag:'Absorb the jab in the glove.',steps:['Rear hand meets the jab, absorb it, immediately return.'],cue:'Catch and return is one motion. Catching without returning just teaches them to keep jabbing.',vid:'catch and return jab boxing'},
+ {name:'Shell',tag:'High guard. Emergency shelter.',steps:['Fists to the forehead, elbows squeezed, take it on the arms.','Then pivot out or fire back.'],cue:'Temporary. Camping in a shell against kicks and knees just gives them a stationary target.',vid:'high guard shell defense boxing'},
+ {name:'Long Guard',tag:'Frame with the lead arm.',steps:['Lead arm extended into their face or shoulder, measuring and blocking their line.','Buys you distance to reset or counter.'],cue:'It is a distance tool, not a block. Use it to make space, then work.',vid:'long guard technique MMA'},
+ {name:'Pull',tag:'Lean back, they fall short.',steps:['Shift the weight to the back foot, head travels straight back out of range.','They miss by an inch and are extended.'],cue:'Pull straight back, not off to the side, and keep the feet under you so you can fire immediately.',vid:'pull counter technique boxing'},
+ {name:'Shoulder Roll',tag:'Deflect off the lead shoulder.',steps:['Lead shoulder up, turn slightly, let their shot slide off it.','Rear hand covers the far side.'],cue:'Slick when it works, a highlight reel when it does not. Do not marry it.',vid:'shoulder roll defense technique'}
+]},
+
+{cat:'Counters',moves:[
+ {name:'Check Hook',tag:'Hook and pivot away, as they come in.',steps:['They step in, you hook the lead hand and pivot off the lead foot at the same time.','They walk into it and you are gone before the return.'],cue:'The hook and the pivot are one movement. Hook first, pivot second, and you are still standing there.',vid:'check hook technique boxing'},
+ {name:'Pull Counter',tag:'Make it miss, then land the cross.',steps:['Pull back off their jab, they fall short and extended.','Fire the cross into the gap before they retract.'],cue:'The gap is about half a second. Late means you eat their second shot.',vid:'pull counter cross technique'},
+ {name:'Cross Counter',tag:'Over the top of their jab.',steps:['As their jab comes, your cross travels over the top of it, same instant.','Their extended arm becomes the rail your punch rides.'],cue:'Slip slightly outside as you throw or you trade straight punches and lose the exchange.',vid:'cross counter over the jab'},
+ {name:'Roll Counter',tag:'Under the hook, into your own.',steps:['Roll under their hook, come up on the outside, fire 3-2.'],cue:'Come up already throwing. Coming up to look around is coming up to get hit.',vid:'roll and counter hook boxing'},
+ {name:'Sprawl Counter',tag:'Stuff the shot, punish the head.',steps:['They change level, you sprawl, hips heavy.','Their head is now low and stationary. Uppercut or knee.'],cue:'Your BJJ base already owns the sprawl. Just add the strike on the way up.',vid:'sprawl to uppercut MMA counter'},
+ {name:'Check and Return',tag:'Block the kick, kick back.',steps:['Check their low kick, and as your foot lands, immediately return your own.'],cue:'They are on one leg for a full beat after kicking. That beat is yours.',vid:'check and return kick muay thai'},
+ {name:'Intercept',tag:'Hit them as they start.',steps:['They step in, the teep or the jab meets them mid-step.','Their forward momentum doubles the impact.'],cue:'Timing, not speed. You are hitting where they will be, not where they are.',vid:'intercepting teep timing muay thai'}
+]},
+
+{cat:'Feints & Rhythm',moves:[
+ {name:'Feint',tag:'A lie your body tells.',steps:['Start the movement, sell it with the shoulder, hip, or eyes, then do not finish it.','Their reaction tells you what is open.'],cue:'A feint is not a slow punch. It is a full commitment that stops. Twitch it, do not wave it.',vid:'how to feint in boxing shoulder'},
+ {name:'Level Change Fake',tag:'Sell the shot, hit high.',steps:['Drop your level like you are shooting a double, hands and eyes go low.','They react low, you come up throwing to the head.'],cue:'Your grappling background makes this one lethal, because your shot is actually real.',vid:'level change feint MMA striking'},
+ {name:'Hand Feint into Kick',tag:'Flash high, land low.',steps:['Flash the jab to freeze the hands high, kick the leg while they are looking up.'],cue:'The most reliable setup in MMA. Nobody checks a kick they never saw start.',vid:'hand feint into leg kick setup'},
+ {name:'Broken Rhythm',tag:'Fast, slow, pause, burst.',steps:['Deliberately vary the tempo inside a combo. Fast-fast-slow. Pause mid-chain, then finish.'],cue:'People time your rhythm, not your speed. Steady beat means they read you no matter how fast you are.',vid:'broken rhythm striking timing'},
+ {name:'Half Beat',tag:'Land in the gap.',steps:['Throw in the space between their strikes, while they are resetting or retracting.'],cue:'The half beat is a real window and it is the difference between a good striker and a scary one.',vid:'half beat timing striking'},
+ {name:'Baiting',tag:'Give them a target on purpose.',steps:['Deliberately leave a small opening, wait for them to take it, counter what you already knew was coming.'],cue:'You cannot bait what you cannot counter. Weeks 5 and 6 have to be solid first.',vid:'baiting and countering technique'}
+]},
+
+{cat:'Chaining & Concepts',moves:[
+ {name:'Shadowboxing',tag:'The base of everything. Fight the air like it fights back.',steps:['Pick an opponent and put them somewhere. Same height, same stance, actually there.','Every strike goes at a target. Every combo gets a reaction you then deal with.'],cue:'Waving at nothing builds nothing. If you are not picturing someone, you are just doing cardio with your arms.',vid:'how to shadowbox properly beginner'},
+ {name:'Hand-Kick-Hand',tag:'Switching weapons mid-combo.',steps:['Hands high pull the guard up, then the kick lands low. Then hands again while they are covering low.','Kick-hand-kick is the reverse: kick low, they drop, hands go high, kick low again.'],cue:'The switch is the point. Same level twice in a row is how you get read and countered.',vid:'linking punches into kicks combinations'},
+ {name:'Chain into Low Kick',tag:'Punches buy the kick.',steps:['Throw the chain to the head. Their hands and eyes go up.','The rear leg kick lands on the last beat, while they are still up top.'],cue:'Never kick cold. The kick is the receipt for the punches you already sold.',vid:'punches into low kick combination'},
+ {name:'Long Chain / Burst',tag:'Five, six, no pauses.',steps:['Strikes flow one into the next, each rotation loading the following one.','No reset between strikes. It is one movement with six contacts.'],cue:'If you are re-setting your stance between punches, that is six singles, not a chain. Let each rotation feed the next.',vid:'long boxing combinations flow drill'},
+ {name:'Chase Kick',tag:'They gave ground. Take it.',steps:['They retreat or the bag swings away. Step with it and land the body kick as they move.'],cue:'Kick where they are going, not where they were. Momentum is doing half your work.',vid:'chasing kick timing muay thai'},
+ {name:'Hit the Return',tag:'Strike the thing coming back at you.',steps:['The bag swings back toward you. You are already throwing before it arrives.','It arrives into your punch, not the other way around.'],cue:'This is timing, not speed. Same skill as catching someone stepping in.',vid:'heavy bag timing the swing'},
+ {name:'Walk-Down',tag:'Pressure. Cut, do not chase.',steps:['Step to where they are going, not where they are. Take the space in front of them away.','Combo, step, combo. They never get to reset.'],cue:'Chasing straight forward means you eat counters all day. Cut them off at the angle instead.',vid:'cutting the cage pressure fighting'},
+ {name:'Entry, Kick, Exit',tag:'Get in, land it, be gone.',steps:['Close the gap behind a strike, land the kick, immediately step-drag out or pivot off.'],cue:'The exit is the whole drill. Standing there admiring the kick is where the return lands.',vid:'entries and exits striking footwork'},
+ {name:'Double Attack',tag:'Fake the kick, then kick anyway.',steps:['Start the kick and stop it. They react and commit to the block.','Throw the same kick again into the reaction they just spent.'],cue:'Works because the first one was real enough to buy. A lazy fake buys nothing.',vid:'kick feint double attack muay thai'},
+ {name:'Pause and Restart',tag:'Stop mid-chain. Finish late.',steps:['Throw two, freeze for a beat, finish the chain.','They time your rhythm and start moving. You land into the gap they opened.'],cue:'Feels wrong and unnatural. That is exactly why it works.',vid:'broken rhythm pause combination'},
+ {name:'Stutter Step',tag:'A feint with your feet.',steps:['A quick false step in. They react to the entry that is not coming yet.','Then the real step lands with the cross on it.'],cue:'Most people only feint with their hands. Feet lie better.',vid:'stutter step boxing entry'},
+ {name:'Circling',tag:'Live on their weak side.',steps:['Circle away from their power hand. Orthodox opponent means circle toward their lead, to your left.','Constant small steps, stance width never changes.'],cue:'Circling into the power hand is walking into the shot that ends the night.',vid:'circling away from power hand boxing'},
+ {name:'Free Flow',tag:'No script. Everything you own.',steps:['No prescribed combos. Kicks, hands, feints, counters, angles, whatever the imaginary exchange calls for.','If you catch yourself repeating one pattern, deliberately break it.'],cue:'This is the whole point of the camp. Scripted drills build the vocabulary, free flow is the sentence.',vid:'freestyle shadowboxing flow'},
+ {name:'Torso Rotations',tag:'Warm the engine your punches run on.',steps:['Feet planted, hands up, twist left and right, let the arms swing loose.'],cue:'Every punch is a rotation. Warm the rotation before you load it.',vid:'torso rotation warm up drill'}
+]},
+
+{cat:'Bag Work',moves:[
+ {name:'Bag Distance',tag:'Stand at range, not in a hug.',steps:['Set range so the roundhouse lands mid-shin and the cross lands at full extension.','Step back out to that range after every exchange.'],cue:'The bag cannot back you up, so you drift in and smother your own power. Reset after every combo.',vid:'heavy bag distance management'},
+ {name:'Sitting Down on Shots',tag:'Where real power comes from.',steps:['Slight knee bend as the punch lands, weight drops through the rear foot into the floor.','The bag should jump on the chain, not slide away.'],cue:'Power goes floor, hips, hand. If the rear heel never drives, the ground never got involved.',vid:'sitting down on punches technique'},
+ {name:'Kicking Through',tag:'A kick that stops at the surface is a slap.',steps:['Aim the shin at a point past the far side of the bag.','Hip fully turned over on contact, base foot fully pivoted.'],cue:'The bag folding around your shin is the sound of a real kick.',vid:'kicking through the heavy bag muay thai'},
+ {name:'Shin Conditioning',tag:'The bag is the method.',steps:['Weeks 5-6 kick at 60-70%. Week 7 at 80. Week 8 on, full power.','The adaptation is progressive impact, nothing else.'],cue:'Sore shins early are normal. Bottle-rolling tricks are noise, the bag is the conditioning.',vid:'shin conditioning muay thai truth'},
+ {name:'Working the Swing',tag:'The swing is an opponent moving.',steps:['Push it, let it swing. Coming at you is an advance: hit it or slip it.','Swinging away is a retreat: chase with a kick or cut the angle.'],cue:'A dead-still bag trains you for a dead-still opponent. Keep it moving.',vid:'heavy bag swing timing drill'},
+ {name:'Bag Clinch',tag:'Knees and elbows in close.',steps:['Cup the top like a collar tie, pull it down onto the rising knee.','Elbows short and sharp with the bag against your chest.'],cue:'Pulling it down is half the knee. Your grappling hands already know this grip.',vid:'heavy bag clinch knees drill'},
+ {name:'Punch-Out Drill',tag:'Output when the arms are gone.',steps:['Nonstop alternating straights, max speed, 30-60 sec.','Full extension and full retraction hold to the buzzer.'],cue:'The rep that gets sloppy is the one that matters. Slow down before you get ugly.',vid:'punch out drill heavy bag'},
+ {name:'Wrapping Hands',tag:'Every bag session, no exceptions.',steps:['Loop the thumb, wrist x3, knuckles x3, between each finger, lock the thumb, finish at the wrist.','The job is a locked, straight wrist. Loose wraps are decoration.'],cue:'Bare knuckles on a bag is how a good week ends a training month.',vid:'how to wrap hands boxing 180 inch'}
+]},
+
+{cat:'Wrestling & Conditioning',moves:[
+ {name:'Sprawl',tag:'Stuff the shot. Also a gasser.',steps:['Legs shoot back, hips drop heavy toward the floor, then pop up to stance.'],cue:'You know this. Just make sure you pop up in stance, not standing straight up.',vid:'sprawl technique wrestling'},
+ {name:'Level Change',tag:'Drop straight down.',steps:['Bend the knees and hips, spine stays stacked, whole body drops.'],cue:'Down, not forward. Folding at the waist gives them your neck.',vid:'level change technique wrestling'},
+ {name:'Up-Down',tag:'Burpee, no jump. Get off the floor fast.',steps:['Hands to the floor into a plank, explode back up into stance.'],cue:'Land in stance, hands up. Scrambling up flat-footed is scrambling up into a knee.',vid:'up downs conditioning drill'},
+ {name:'Plank Shoulder Tap',tag:'Anti-rotation core.',steps:['Plank, tap the opposite shoulder, alternate. Hips do not rock.'],cue:'The still hips are the whole exercise. That anti-rotation is what your cross is built on.',vid:'plank shoulder tap form'},
+ {name:'The Rest',tag:'Push-ups, climbers, hollow, leg raises, twists, side planks.',steps:['You lift 4-5x a week. You know these. Full range, clean form, no cheating the last reps.'],cue:'These are the tax you pay for the skill work, not the point of the session.',vid:'hollow hold form'}
+]},
+
+{cat:'Mobility',moves:[
+ {name:'90/90 Hip Switch',tag:'The one that unlocks your kicks.',steps:['Sit down, front leg bent 90 in front, rear leg bent 90 out to the side, both knees on the floor.','Rotate both knees over to the other side. That is one rep.'],cue:'Both knees stay down the whole way. This is the single highest-value drill for roundhouse range.',vid:'90 90 hip switch mobility drill'},
+ {name:'Deep Squat Hold',tag:'Hips, ankles, groin.',steps:['Full squat, hips below knees, heels down, elbows inside the knees pushing out.'],cue:'Chest tall. If the heels lift, wedge something thin under them and work toward flat.',vid:'deep squat hold mobility'},
+ {name:'Leg Swings',tag:'Dynamic warm-up, hips and hams.',steps:['Wall for balance. Front-to-back x15, then side-to-side across the body x15. Switch.'],cue:'Relaxed, let the range grow. Do not force it cold.',vid:'leg swings dynamic warm up'},
+ {name:'Pigeon',tag:'Deep hip opener.',steps:['Shin forward across the floor, rear leg straight back, sink the hips, fold over the front shin.'],cue:'Should be felt in the hip, never the knee. Back off if the knee talks.',vid:'pigeon pose hip opener'},
+ {name:'T-Spine Opener',tag:'Upper back rotation. Punch power.',steps:['All fours, one hand behind the head, drive the elbow down and under, then rotate it open to the ceiling. x10 each.'],cue:'Rotate from the upper back and follow the elbow with your eyes. Do not arch the low back to fake it.',vid:'thoracic rotation open book drill'},
+ {name:'Towel Dislocates',tag:'Shoulder range for punching.',steps:['Wide grip on a towel, arms straight, arc it overhead and behind, then back.'],cue:'Go wider if it is tight. Arms stay straight or you are cheating the range.',vid:'shoulder dislocates towel mobility'},
+ {name:'Ankle Work',tag:'Circles + calf raises. The pivot.',steps:['Circles x10 each way, then x20 calf raises.'],cue:'Your entire kick is a base-foot pivot. Stiff ankles cap your kicks and your knees pay for it.',vid:'ankle mobility drills'},
+ {name:'Neck Isometrics',tag:'Chin durability.',steps:['Palm on forehead, each temple, then the back. Press gently against it, 10 sec each.'],cue:'Gentle. This is a slow build over months, not a workout.',vid:'neck isometric exercises fighters'},
+ {name:'Static Stretches',tag:'Cooldown holds.',steps:['Hamstrings, groin, shoulders, chest, lats, wrists. 60 sec each, ease in, breathe.'],cue:'After training only, never before. Static stretching cold blunts your power output.',vid:'post workout static stretching'}
+]}
+];
+
+/* ---------------- RENDER ---------------- */
+const DK=['mon','tue','wed','thu','fri','sat','sun'];
+const typeColor={technical:'--steel',moderate:'--ember',hard:'--ember',recovery:'--restore'};
+const typeText={technical:'Technical',moderate:'Skill + Work',hard:'Hard',recovery:'Restore'};
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function fmt(s){const m=Math.floor(s/60),ss=s%60;return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
+/* ---- inline move lookup ---- */
+const ALIAS={
+ 'Fighting Stance':['stance'],
+ 'Step-Drag':['step-drag','step drag','footwork'],
+ 'Pivot':['pivot'],
+ 'Switch Stance':['switch stance'],
+ 'Cutting the Angle':['cut the angle','angle'],
+ 'In-and-Out':['in-out','in and out'],
+ 'Jab (1)':['jab'],
+ 'Cross (2)':['cross'],
+ 'Lead Hook (3)':['hook'],
+ 'Rear Hook (4)':['rear hook'],
+ 'Lead Uppercut (5)':['uppercut'],
+ 'Rear Uppercut (6)':['rear uppercut'],
+ 'Body Shots':['body jab','body hook','body shot','body-head','head-body-head','body only'],
+ 'Teep':['teep'],
+ 'Roundhouse':['roundhouse'],
+ 'Leg Kick':['leg kick'],
+ 'Calf Kick':['calf kick'],
+ 'Body Kick':['body kick','body roundhouse'],
+ 'Head Kick':['head kick','head roundhouse'],
+ 'Switch Kick':['switch kick'],
+ 'Question Mark Kick':['question mark'],
+ 'Check':['check'],
+ 'Knee':['knee'],
+ 'Elbow':['elbow'],
+ 'Slip':['slip','slip the swing'],
+ 'Roll (Bob-and-Weave)':['roll'],
+ 'Parry':['parry'],
+ 'Catch':['catch'],
+ 'Shell (High Guard)':['shell'],
+ 'Long Guard':['long guard','frame'],
+ 'Pull':['pull'],
+ 'Shoulder Roll':['shoulder roll'],
+ 'Check Hook':['check hook'],
+ 'Pull Counter':['pull counter','pull, then'],
+ 'Cross Counter':['cross counter'],
+ 'Roll Counter':['roll counter','roll, then'],
+ 'Sprawl Counter':['sprawl into','sprawl counter'],
+ 'Check and Return':['check, return','check into','return kick'],
+ 'Intercept':['intercept','hit the advance','teep the advance'],
+ 'Feint':['feint'],
+ 'Level Change Fake':['level fake','level-change','level change'],
+ 'Hand Feint into Kick':['hand feint'],
+ 'Broken Rhythm':['broken','rhythm','fast-fast-slow'],
+ 'Half Beat':['half beat','half-beat'],
+ 'Baiting':['bait:','bait'],
+ 'Sprawl':['sprawl'],
+ 'Up-Down':['up-down','up down'],
+ 'Plank Shoulder Tap':['plank shoulder tap'],
+ '90/90 Hip Switch':['90/90'],
+ 'Deep Squat Hold':['deep squat'],
+ 'Leg Swings':['leg swing'],
+ 'Pigeon':['pigeon'],
+ 'T-Spine Opener':['t-spine','thoracic'],
+ 'Towel Dislocates':['dislocate','towel'],
+ 'Ankle Work':['ankle'],
+ 'Neck Isometrics':['neck'],
+ 'Bag Distance':['range check','bag distance'],
+ 'Sitting Down on Shots':['sit down','sit-down','sitting down'],
+ 'Kicking Through':['kick through','kicking through','through the bag'],
+ 'Shin Conditioning':['shin'],
+ 'Working the Swing':['the swing'],
+ 'Bag Clinch':['clinch','cup the top'],
+ 'Punch-Out Drill':['punch-out','punch out'],
+ 'Wrapping Hands':['wrap'],
+ 'Shadowboxing':['light shadow','fast shadow','shadow 40','free shadow','shadow, constant'],
+ 'Hand-Kick-Hand':['hand-kick-hand','kick-hand-kick','kick to hands'],
+ 'Chain into Low Kick':['chain into low'],
+ 'Long Chain / Burst':['6-strike','six-strike','burst','five-punch','long chains','5-strike'],
+ 'Chase Kick':['chase kick'],
+ 'Hit the Return':['hit the return'],
+ 'Walk-Down':['walk-down','walk it down','pressure'],
+ 'Entry, Kick, Exit':['entry, kick, exit'],
+ 'Double Attack':['fake the kick'],
+ 'Pause and Restart':['pause mid-chain','pause, then','pause and go'],
+ 'Stutter Step':['stutter'],
+ 'Circling':['circle away','circle one way'],
+ 'Free Flow':['free flow','free boxing','free kick flow','free defensive','fight sim','fight pace'],
+ 'Torso Rotations':['torso rotation'],
+ 'Static Stretches':['hamstring + groin','shoulders, lats','full body 60','nasal breathing','neck + chest']
+};
+const KEYMAP=[];
+(function(){
+  const MM={};
+  CATS.forEach(c=>c.moves.forEach(m=>{MM[m.name]=m;}));
+  Object.keys(ALIAS).forEach(n=>{const m=MM[n];if(m)ALIAS[n].forEach(k=>KEYMAP.push([k.toLowerCase(),m]));});
+  CATS.forEach(c=>c.moves.forEach(m=>{const b=m.name.replace(/\s*\(.*\)/,'').toLowerCase();if(!KEYMAP.some(e=>e[0]===b))KEYMAP.push([b,m]);}));
+  KEYMAP.sort((a,b)=>b[0].length-a[0].length);
+})();
+const PCOL=['--p1','--p1','--p2','--p2','--p3','--p3','--p4','--p4','--p5','--p5'];
+const NUMMOVE={name:'Combo Key',tag:'The number shorthand.',steps:['1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut.','Read left to right: 1-2-3 is jab, cross, lead hook.'],cue:'Say the numbers out loud as you throw. Wires the shorthand in fast.',vid:'boxing number system combos'};
+function matchMove(label){
+  const L=label.toLowerCase();
+  for(const e of KEYMAP){if(L.includes(e[0]))return e[1];}
+  if(/\d-\d/.test(L))return NUMMOVE;
+  return null;
+}
+function liRich(arr){
+  return arr.map(it=>{
+    const label=it[0],cue=it.length>1?it[1]:'';
+    const mv=matchMove(label);
+    if(!mv)return `<li><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}</li>`;
+    const det=`<div class="ldet"><div class="ldtag">${mv.tag}</div><ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul><div class="ldcue"><b>FIX:</b> ${mv.cue}</div><div class="ldvid"><b>VIDEO:</b> "${mv.vid}"</div></div>`;
+    return `<li class="exp"><button class="lrow lbtn" type="button"><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}<span class="chev">&#9656;</span></button>${det}</li>`;
+  }).join('');
+}
+/* earliest week each move appears, derived from the actual drills */
+const MOVEWEEK={};
+(function(){
+  try{
+    Object.keys(WARM).forEach(k=>{(WARM[k]||[]).forEach(it=>{const m=matchMove(it[0]);if(m&&MOVEWEEK[m.name]===undefined)MOVEWEEK[m.name]=0;});});
+    Object.keys(COOL).forEach(k=>{(COOL[k]||[]).forEach(it=>{const m=matchMove(it[0]);if(m&&MOVEWEEK[m.name]===undefined)MOVEWEEK[m.name]=0;});});
+    W.forEach((w,wi)=>{DK.forEach(k=>{const d=w.d[k];if(!d)return;
+      const scan=a=>(a||[]).forEach(it=>{const m=matchMove(it[0]);if(m&&MOVEWEEK[m.name]===undefined)MOVEWEEK[m.name]=wi;});
+      scan(d.t);scan(d.r);});});
+    /* the matcher resolves ties by key length, so a few moves never bind.
+       pin those deterministically instead of dropping them from the deck. */
+    const FIX={'Rear Hook (4)':0,'Rear Uppercut (6)':0,'Roundhouse':0,'Head Kick':0,'Shell':2,'Pull':3,'Level Change':1,'The Rest':0,'T-Spine Opener':0};
+    const CATFALL={'Bag Work':4};
+    CATS.forEach(c=>c.moves.forEach(m=>{
+      if(MOVEWEEK[m.name]===undefined)
+        MOVEWEEK[m.name]=FIX[m.name]!==undefined?FIX[m.name]:(CATFALL[c.cat]!==undefined?CATFALL[c.cat]:0);
+    }));
+  }catch(e){}
+})();
+function newIn(wi){return Object.keys(MOVEWEEK).filter(n=>MOVEWEEK[n]===wi);}
+
+let wIdx=0,dIdx=0;
+let DONE={};
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function dkey(w,d){return w+'-'+d;}
+function isDone(w,d){return !!DONE[dkey(w,d)];}
+function toggleDone(w,d){const k=dkey(w,d);if(DONE[k])delete DONE[k];else DONE[k]=todayISO();saveDone();paintDone();render();buildGrid();}
+function weekFull(i){for(let d=0;d<7;d++)if(!isDone(i,d))return false;return true;}
+function paintDone(){
+  document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('full',weekFull(x)));
+  document.querySelectorAll('.daytab .dot').forEach((dt,x)=>dt.classList.toggle('dn',isDone(wIdx,x)));
+}
+const RANKS=[[0,'Walk-on'],[1,'Debut'],[7,'Novice'],[14,'Amateur'],[28,'Prospect'],[42,'Contender'],[56,'Main Card'],[70,'Camp Done']];
+function rankOf(n){let r=RANKS[0][1];RANKS.forEach(x=>{if(n>=x[0])r=x[1];});return r;}
+function streak(){
+  const days=new Set(Object.values(DONE));
+  let n=0;const d=new Date();
+  for(let i=0;i<400;i++){
+    const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(days.has(iso)){n++;}else if(i>0){break;}
+    d.setDate(d.getDate()-1);
+  }
+  return n;
+}
+
+const stripEl=document.getElementById('weekstrip');
+W.forEach((w,i)=>{const b=document.createElement('button');b.className='wchip';b.textContent=w.n;
+ b.addEventListener('click',()=>{selectWeek(i);saveWeek(i);});stripEl.appendChild(b);});
+
+const daysEl=document.getElementById('days');
+DK.forEach((k,i)=>{const m=DAYMETA[k];const b=document.createElement('button');b.className='daytab';
+ b.innerHTML=`<span class="abbr">${m.abbr}</span><span class="dot" style="background:var(${typeColor[m.type]})"></span>`;
+ b.addEventListener('click',()=>selectDay(i));daysEl.appendChild(b);});
+
+const panel=document.getElementById('panel');
+panel.addEventListener('click',e=>{const b=e.target.closest('.lbtn');if(!b)return;b.closest('li').classList.toggle('open');});
+function durMin(du){
+  const x=du.match(/(\d+)\s*x\s*(\d+):(\d+)/);
+  if(x){const n=+x[1],m=+x[2]+(+x[3])/60;return Math.round(n*m+(n-1));}
+  const m=du.match(/(\d+)/);return m?+m[1]:0;
+}
+function render(){
+ try{
+  const w=W[wIdx],k=DK[dIdx],m=DAYMETA[k],day=w.d[k];
+  const nw=newIn(wIdx);
+  const col=`var(${typeColor[m.type]})`;
+  let segs='';for(let s2=1;s2<=5;s2++)segs+=`<div class="seg" style="background:${s2<=m.intensity?col:'var(--line)'}"></div>`;
+  const rl=day.tm?`${day.tm.rounds} x ${fmt(day.tm.work)}`:'';
+  const B=[];
+  if(m.warm)B.push({n:'Warm-up',s:'Warm',du:'5 min',it:WARM[m.warm]});
+  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:day.t});B.push({n:'Finisher',s:'Fin',du:'5 min',it:day.r,sec:1});}
+  else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:day.t});if(day.r&&day.r.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:day.r,sec:1});}
+  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:day.t});B.push({n:'Rounds',s:'Rnds',du:rl,it:day.r,sec:1});}
+  if(m.cool)B.push({n:'Cooldown',s:'Cool',du:'5 min',it:COOL[m.cool]});
+  let tot=0,flow='';
+  B.forEach(b=>{const mn=durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
+  const flowbar=`<div class="flow">${flow}<div class="ftot">&#8776; ${tot} min</div></div>`;
+  const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
+  panel.innerHTML=`
+   <div class="phase" style="border-left-color:var(${PCOL[wIdx]})"><div class="ph" style="color:var(${PCOL[wIdx]})">Week ${w.n} of 10 · ${w.phase}</div><div class="th">${w.theme}</div><div class="nt">${w.note}</div>${nw.length?`<div class="nlab">New this week</div><div class="newrow">${nw.slice(0,6).map(n=>`<span class="nchip">${n}</span>`).join('')}${nw.length>6?`<span class="nchip" style="color:var(--muted)">+${nw.length-6} more</span>`:''}</div>`:''}</div>
+   <div class="dhead"><div><div class="dtitle">${m.title}</div><div class="dfocus">${m.focus}</div></div><span class="badge" style="color:${col};border-color:${col}">${typeText[m.type]}</span></div>
+   <div class="meter">${segs}<span class="mlabel">Intensity ${m.intensity}/5</span></div>
+   <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button></div>
+   ${flowbar}
+   ${blocks}
+   ${m.flag?`<div class="flag">${m.flag}</div>`:''}
+   <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button></div>`;
+  const db=document.getElementById('dbtn');
+  if(db)db.addEventListener('click',()=>toggleDone(wIdx,dIdx));
+  const sv=document.getElementById('swV');
+  if(sv)sv.addEventListener('click',()=>{VOICE_ON=!VOICE_ON;if(!VOICE_ON){vstop();callerStop();}saveOpts();render();});
+  const sc=document.getElementById('swC');
+  if(sc)sc.addEventListener('click',()=>{CALLER_ON=!CALLER_ON;if(!CALLER_ON)callerStop();else if(T&&T.running)callerStart();saveOpts();render();});
+  paintDone();
+  loadTimer(k,day);
+ }catch(e){if(panel)panel.innerHTML='<div class="empty"><b>Hiccup</b>Could not draw that day. Tap another day, then come back.</div>';}
+}
+function selectWeek(i){
+  wIdx=i;
+  document.querySelectorAll('.wchip').forEach((c,x)=>{
+    const on=x===i;
+    c.classList.toggle('active',on);
+    c.classList.toggle('full',weekFull(x));
+    c.style.background=on?`var(${PCOL[x]})`:'var(--surface)';
+    c.style.color=on?'#0F1319':`var(${PCOL[x]})`;
+    c.style.borderColor=`var(${PCOL[x]})`;
+  });
+  render();
+}
+function selectDay(i){dIdx=i;document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('active',x===i));render();
+ const t=document.querySelectorAll('.daytab')[i];if(t)t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});}
+
+/* ---- log grid ---- */
+const gridEl=document.getElementById('grid'),statsEl=document.getElementById('stats');
+function buildGrid(){
+  if(!gridEl)return;
+  const tw=wIdx,td=dIdx;
+  let h=`<div class="ghead"><span class="gwn"></span>${DK.map(k=>`<span class="ghd">${DAYMETA[k].abbr[0]}</span>`).join('')}</div>`;
+  W.forEach((w,i)=>{
+    h+=`<div class="grow"><span class="gwn">W${w.n}</span>`;
+    for(let d=0;d<7;d++){
+      const on=isDone(i,d)?' on':'';
+      const tn=(i===tw&&d===td)?' today':'';
+      h+=`<button class="gcell${on}${tn}" data-w="${i}" data-d="${d}" aria-label="Week ${w.n} ${DAYMETA[DK[d]].abbr}"></button>`;
+    }
+    h+='</div>';
+  });
+  gridEl.innerHTML=h;
+  const tot=Object.keys(DONE).length;
+  const eg=document.getElementById('logempty');
+  if(eg)eg.style.display=tot?'none':'';
+  statsEl.innerHTML=`<div class="stat"><div class="sv">${tot}-0</div><div class="sl">record</div></div>
+   <div class="stat"><div class="sv">${streak()}</div><div class="sl">day streak</div></div>
+   <div class="stat"><div class="sv" style="font-size:.95rem;padding:6px 0 5px">${rankOf(tot)}</div><div class="sl">rank</div></div>`;
+}
+if(gridEl)gridEl.addEventListener('click',e=>{const c=e.target.closest('.gcell');if(!c)return;toggleDone(+c.dataset.w,+c.dataset.d);});
+
+/* ---- moves ---- */
+const catbarEl=document.getElementById('catbar'),movesEl=document.getElementById('moves');
+CATS.forEach((c,i)=>{
+ const chip=document.createElement('button');chip.className='catchip'+(i===0?' active':'');chip.textContent=c.cat;
+ chip.addEventListener('click',()=>{document.querySelectorAll('.catchip').forEach(x=>x.classList.remove('active'));chip.classList.add('active');
+  document.getElementById('sec-'+i).scrollIntoView({behavior:'smooth',block:'start'});});
+ catbarEl.appendChild(chip);
+ const sec=document.createElement('div');sec.className='msection';sec.id='sec-'+i;
+ let h=`<div class="mshead">${c.cat}</div>`;
+ if(c.numbox)h+=`<div class="numbox">${c.numbox}</div>`;
+ c.moves.forEach(mv=>{
+  const wk=MOVEWEEK[mv.name];
+  h+=`<div class="move"><div class="mtop"><span class="mname">${mv.name}</span>${wk!==undefined?`<span class="mwk">WK ${wk+1}</span>`:''}<span class="mtag">${mv.tag}</span></div>
+      <ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
+      <div class="mcue"><b>CUE:</b> ${mv.cue}</div>
+      <div class="mvid"><b>VIDEO:</b> "${mv.vid}"</div></div>`;});
+ sec.innerHTML=h;movesEl.appendChild(sec);
+});
+
+/* ---- fight IQ ---- */
+const cardEl=document.getElementById('card'),iqstatsEl=document.getElementById('iqstats');
+let IQ={r:0,w:0},qcur=null,qrev=false;
+const FLAT=[];CATS.forEach(c=>c.moves.forEach(m=>FLAT.push({m,cat:c.cat})));
+function qpool(){
+  const p=FLAT.filter(x=>{const w=MOVEWEEK[x.m.name];return w===undefined?false:w<=wIdx;});
+  return p.length?p:FLAT;
+}
+function qpick(){const P=qpool();let n=P[Math.floor(Math.random()*P.length)];if(qcur&&P.length>1&&n.m.name===qcur.m.name)return qpick();return n;}
+function qnext(){qcur=qpick();qrev=false;paintCard();}
+function paintCard(){
+  if(!cardEl)return;
+  if(!qcur){qcur=qpick();}
+  const m=qcur.m;
+  const ans=qrev?`<div class="qans"><ul>${m.steps.map(x=>`<li>${x}</li>`).join('')}</ul><div class="qcue"><b>FIX:</b> ${m.cue}</div></div>
+    <div class="qbtns"><button class="qbtn bad" id="qbad" type="button">Missed it</button><button class="qbtn good" id="qgood" type="button">Knew it</button></div>`
+   :`<div class="qbtns"><button class="qbtn rev" id="qrev" type="button">Reveal</button></div>`;
+  cardEl.innerHTML=`<div class="qcard"><div class="qcat">${qcur.cat}</div><div class="qname">${m.name}</div><div class="qtag">${m.tag}</div><div class="qask">What is the one fix?</div>${qrev?'':''}</div>${ans}`;
+  const rv=document.getElementById('qrev');if(rv)rv.addEventListener('click',()=>{qrev=true;paintCard();});
+  const gd=document.getElementById('qgood');if(gd)gd.addEventListener('click',()=>{IQ.r++;saveIQ();paintIQ();qnext();});
+  const bd=document.getElementById('qbad');if(bd)bd.addEventListener('click',()=>{IQ.w++;saveIQ();paintIQ();qnext();});
+  paintIQ();
+}
+function paintIQ(){
+  if(!iqstatsEl)return;
+  const t=IQ.r+IQ.w,pct=t?Math.round(100*IQ.r/t):0;
+  iqstatsEl.innerHTML=`<div class="stat"><div class="sv">${IQ.r}</div><div class="sl">knew it</div></div>
+   <div class="stat"><div class="sv">${IQ.w}</div><div class="sl">missed</div></div>
+   <div class="stat"><div class="sv">${pct}%</div><div class="sl">fight iq</div></div>`;
+  const iq=document.getElementById('iqnote');
+  if(iq)iq.textContent='Drawing from your week 1 to '+W[wIdx].n+' vocabulary. '+qpool().length+' moves in the deck. Think of the fix, reveal, grade yourself honestly.';
+}
+
+/* ---- search ---- */
+const srch=document.getElementById('srch');
+if(srch)srch.addEventListener('input',()=>{
+  const q=srch.value.trim().toLowerCase();
+  document.querySelectorAll('#moves .msection').forEach(sec=>{
+    let vis=0;
+    sec.querySelectorAll('.move').forEach(mv=>{
+      const hit=!q||mv.textContent.toLowerCase().includes(q);
+      mv.classList.toggle('hide',!hit);if(hit)vis++;
+    });
+    sec.classList.toggle('hide',q&&!vis);
+  });
+});
+
+/* ---- voice engine ---- */
+const NAME='Jackson';
+const VP={
+ open:['Alright','Here we go','Let us go','Time to work','Okay'],
+ begin:['Let us go.','Here we go.','Time to work.','Get after it.','Go to work.'],
+ push:['Go.','Up.','Now.','Move.','Let us go.','On it.'],
+ praise:['That is it.','Nice.','Good.','Beautiful.','Yes.','Sharp.','There it is.','Clean.','Keep going.','Love that.'],
+ half:['Halfway. Stay sharp.','Thirty seconds. Keep it clean.','Thirty left. Hands up.','Halfway there. Breathe.','Thirty. Stay long.'],
+ ten:['Ten seconds. Finish strong.','Ten. Empty it out.','Last ten. Dig in.','Ten seconds. Do not coast.','Ten. Give me everything.'],
+ tenlast:['Last ten of the session. Empty the tank.','Ten seconds left. Leave nothing.','Last ten. Finish it.'],
+ rest:['Nice work. Breathe.','Good round. Breathe it down.','That is a round. Shake it out.','Good work. Reset.','Nice. Get your air back.','That is the way. Breathe.'],
+ lastwork:['Last round. Leave nothing.','Final round. Everything you have.','Last one. Make it the best one.','This is the last one. Empty it.'],
+ done:['That is the session.','Session done.','That is it for today.','Work is done.'],
+ donetail:['Good work, '+NAME+'. Go log it.','Well done, '+NAME+'. Log it.','Nice work today, '+NAME+'. Log it.']
+};
+function vrand(a){return a&&a.length?a[Math.floor(Math.random()*a.length)]:'';}
+let VOICE_ON=true,CALLER_ON=true,vvoice=null,vready=false;
+function vpick(){try{const vs=speechSynthesis.getVoices();vvoice=vs.find(v=>/en[-_]US/i.test(v.lang)&&/(Google US English|Samantha|Ava|Allison)/i.test(v.name))||vs.find(v=>/en[-_](US|GB)/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}catch(e){}}
+function vinit(){if(vready)return;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);vpick();speechSynthesis.onvoiceschanged=vpick;vready=true;}catch(e){}}
+const VNUM={'1':'one','2':'two','3':'three','4':'four','5':'five','6':'six'};
+function vnorm(t){
+  return String(t)
+    .replace(/\b\d(?:-\d)+\b/g,m=>m.split('-').map(d=>VNUM[d]||d).join(' '))
+    .replace(/\bx(\d+)\b/gi,'')
+    .replace(/\b90\/90\b/g,'ninety ninety')
+    .replace(/\bt-spine\b/gi,'upper back')
+    .replace(/\s*\+\s*/g,' and ')
+    .replace(/\s*&\s*/g,' and ')
+    .replace(/\s{2,}/g,' ').trim();
+}
+function say(t,cut){
+  if(!VOICE_ON||!t)return;
+  const txt=vnorm(t);
+  if(!txt)return;
+  try{if(cut)speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(txt);u.rate=1.02;u.pitch=1.02;u.volume=1;if(vvoice)u.voice=vvoice;speechSynthesis.speak(u);}catch(e){}
+}
+function vstop(){try{speechSynthesis.cancel();}catch(e){}}
+
+/* ---- combo caller ---- */
+const CALLADD={
+ 1:['Jab','One two','One two three','Two three two','Leg kick','Teep','One two, leg kick','Body kick','Check it','Double jab'],
+ 2:['One one two','One two three two','One two five two','Calf kick','Switch kick','Kick, hands, kick','One six three','Body jab','Rear teep'],
+ 3:['One two three two three','Hand, kick, hand','Question mark kick','Three two three','Body, then head','Level fake, one two','Five strikes','Kick, hand, kick'],
+ 4:['Feint the jab, cross','Hand feint, low kick','Low, low, high','Body feint, uppercut','Teep feint, leg kick','Sell it first','Fake the shot, go high'],
+ 5:['Check hook','Pull counter','Cross counter','Slip and counter','Sprawl, uppercut','Check and return','Counter it','Make him miss'],
+ 6:['One two, pivot, hook','Angle, then kick','Switch stance, kick','Circle out','Off angle','In and out','Cut the angle'],
+ 7:['Sit down on it','Power one two','Kick through it','Heavy hands','Body kick, hard'],
+ 8:['Walk it down','Hit the return','Chase kick','Punch out','Pressure','Cut him off'],
+ 9:['Fast fast slow','Pause, then finish','Burst of six','Stutter step','Change the pace','Half beat'],
+ 10:['Free','Your call','Make it up','Whatever you see','Improvise']
+};
+const CALLCUE=['Hands up','Snap it back','Pivot','Breathe','Angle off','Chin down','Do not stand still','Land balanced','Turn the hip over','Elbows in','Move your head','Reset your stance'];
+function poolFor(wi){let p=[];for(let i=1;i<=wi+1;i++)p=p.concat(CALLADD[i]||[]);p=p.concat(CALLADD[wi+1]||[]);return p;}
+const SKILL=['mon','tue','wed','fri'];
+let callT=null;
+function callerStop(){if(callT){clearTimeout(callT);callT=null;}}
+function callerStart(){
+  callerStop();
+  if(!CALLER_ON||!VOICE_ON)return;
+  if(SKILL.indexOf(DK[dIdx])<0)return;
+  const pool=poolFor(wIdx);
+  const fire=()=>{
+    if(!T||!T.running||!T.segs||T.segs[T.i].type!=='work'){callT=null;return;}
+    const r=Math.random();
+    const c=r<0.10?vrand(VP.praise):(r<0.30?CALLCUE[Math.floor(Math.random()*CALLCUE.length)]:pool[Math.floor(Math.random()*pool.length)]);
+    say(c,false);
+    plan();
+  };
+  const plan=()=>{callT=setTimeout(fire,4500+Math.random()*4000);};
+  plan();
+}
+
+/* ---- corner cues ---- */
+const CORNER={
+ mon:['Base foot. Turn it all the way over.','Land balanced, hands back up.','Chamber the knee before you extend.','Kick through it, not at it.','Shin, not foot.'],
+ tue:['Every combo ends somewhere new. Pivot off.','Snap each punch back to your chin.','Body first, then head.','Let each rotation feed the next one.','Do not reset between punches. Chain it.'],
+ wed:['Rear heel spins out on the cross.','Retract faster than you throw.','Lead hand stays home when the cross goes.','Light feet today. You squatted.','Do not lean past your front knee.'],
+ thu:['Form holds when the arms burn. Slow down before you get ugly.','Breathe through your nose. Bring it down.','Hips heavy on the sprawl.','Output, not flailing.','Land in stance, not flat footed.'],
+ fri:['Small slips. A big lean is just a slow miss.','Come up already throwing.','Defense and counter are one motion.','Do not freeze. React and fire.','Eyes up. Hands up.'],
+ sat:['Hands up even when you are gassed.','Full extension, full retraction.','Turn the body on every hook.','Last round should look like the first.','Keep the pace honest.'],
+ sun:[]
+};
+function cornerCue(){const a=CORNER[DK[dIdx]]||[];return a.length?a[Math.floor(Math.random()*a.length)]:'';}
+
+/* ---- timer ---- */
+function buildSegs(k,day){
+  if(!day.tm)return null;
+  const R=day.tm.rounds,wk2=day.tm.work,rs=day.tm.rest,segs=[];
+  const CQ=(CORNER[k]||[]).slice();
+  let ci=Math.floor(Math.random()*Math.max(1,CQ.length));
+  const nextCue=()=>{if(!CQ.length)return '';const c=CQ[ci%CQ.length];ci++;return c;};
+  if(k==='thu'||k==='sat'){
+    const st=day.t.filter(x=>/^30s/i.test(x[0])).map(x=>x[0].replace(/^30s\s*/i,''));
+    for(let r=1;r<=R;r++){
+      st.forEach((nm,i)=>segs.push({d:30,type:'work',label:nm,next:i<st.length-1?st[i+1]:'rest 1:00',round:r}));
+      if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:st[0],round:r,cue:nextCue()});
+    }
+  }else{
+    const labels=(day.r||[]).map(x=>x.length>1&&x[0].length<=4?(x[0]+' · '+x[1]):x[0]);
+    for(let r=1;r<=R;r++){
+      segs.push({d:wk2,type:'work',label:labels[r-1]||('Round '+r),next:r<R?'rest 1:00':'',round:r});
+      if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:labels[r]||('Round '+(r+1)),round:r,cue:nextCue()});
+    }
+  }
+  if(segs.length)segs.unshift({d:10,type:'prep',label:'Get set',next:segs[0].label,round:1});
+  return {segs,rounds:R};
+}
+let T=null;
+const elPhase=document.getElementById('tphase'),elClock=document.getElementById('tclock'),elRound=document.getElementById('tround'),elName=document.getElementById('tname'),elNext=document.getElementById('tnext'),elGo=document.getElementById('tgo'),elSkip=document.getElementById('tskip'),elReset=document.getElementById('treset');
+let ac=null,wl=null;
+async function wakeOn(){try{if('wakeLock' in navigator&&!wl){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null;});}}catch(e){}}
+function wakeOff(){try{if(wl){wl.release();wl=null;}}catch(e){}}
+
+/* ---- media session: keeps the screen on, claims the audio route, survives lock ---- */
+const wakevid=document.getElementById('wakevid'),keepEl=document.getElementById('keep');
+function silentWavURL(){
+  try{
+    const sr=8000,sec=1,n=sr*sec,sz=44+n*2,b=new ArrayBuffer(sz),v=new DataView(b);
+    const ws=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
+    ws(0,'RIFF');v.setUint32(4,sz-8,true);ws(8,'WAVE');ws(12,'fmt ');v.setUint32(16,16,true);
+    v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);
+    v.setUint16(32,2,true);v.setUint16(34,16,true);ws(36,'data');v.setUint32(40,n*2,true);
+    return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+  }catch(e){return '';}
+}
+try{const u=silentWavURL();if(u&&keepEl)keepEl.src=u;}catch(e){}
+function mediaOn(){
+  try{if(keepEl&&keepEl.src)keepEl.play().catch(()=>{});}catch(e){}
+  try{if(wakevid)wakevid.play().catch(()=>{});}catch(e){}
+  wakeOn();
+  try{
+    if('mediaSession' in navigator){
+      navigator.mediaSession.metadata=new MediaMetadata({title:'The Forge · '+DAYMETA[DK[dIdx]].title,artist:'Week '+W[wIdx].n+' · Corner is live',album:'10 Week Camp'});
+      navigator.mediaSession.setActionHandler('play',()=>{try{if(T&&!T.running)elGo.click();}catch(e){}});
+      navigator.mediaSession.setActionHandler('pause',()=>{try{if(T&&T.running)elGo.click();}catch(e){}});
+    }
+  }catch(e){}
+}
+function mediaOff(){
+  try{if(keepEl)keepEl.pause();}catch(e){}
+  try{if(wakevid)wakevid.pause();}catch(e){}
+  wakeOff();
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resync();});
+window.addEventListener('focus',()=>resync());
+window.addEventListener('pageshow',()=>resync());
+function beep(f,d){if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;o.connect(g);g.connect(ac.destination);const t=ac.currentTime;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.start(t);o.stop(t+d);}
+function bell(k2){if(k2==='work'){beep(880,.14);setTimeout(()=>beep(880,.14),160);}else if(k2==='tick'){beep(720,.12);}else if(k2==='rest'){beep(440,.22);}else{beep(660,.15);setTimeout(()=>beep(830,.15),180);setTimeout(()=>beep(990,.28),360);}}
+const elProg=document.getElementById('tprog');
+function segCol(t){return css(t==='work'?'--ember':(t==='rest'?'--steel':'--muted'));}
+function paintProg(){
+  if(!elProg)return;
+  if(!T||!T.segs){elProg.style.width='100%';elProg.style.background=css('--line');return;}
+  const sg=T.segs[T.i];
+  elProg.style.background=segCol(sg.type);
+  elProg.style.width=Math.max(0,Math.min(100,100*T.left/sg.d))+'%';
+}
+const PHTXT={prep:'Prep',work:'Work',rest:'Rest'};
+const PHCOL={prep:'--muted',work:'--ember',rest:'--steel'};
+function showSeg(){
+  if(!T||!T.segs)return;
+  const sg=T.segs[T.i];
+  const work=sg.type==='work';
+  elName.textContent=sg.label;
+  elNext.textContent=sg.cue?sg.cue:(sg.next?('next: '+sg.next):'');
+  elRound.textContent='R'+sg.round+' / '+T.rounds;
+  elClock.textContent=fmt(Math.max(T.left,0));
+  elPhase.textContent=T.state==='ready'?'Ready':(PHTXT[sg.type]||'Work');
+  elPhase.style.color=css(T.state==='ready'?'--muted':(PHCOL[sg.type]||'--ember'));
+  elClock.style.color=(T.state==='run'&&work)?css('--ember'):css('--bone');
+  paintProg();
+  paintFocus();
+}
+function stopTick(){if(T&&T.int){clearInterval(T.int);T.int=null;}if(T)T.running=false;}
+function loadTimer(k,day){
+  stopTick();callerStop();
+  const cfg=buildSegs(k,day);
+  if(!cfg){T={segs:null,state:'flow'};elName.textContent='Flow day';elNext.textContent='';elRound.textContent='';elClock.textContent='--:--';elClock.style.color=css('--muted');elPhase.textContent='Flow';elPhase.style.color=css('--restore');elGo.disabled=true;elSkip.disabled=true;elReset.disabled=true;elGo.textContent='Start';paintProg();paintFocus();return;}
+  elGo.disabled=false;elSkip.disabled=false;elReset.disabled=false;
+  T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready'};
+  elGo.textContent='Start';showSeg();
+}
+function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);say(vrand(VP.done)+' '+vrand(VP.donetail),true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fNext.textContent='LOG IT';fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';}}
+function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
+function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
+function announce(sg){
+  if(sg.type==='prep'){
+    callerStop();
+    say(vrand(VP.open)+', '+NAME+'. '+endp(lbl(sg.next))+' Get set.',true);
+    return;
+  }
+  if(sg.type==='rest'){
+    callerStop();
+    say(vrand(VP.rest)+(sg.cue?' '+endp(sg.cue):''),true);
+    return;
+  }
+  const prev=T.segs[T.i-1];
+  const newRound=!prev||prev.type!=='work';
+  let t;
+  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=vrand(VP.lastwork)+' '+endp(lbl(sg.label));
+  else if(newRound) t=endp(lbl(sg.label))+' '+vrand(VP.begin);
+  else t=endp(lbl(sg.label))+(Math.random()<0.22?' '+vrand(VP.push):'');
+  say(t,true);
+  setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
+}
+function advance(quiet){
+  const prev=T.segs[T.i];
+  T.i++;
+  if(T.i>=T.segs.length){finish();return;}
+  const cur=T.segs[T.i];
+  const base=quiet&&T.endAt?T.endAt:Date.now();
+  T.endAt=base+cur.d*1000;
+  T.left=Math.max(1,Math.ceil((T.endAt-Date.now())/1000));
+  T.warned={};
+  if(!quiet){
+    bell(cur.type==='rest'?'rest':(prev.type==='work'?'tick':'work'));
+    announce(cur);
+    showSeg();
+  }
+}
+function resync(){
+  try{
+    if(!T||!T.segs||T.state!=='run'||!T.running||!T.endAt)return;
+    let hops=0;
+    while(T.state==='run'&&Date.now()>=T.endAt&&hops<600){advance(true);hops++;}
+    if(T.state!=='run')return;
+    if(hops>0){
+      const cur=T.segs[T.i];
+      bell(cur.type==='rest'?'rest':'work');
+      say('Back with you. '+lbl(cur.label)+'. '+Math.max(T.left,1)+' seconds left.',true);
+      if(cur.type==='work')setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
+      else callerStop();
+    }
+    showSeg();
+    if(T.running)mediaOn();
+  }catch(e){}
+}
+function setEnd(sec){T.endAt=Date.now()+sec*1000;}
+function tick(){
+  if(!T||!T.running||!T.segs)return;
+  const nl=Math.ceil((T.endAt-Date.now())/1000);
+  if(nl<=0){advance();return;}
+  if(nl===T.left)return;
+  T.left=nl;
+  const sg=T.segs[T.i];
+  if(!T.warned)T.warned={};
+  if(sg.type==='work'){
+    if(sg.d>=120&&T.left===30&&!T.warned[30]){T.warned[30]=1;say(vrand(VP.half),false);}
+    /* 30 second stations get no countdown: the next station call is the cue */
+    if(sg.d>=60&&T.left===10&&!T.warned[10]){
+      T.warned[10]=1;
+      say(vrand(T.i===T.segs.length-1?VP.tenlast:VP.ten),false);
+    }
+    if(sg.d<60&&T.i===T.segs.length-1&&T.left===10&&!T.warned[10]){T.warned[10]=1;say(vrand(VP.tenlast),false);}
+  }else if(sg.type==='prep'&&T.left===3&&!T.warned[3]){T.warned[3]=1;say('Three. Two. One.',false);}
+  elClock.textContent=fmt(T.left);paintProg();paintFocus();
+}
+elGo.addEventListener('click',()=>{
+  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+  if(ac&&ac.state==='suspended')ac.resume();
+  vinit();
+  if(!T||!T.segs||T.state==='done')return;
+  const fresh=T.state==='ready';
+  if(fresh){T.state='run';bell('work');T.warned={};}
+  if(T.running){
+    T.left=Math.max(0,Math.ceil((T.endAt-Date.now())/1000));
+    stopTick();callerStop();vstop();mediaOff();elGo.textContent='Start';
+  }else{
+    T.running=true;elGo.textContent='Pause';
+    setEnd(Math.max(T.left,1));
+    T.int=setInterval(tick,500);
+    mediaOn();
+    if(fresh)announce(T.segs[T.i]);else callerStart();
+  }
+  showSeg();
+});
+elSkip.addEventListener('click',()=>{
+  if(!T||!T.segs||T.state==='done')return;
+  if(T.state==='ready')T.state='run';
+  callerStop();
+  advance(false);
+  if(!T.running)showSeg();
+});
+elReset.addEventListener('click',()=>{callerStop();vstop();mediaOff();loadTimer(DK[dIdx],W[wIdx].d[DK[dIdx]]);});
+
+/* ---- focus mode ---- */
+const fEl=document.getElementById('focus'),fName=document.getElementById('fname'),fClock=document.getElementById('fclock'),
+      fPhase=document.getElementById('fphase'),fRound=document.getElementById('fround'),fNext=document.getElementById('fnext'),
+      fCue=document.getElementById('fcue'),fRing=document.getElementById('rfg'),fGo=document.getElementById('fgo');
+const RC=2*Math.PI*92;
+if(fRing){fRing.style.strokeDasharray=RC.toFixed(1);fRing.style.strokeDashoffset='0';}
+let FOCUS=false;
+function paintFocus(){
+  if(!FOCUS||!fEl)return;
+  if(!T||!T.segs){fName.textContent='Flow day';fClock.textContent='--:--';fPhase.textContent='Flow';fRound.textContent='';fNext.textContent='';fCue.textContent='';return;}
+  const sg=T.segs[T.i];
+  const col=segCol(sg.type);
+  fEl.classList.toggle('fwork',sg.type==='work'&&T.state==='run');
+  fEl.classList.toggle('frest',sg.type==='rest');
+  fEl.classList.toggle('fprep',sg.type==='prep');
+  fName.textContent=sg.label;
+  fName.style.color=sg.type==='work'?css('--bone'):col;
+  fClock.textContent=fmt(Math.max(T.left,0));
+  fClock.style.color=sg.type==='work'&&T.state==='run'?css('--ember'):css('--bone');
+  fPhase.textContent=T.state==='ready'?'Ready':(PHTXT[sg.type]||'Work');
+  fPhase.style.color=col;
+  fRound.textContent='Week '+W[wIdx].n+' · '+DAYMETA[DK[dIdx]].title+' · R'+sg.round+'/'+T.rounds;
+  fCue.textContent=sg.cue||'';
+  fNext.textContent=sg.next?('NEXT  '+sg.next.toUpperCase()):'';
+  fRing.style.stroke=col;
+  fRing.style.strokeDashoffset=(RC*(1-Math.max(0,Math.min(1,T.left/sg.d)))).toFixed(1);
+  fGo.textContent=T.running?'Pause':(T.state==='done'?'Done':'Start');
+}
+function setFocus(on){
+  FOCUS=on;
+  if(!fEl)return;
+  fEl.classList.toggle('on',on);
+  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep');}
+}
+const tfocus=document.getElementById('tfocus');
+if(tfocus)tfocus.addEventListener('click',()=>setFocus(true));
+const fx=document.getElementById('fx');
+if(fx)fx.addEventListener('click',()=>setFocus(false));
+['fgo','fskip','freset'].forEach((id,i)=>{
+  const b=document.getElementById(id);
+  if(b)b.addEventListener('click',()=>{const t=[elGo,elSkip,elReset][i];if(t)t.click();paintFocus();});
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&FOCUS)setFocus(false);});
+
+/* ---- views ---- */
+const weekView=document.getElementById('weekView'),movesView=document.getElementById('movesView'),gearView=document.getElementById('gearView'),logView=document.getElementById('logView'),iqView=document.getElementById('iqView'),timerbar=document.getElementById('timerbar'),vWeek=document.getElementById('vWeek'),vMoves=document.getElementById('vMoves'),vGear=document.getElementById('vGear'),vLog=document.getElementById('vLog'),vIQ=document.getElementById('vIQ');
+function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';timerbar.style.display=v==='week'?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
+vWeek.addEventListener('click',()=>setView('week'));
+vMoves.addEventListener('click',()=>setView('moves'));
+vGear.addEventListener('click',()=>setView('gear'));
+vLog.addEventListener('click',()=>setView('log'));
+vIQ.addEventListener('click',()=>setView('iq'));
+
+/* ---- storage ---- */
+async function saveWeek(i){try{await window.storage.set('forge:week',String(i));}catch(e){}}
+async function saveDone(){try{await window.storage.set('forge:done',JSON.stringify(DONE));}catch(e){}}
+async function saveOpts(){try{await window.storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON}));}catch(e){}}
+async function saveIQ(){try{await window.storage.set('forge:iq',JSON.stringify(IQ));}catch(e){}}
+async function boot(){
+  try{const r=await window.storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
+  try{const r=await window.storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
+  try{const r=await window.storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;}}}catch(e){}
+  try{const r=await window.storage.get('forge:week');if(r&&r.value!=null){const i=parseInt(r.value,10);if(i>=0&&i<W.length){wIdx=i;}}}catch(e){}
+  selectWeek(wIdx);paintDone();buildGrid();paintIQ();
+}
+
+/* ---- init ---- */
+const dmap={1:0,2:1,3:2,4:3,5:4,6:5,0:6};
+selectWeek(0);
+selectDay(dmap[new Date().getDay()]);
+setView('week');
+buildGrid();
+boot();
+</script>
+</body>
+</html>

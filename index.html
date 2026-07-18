@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The Forge · 10 Week Striking Camp</title>
+<meta name="theme-color" content="#0F1319">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Forge">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">10 Week Solo Camp · Bag From Week 5</div>
+    <h1>The <span class="em">Forge</span></h1>
+    <p class="sub">Foundation to fight-ready. The coach calls your stations and your combos out loud. Put the phone down and work.</p>
+    <div class="viewtoggle" role="tablist">
+      <button class="vbtn active" id="vWeek" role="tab">Week</button>
+      <button class="vbtn" id="vMoves" role="tab">Moves</button>
+      <button class="vbtn" id="vGear" role="tab">Gear</button>
+      <button class="vbtn" id="vLog" role="tab">Log</button>
+      <button class="vbtn" id="vIQ" role="tab">IQ</button>
+    </div>
+  </header>
+</div>
+
+<div id="weekView">
+  <div class="wrap">
+    <div class="wlabel">Week</div>
+    <div class="weekstrip" id="weekstrip"></div>
+  </div>
+  <nav><div class="wrap"><div class="days" id="days"></div></div></nav>
+  <div class="wrap">
+    <main>
+      <div id="panel"></div>
+      <section class="notes">
+        <h2>Corner Notes</h2>
+        <div class="note"><div class="n">01</div><div class="t"><b>The skeleton never moves.</b> <span>Mon kicks, Tue combos, Wed boxing, Thu output, Fri counters, Sat hands, Sun restore. Built around your Wed/Sat squats. Only the content changes week to week.</span></div></div>
+        <div class="note"><div class="n">02</div><div class="t"><b>Volume is capped, density is not.</b> <span>7 MMA days on 4-5 lifts is your ceiling. Weeks get harder, never longer. Same 40 min, more packed in.</span></div></div>
+        <div class="note"><div class="n">03</div><div class="t"><b>Tap any drill.</b> <span>The how-to now lives under it: steps, the one fix, and the exact video search. Moves tab keeps the full library.</span></div></div>
+        <div class="note"><div class="n">04</div><div class="t"><b>Gear is trimmed to essentials.</b> <span>Gloves and mirror: owned. Wraps now, bag hunted or ordered week 4. Nonessentials are labeled exactly that.</span></div></div>
+        <div class="note"><div class="n">05</div><div class="t"><b>Grass, not concrete.</b> <span>July pavement runs 140F+. It is a burn and a blister, and it grabs your foot mid-pivot and torques the knee.</span></div></div>
+        <div class="note"><div class="n">06</div><div class="t"><b>The timer runs the session.</b> <span>It calls every 30 second station on conditioning days, names each round on skill days, and shows what is next. The double arrow skips ahead.</span></div></div>
+        <div class="note"><div class="n">07</div><div class="t"><b>Autoregulate, do not white-knuckle.</b> <span>Ten weeks with no deload on top of 4-5 lifts is real. If your squat drops two sessions running, or you wake up stiff three days straight, cut Thu and Sat to 3 rounds for a week. Skill days stay. That is the deload, and taking it is not falling behind.</span></div></div>
+        <div class="note"><div class="n">08</div><div class="t"><b>Screen and speaker.</b> <span>The screen stays awake while the timer runs. Connect your Bluetooth speaker first, then hit Start, and the coach follows it. If you cannot hear the coach, check the ring silent switch. If the phone does lock anyway, unlocking snaps the timer to exactly where you should be and the coach tells you.</span></div></div>
+        <div class="note"><div class="n">09</div><div class="t"><b>On kicking volume.</b> <span>Capped before the bag on purpose, because your legs squat twice a week. The teep primer now opens Tue and Fri, Tuesday chains kicks into every combo, and from week 5 the bag pulls kicking toward half the work.</span></div></div>
+      </section>
+      <footer>Week selector remembers where you are.<br>Day tabs open to today automatically.</footer>
+    </main>
+  </div>
+</div>
+
+<div id="movesView" style="display:none">
+  <div class="catbar"><div class="wrap"><div class="inr" id="catbar"></div></div></div>
+  <div class="wrap">
+    <input class="srch" id="srch" type="search" placeholder="Search 81 moves. Try check hook, teep, wrap...">
+    <p class="mintro">Every technique in all 10 weeks. Tag says what it is, bullets say what video will not tell you, CUE is the error, VIDEO is the exact search.</p>
+    <div id="moves"></div>
+    <footer>Learn it here, drill it in the Week tab.</footer>
+  </div>
+</div>
+
+<div id="gearView" style="display:none">
+  <div class="wrap">
+    <p class="mintro">Trimmed to what the program actually needs. You already own the big two.</p>
+    <div class="gsec">Owned</div>
+    <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">16 oz gloves</div><div class="gwhy">Done. They cover bag work now and sparring later.</div></div></div>
+    <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">Mirror</div><div class="gwhy">Done. Live-feed coach. Phone film stays the weekly review.</div></div></div>
+    <div class="gsec">Essential</div>
+    <div class="gitem"><div class="gwk">NOW</div><div><div class="gname">Hand wraps, 180 inch <span class="gprice">$10-20</span></div><div class="gwhy">Two pairs so one is always dry. Practice wrapping before the bag lands. How-to is under Bag Work in Moves.</div><a class="glink" href="https://www.amazon.com/s?k=180+inch+boxing+hand+wraps" target="_blank" rel="noopener">amazon.com/s?k=180+inch+boxing+hand+wraps</a></div></div>
+    <div class="gitem"><div class="gwk">WK 4</div><div><div class="gname">Heavy bag <span class="gprice">$55-250</span></div><div class="gwhy">Hunt or order this week so it is ready for Week 5. Cheapest real path: a used 70-100 lb bag on Facebook Marketplace for $40-100 plus a $15 hanging kit on a garage joist, porch beam, or thick branch. New with a stand runs $150-250. Skip the $350 free-standing unless you truly have nowhere to hang one.</div><a class="glink" href="https://www.facebook.com/marketplace/search?query=heavy%20bag" target="_blank" rel="noopener">facebook.com/marketplace: heavy bag</a><br><a class="glink" href="https://www.amazon.com/s?k=heavy+bag+hanging+kit" target="_blank" rel="noopener">amazon.com/s?k=heavy+bag+hanging+kit</a><br><a class="glink" href="https://www.amazon.com/s?k=100lb+heavy+bag+with+stand" target="_blank" rel="noopener">amazon.com/s?k=100lb+heavy+bag+with+stand</a></div></div>
+    <div class="gitem"><div class="gwk">WK 9</div><div><div class="gname">Mouthguard <span class="gprice">$10-25</span></div><div class="gwhy">Essential only once the gym starts. Boil-and-bite is fine.</div><a class="glink" href="https://www.amazon.com/s?k=boil+and+bite+mouthguard" target="_blank" rel="noopener">amazon.com/s?k=boil+and+bite+mouthguard</a></div></div>
+    <div class="gsec">Nonessential</div>
+    <div class="gitem gnon"><div class="gwk">ANY</div><div><div class="gname">Reflex ball <span class="gprice">$15-25</span></div><div class="gwhy">Timing toy for study breaks. Fun, fully skippable.</div><a class="glink" href="https://www.amazon.com/s?k=boxing+reflex+ball" target="_blank" rel="noopener">amazon.com/s?k=boxing+reflex+ball</a></div></div>
+    <div class="gtotal"><b>Cash to finish the camp:</b> about $90-150 if you hunt the bag used, $185-295 buying new. Everything else you own or is free.</div>
+    <footer>Nonessential means exactly that.</footer>
+  </div>
+</div>
+
+<div id="logView" style="display:none">
+  <div class="wrap">
+    <div class="stats" id="stats"></div>
+    <p class="mintro">Tap any cell to mark it done. Rows are weeks, columns are days. It saves itself.</p>
+    <div class="empty" id="logempty" style="display:none"><b>Nothing logged yet</b>Finish a session, hit Mark session done, and it starts here. Or tap a cell for anything you already did.</div>
+    <div id="grid"></div>
+    <footer>70 sessions in the camp. Missing one is a miss, not a reset.</footer>
+  </div>
+</div>
+
+<div id="iqView" style="display:none">
+  <div class="wrap">
+    <div class="stats" id="iqstats"></div>
+    <p class="mintro" id="iqnote">Think of the fix, reveal, grade yourself honestly.</p>
+    <div id="card"></div>
+  </div>
+</div>
+
+<div class="focus" id="focus">
+  <div class="ftop">
+    <span class="fround" id="fround"></span>
+    <button class="fx" id="fx" type="button">Close</button>
+  </div>
+  <div class="fmid">
+    <div class="fname" id="fname">Ready</div>
+    <div class="ringwrap">
+      <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="rbg" cx="100" cy="100" r="92"></circle>
+        <circle class="rfg" id="rfg" cx="100" cy="100" r="92" transform="rotate(-90 100 100)"></circle>
+      </svg>
+      <div class="rin">
+        <span class="fphase" id="fphase">Ready</span>
+        <span class="fclock" id="fclock">00:00</span>
+      </div>
+    </div>
+    <div class="fcue" id="fcue"></div>
+  </div>
+  <div class="fbot">
+    <div class="fnext" id="fnext"></div>
+    <div class="fctl">
+      <button class="fc" id="fskip" type="button">Skip &#187;</button>
+      <button class="fc go" id="fgo" type="button">Start</button>
+      <button class="fc" id="freset" type="button">Reset</button>
+    </div>
+  </div>
+</div>
+
+<video id="wakevid" playsinline webkit-playsinline muted loop preload="auto" src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMRbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAjt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAIAAAACAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAAAGzbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAQABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABXm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAR5zdGJsAAAAunN0c2QAAAAAAAAAAQAAAKphdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAIAAgBIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMGF2Y0MBQsAK/+EAGGdCwArZH4iIwEQAAAMABAAAAwAIPEiZIAEABWjLg8sgAAAAEHBhc3AAAAABAAAAAQAAABRidHJ0AAAAAAAAFDAAABQwAAAAGHN0dHMAAAAAAAAAAQAAAAEAAEAAAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAQAAABRzdHN6AAAAAAAAAoYAAAABAAAAFHN0Y28AAAAAAAAAAQAAA0EAAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAACjm1kYXQAAAJwBgX//2zcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MCByZWY9MyBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAADmWIhAV///8PRQABQt+A" style="position:fixed;left:-20px;top:-20px;width:2px;height:2px;opacity:0;pointer-events:none"></video>
+<audio id="keep" loop preload="auto" style="display:none"></audio>
+<div class="timerbar" id="timerbar">
+  <div class="tprog" id="tprog"></div>
+  <div class="tinner">
+    <div class="tnames"><span class="tname" id="tname">Ready</span><span class="tnext" id="tnext"></span></div>
+    <div class="trow">
+      <div class="tphase" id="tphase">Ready</div>
+      <button class="fbtn" id="tfocus" type="button" aria-label="Open focus mode"><span class="tclock" id="tclock">00:00</span><span class="fexp">&#9974;</span></button>
+      <div class="tround" id="tround"></div>
+      <div class="tbtns">
+        <button class="tbtn go" id="tgo">Start</button>
+        <button class="tbtn" id="tskip" aria-label="Skip to next">&#187;</button>
+        <button class="tbtn" id="treset">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>window.addEventListener('error',function(e){try{console.warn('forge:',e.message);}catch(_){}});</script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
