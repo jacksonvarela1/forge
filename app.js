@@ -186,23 +186,28 @@ function render(){
   let segs='';for(let s2=1;s2<=5;s2++)segs+=`<div class="seg" style="background:${s2<=m.intensity?col:'var(--line)'}"></div>`;
   const rl=day.tm?`${day.tm.rounds} x ${fmt(day.tm.work)}`:'';
   const B=[];
+  const dt=adaptItems(day.t),dr=adaptItems(day.r);
   if(m.warm)B.push({n:'Warm-up',s:'Warm',du:'5 min',it:WARM[m.warm]});
-  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:day.t});B.push({n:'Finisher',s:'Fin',du:'5 min',it:day.r,sec:1});}
-  else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:day.t});if(day.r&&day.r.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:day.r,sec:1});}
-  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:day.t});B.push({n:'Rounds',s:'Rnds',du:rl,it:day.r,sec:1});}
+  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt});B.push({n:'Finisher',s:'Fin',du:'5 min',it:dr,sec:1});}
+  else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:dt});if(dr&&dr.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:dr,sec:1});}
+  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1});}
+  if(PARTNER_ON&&PARTNER[k]&&PARTNER[k].length&&k!=='sun')B.push({n:'With a partner',s:'Duo',du:'',it:PARTNER[k],sec:1});
   if(m.cool)B.push({n:'Cooldown',s:'Cool',du:'5 min',it:COOL[m.cool]});
   let tot=0,flow='';
   B.forEach(b=>{const mn=durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
   const flowbar=`<div class="flow">${flow}<div class="ftot">&#8776; ${tot} min</div></div>`;
   const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
   panel.innerHTML=`
-   <div class="phase" style="border-left-color:var(${PCOL[wIdx]})"><div class="ph" style="color:var(${PCOL[wIdx]})">Week ${w.n} of 10 · ${w.phase}</div><div class="th">${w.theme}</div><div class="nt">${w.note}</div>${nw.length?`<div class="nlab">New this week</div><div class="newrow">${nw.slice(0,6).map(n=>`<span class="nchip">${n}</span>`).join('')}${nw.length>6?`<span class="nchip" style="color:var(--muted)">+${nw.length-6} more</span>`:''}</div>`:''}</div>
+   <div class="phase" style="border-left-color:var(${PCOL[wIdx]})"><div class="ph" style="color:var(${PCOL[wIdx]})">Week ${w.n} of 10 · ${w.phase}</div><div class="th">${w.theme}</div><div class="nt">${adaptNote(w.note)}</div>${nw.length?`<div class="nlab">New this week</div><div class="newrow">${nw.slice(0,6).map(n=>`<span class="nchip">${n}</span>`).join('')}${nw.length>6?`<span class="nchip" style="color:var(--muted)">+${nw.length-6} more</span>`:''}</div>`:''}</div>
    <div class="dhead"><div><div class="dtitle">${m.title}</div><div class="dfocus">${m.focus}</div></div><span class="badge" style="color:${col};border-color:${col}">${typeText[m.type]}</span></div>
    <div class="meter">${segs}<span class="mlabel">Intensity ${m.intensity}/5</span></div>
    <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button></div>
+   <div class="swrow"><button class="sw${BAG_ON?' on':''}" id="swB" type="button">${BAG_ON?'&#9679;':'&#9675;'} Heavy bag</button><button class="sw${PARTNER_ON?' on':''}" id="swP" type="button">${PARTNER_ON?'&#9679;':'&#9675;'} Partner</button></div>
    ${flowbar}
    ${blocks}
    ${m.flag?`<div class="flag">${m.flag}</div>`:''}
+   ${(!BAG_ON&&wIdx>=4)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
+   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${PARTNER_RULES}</div>`:''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button></div>`;
   const db=document.getElementById('dbtn');
   if(db)db.addEventListener('click',()=>toggleDone(wIdx,dIdx));
@@ -210,6 +215,10 @@ function render(){
   if(sv)sv.addEventListener('click',()=>{VOICE_ON=!VOICE_ON;if(!VOICE_ON){vstop();callerStop();}saveOpts();render();});
   const sc=document.getElementById('swC');
   if(sc)sc.addEventListener('click',()=>{CALLER_ON=!CALLER_ON;if(!CALLER_ON)callerStop();else if(T&&T.running)callerStart();saveOpts();render();});
+  const sb=document.getElementById('swB');
+  if(sb)sb.addEventListener('click',()=>{BAG_ON=!BAG_ON;saveOpts();render();});
+  const sp=document.getElementById('swP');
+  if(sp)sp.addEventListener('click',()=>{PARTNER_ON=!PARTNER_ON;saveOpts();render();});
   paintDone();
   loadTimer(k,day);
  }catch(e){if(panel)panel.innerHTML='<div class="empty"><b>Hiccup</b>Could not draw that day. Tap another day, then come back.</div>';}
@@ -337,6 +346,7 @@ const VP={
 };
 function vrand(a){return a&&a.length?a[Math.floor(Math.random()*a.length)]:'';}
 let VOICE_ON=true,CALLER_ON=true,vvoice=null,vready=false;
+let BAG_ON=true,PARTNER_ON=false;
 function vpick(){try{const vs=speechSynthesis.getVoices();const en=vs.filter(v=>/^en/i.test(v.lang));const us=en.filter(v=>/en[-_]US/i.test(v.lang));
   /* downloaded system voices beat the compact defaults: Premium, then Enhanced, then the old preference order */
   vvoice=us.find(v=>/premium/i.test(v.name))||us.find(v=>/enhanced/i.test(v.name))||en.find(v=>/premium/i.test(v.name))||en.find(v=>/enhanced/i.test(v.name))||us.find(v=>/(Google US English|Samantha|Ava|Allison)/i.test(v.name))||vs.find(v=>/en[-_](US|GB)/i.test(v.lang))||en[0]||null;}catch(e){}}
@@ -374,24 +384,50 @@ const CALLADD={
  9:['Fast fast slow','Pause, then finish','Burst of six','Stutter step','Change the pace','Half beat'],
  10:['Free','Your call','Make it up','Whatever you see','Improvise']
 };
-const CALLCUE=['Hands up','Snap it back','Pivot','Breathe','Angle off','Chin down','Do not stand still','Land balanced','Turn the hip over','Elbows in','Move your head','Reset your stance'];
+const CALLCUE=['Hands up','Snap it back','Pivot','Breathe','Angle off','Chin down','Do not stand still','Land balanced','Turn the hip over','Elbows in','Move your head','Reset your stance','Loose arms, no locked elbows'];
+/* free rounds get a cornerman, not a dictation machine: one short tactical
+   prompt at a time, real silence between. Lines stay under 8 words. */
+const FREECALL=['He is cutting you off. Angle out.','Doubling his jab. Answer it.','You are square. Fix your feet.','Change levels. Body, then head.','Circle off the power hand.','Second combo. Do not admire the first.','Make him miss. Make him pay.','Get in, do the work, get out.','Where is your jab?','He is timing your rhythm. Break it.'];
+/* defense rounds: the voice plays the opponent. Weeks 1-4 call the attack and
+   the answer, week 5 on calls the attack only so he chooses. */
+const DEFPAIR=['Jab. Slip right.','Jab. Slip left.','One two. Catch, then counter.','Hook. Roll under.','Low kick. Check it.','Teep. Parry and step in.','He shoots. Sprawl.'];
+const DEFATK=['Jab.','Double jab.','Right hand.','One two.','Lead hook.','Body shot.','Low kick.','Head kick.','Teep.','He shoots.'];
 function poolFor(wi){let p=[];for(let i=1;i<=wi+1;i++)p=p.concat(CALLADD[i]||[]);p=p.concat(CALLADD[wi+1]||[]);return p;}
-const SKILL=['mon','tue','wed','fri'];
 let callT=null;
 function callerStop(){if(callT){clearTimeout(callT);callT=null;}}
+function callerPick(ctx,label){
+  const pool=poolFor(wIdx);
+  const flavor=ctx==='station'?roundCall(label,DK[dIdx]):ctx;
+  const r=Math.random();
+  if(r<0.10)return vrand(VP.praise);
+  if(flavor==='defense')return r<0.28?vrand(CALLCUE):vrand(wIdx>=4?DEFATK:DEFPAIR);
+  if(flavor==='free')return r<0.32?vrand(CALLCUE):vrand(FREECALL);
+  return r<0.30?vrand(CALLCUE):vrand(pool);
+}
+/* cadence per round type: defense is stimulus-response (fast), technique and
+   stations sit mid, free rounds get sparse corner prompts with real silence */
+function callerDelay(ctx){
+  if(ctx==='defense')return 5000+Math.random()*3000;
+  if(ctx==='free')return 20000+Math.random()*10000;
+  if(ctx==='station')return 9000+Math.random()*6000;
+  return 8000+Math.random()*4000;
+}
 function callerStart(){
   callerStop();
   if(!CALLER_ON||!VOICE_ON)return;
-  if(SKILL.indexOf(DK[dIdx])<0)return;
-  const pool=poolFor(wIdx);
+  if(!T||!T.segs||!T.segs[T.i]||T.segs[T.i].type!=='work'||!T.segs[T.i].call)return;
   const fire=()=>{
     if(!T||!T.running||!T.segs||T.segs[T.i].type!=='work'){callT=null;return;}
-    const r=Math.random();
-    const c=r<0.10?vrand(VP.praise):(r<0.30?CALLCUE[Math.floor(Math.random()*CALLCUE.length)]:pool[Math.floor(Math.random()*pool.length)]);
-    say(c,false);
+    const sg=T.segs[T.i];
+    if(!sg.call){callT=null;return;}
+    say(callerPick(sg.call,sg.label),false);
     plan();
   };
-  const plan=()=>{callT=setTimeout(fire,4500+Math.random()*4000);};
+  const plan=()=>{
+    const sg=T&&T.segs&&T.segs[T.i]?T.segs[T.i]:null;
+    const ctx=sg&&sg.call?(sg.call==='station'?'station':roundCall(sg.label,DK[dIdx])):null;
+    callT=setTimeout(fire,callerDelay(ctx==='station'?'station':ctx));
+  };
   plan();
 }
 
@@ -407,6 +443,83 @@ const CORNER={
 };
 function cornerCue(){const a=CORNER[DK[dIdx]]||[];return a.length?a[Math.floor(Math.random()*a.length)]:'';}
 
+/* ---- equipment adaptation ---- */
+/* Exact-label swaps for weeks 5-10 when there is no bag yet. Derived from the
+   program's own NO BAG YET notes: shadow versions chase snap and full
+   retraction instead of impact. Filled per drill; unknown labels pass through. */
+const NOBAG_MAP={
+ 'Range check 2 min':['Slow-motion roundhouse x8 each','five counts out, five counts back, the foot never touches down between reps'],
+ 'Leg kick x15 each':['Leg kick x15 each','snap and full retraction instead of impact, full pivot every rep'],
+ 'Body kick x15 each':['Body kick x15 each','hip all the way over, freeze a beat at extension, return on balance'],
+ 'Power teep x15 each':['Power teep x15 each','knee up a beat, then drive, standing foot pivoted'],
+ 'Switch kick x12 each':['Switch kick x12 each','kick and hold 3 seconds at extension, then return on balance'],
+ 'R1 kicks only':['R1 kicks only','full turn, land balanced, never at half hip'],
+ '1-2 at 80% x20':['1-2 snap x20','arm loose like a towel snap, fist tight only at the end, never lock the elbow out'],
+ '1-2-3 x15':['1-2-3 x15','picture him stepping in, the hook meets him mid-step'],
+ 'Uppercuts in close x12 each':['Uppercuts in close x12 each','imagine the clinch, dig up short from the legs'],
+ 'Rotate every 30 sec on the bag. 1:00 rest.':['Rotate every 30 sec. 1:00 rest. Count reps, the number is the standard.'],
+ '30s max output':['30s punch-out, 90 straights'],
+ '30s sprawl into 1-2 on the bag':['30s sprawl into 1-2'],
+ 'Touch, slip, counter x15 each':['Touch, slip, counter x15 each','flash the jab as his, slip it, cross back'],
+ 'R1|slip-counter on the bag only':['R1','slip-counter only, make every miss real'],
+ 'Rotate every 30 sec, hands on the bag. 1:00 rest.':['Rotate every 30 sec, hands only. 1:00 rest. Count the reps.'],
+ '30s max straights':['30s max straights, count 90'],
+ 'Teep the advance x15':['Teep the advance x15','he steps in, the teep meets him mid-step'],
+ 'Chase kick x12 each':['Chase kick x12 each','he backs off, step with him, the body kick lands as he moves'],
+ 'Knees x15 each':['Knees x15 each','collar tie in the air, pull down as the knee drives up'],
+ 'Hit the return x12':['Hit the return x12','he comes back at you, you are already throwing'],
+ 'Elbows in close x12 each':['Elbows in close x12 each','chest to chest range, short and sharp'],
+ 'Hit the advance x15':['Hit the advance x15','1-2 as he steps in, that is timing'],
+ 'In-out on the swing x12':['In-out x12','in behind the jab, out before the answer'],
+ 'Rotate every 30 sec on the bag. 1:00 rest. Hardest session of the camp.':['Rotate every 30 sec. 1:00 rest. Hardest session of the camp. Count reps.'],
+ 'The swing is the attack':['He is always coming forward','every attack you imagine, make it miss'],
+ 'Slip the swing, 2-3 x15':['Slip the jab, 2-3 x15'],
+ 'Pivot off it, hook x12':['Pivot off him, hook x12']
+};
+function adaptItems(arr){
+  if(!arr||BAG_ON||wIdx<4)return arr;
+  return arr.map(it=>{
+    const sub=NOBAG_MAP[it.length>1?it[0]+'|'+it[1]:'']||NOBAG_MAP[it[0]];
+    return sub?sub.slice():it;
+  });
+}
+function adaptNote(note){
+  const parts=String(note).split(/\s*no bag yet[:.]?\s*/i);
+  if(parts.length<2)return note;
+  return BAG_ON?parts[0]:parts[0]+' No bag yet: '+parts[1];
+}
+/* Additive partner block per day, shown when the Partner switch is on.
+   Everything choreographed or single-technique: two beginners, no pads. */
+const PARTNER={
+ mon:[['Teep distance game, 2 min each','he walks in slow, your light teep to the belt line resets him. Below the chest, never the knee'],
+      ['Leg-catch balance, 60s each leg','he holds your extended roundhouse and walks, you hop and keep the hip turned']],
+ tue:[['Caller rounds','he calls number combos, you throw them at range, zero contact. Swap caller each round'],
+      ['1-for-1 flow','slow 2-3 punch combos to gloves and guard only, he answers with the same. Whoever punches wears the gloves']],
+ wed:[['Jab tag','jabs only, score by touching glove or lead shoulder. Force scores nothing, head is off limits'],
+      ['Parry and return, 1 min each','slow marked jabs at your guard, you parry and jab his glove back']],
+ thu:[['Swap in one station: mirror footwork 30s','he leads, you keep exact range. Swap roles next round'],
+      ['Or teep-back 30s','he marches forward, you stop him with light teeps to the hip']],
+ fri:[['Defense reps x10 each','slow announced jabs and crosses that stop at your guard: slip, parry, block. Swap'],
+      ['From week 3: add one counter','defend, then jab his glove. The one throwing wears the gloves']],
+ sat:[['Gloves as mitts, 30s stations','he holds gloves palms out at chest height, you fire the called combo. Nothing off target'],
+      ['Caller station','he calls random combos, you throw them in the air at range']],
+ sun:[]
+};
+const PARTNER_RULES='Partner rules: no head contact before week 9, body is touch only, kicks stay light and land above the knee, no free sparring, any hard contact ends the round.';
+
+/* ---- round-aware calling ---- */
+function roundCall(label,k){
+  const L=String(label).toLowerCase();
+  if(/free|flow|fight sim|your call|make it up|improvise|whatever/.test(L))return 'free';
+  if(k==='fri'||/defen|counter|slip|pull |roll |catch|check|bait|make it miss|make him miss|react|shell/.test(L))return 'defense';
+  return 'combo';
+}
+function stationCall(nm){
+  const L=String(nm).toLowerCase();
+  if(/push-up|push up|climber|plank|up-down|up down|hollow|leg raise|twist|bicycle/.test(L))return null;
+  return 'station';
+}
+
 /* ---- timer ---- */
 function buildSegs(k,day){
   if(!day.tm)return null;
@@ -415,15 +528,16 @@ function buildSegs(k,day){
   let ci=Math.floor(Math.random()*Math.max(1,CQ.length));
   const nextCue=()=>{if(!CQ.length)return '';const c=CQ[ci%CQ.length];ci++;return c;};
   if(k==='thu'||k==='sat'){
-    const st=day.t.filter(x=>/^30s/i.test(x[0])).map(x=>x[0].replace(/^30s\s*/i,''));
+    const st=adaptItems(day.t).filter(x=>/^30s/i.test(x[0])).map(x=>x[0].replace(/^30s\s*/i,''));
     for(let r=1;r<=R;r++){
-      st.forEach((nm,i)=>segs.push({d:30,type:'work',label:nm,next:i<st.length-1?st[i+1]:'rest 1:00',round:r}));
+      st.forEach((nm,i)=>segs.push({d:30,type:'work',label:nm,next:i<st.length-1?st[i+1]:'rest 1:00',round:r,call:stationCall(nm)}));
       if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:st[0],round:r,cue:nextCue()});
     }
   }else{
-    const labels=(day.r||[]).map(x=>x.length>1&&x[0].length<=4?(x[0]+' · '+x[1]):x[0]);
+    const labels=adaptItems(day.r||[]).map(x=>x.length>1&&x[0].length<=4?(x[0]+' · '+x[1]):x[0]);
     for(let r=1;r<=R;r++){
-      segs.push({d:wk2,type:'work',label:labels[r-1]||('Round '+r),next:r<R?'rest 1:00':'',round:r});
+      const L=labels[r-1]||('Round '+r);
+      segs.push({d:wk2,type:'work',label:L,next:r<R?'rest 1:00':'',round:r,call:roundCall(L,k)});
       if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:labels[r]||('Round '+(r+1)),round:r,cue:nextCue()});
     }
   }
@@ -664,12 +778,12 @@ vIQ.addEventListener('click',()=>setView('iq'));
 /* ---- storage ---- */
 async function saveWeek(i){try{await storage.set('forge:week',String(i));}catch(e){}}
 async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));}catch(e){}}
-async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON}));}catch(e){}}
+async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON}));}catch(e){}}
 async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));}catch(e){}}
 async function boot(){
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
-  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;}}}catch(e){}
+  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;}}}catch(e){}
   try{const r=await storage.get('forge:week');if(r&&r.value!=null){const i=parseInt(r.value,10);if(i>=0&&i<W.length){wIdx=i;}}}catch(e){}
   selectWeek(wIdx);paintDone();buildGrid();paintIQ();
 }

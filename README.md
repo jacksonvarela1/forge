@@ -19,6 +19,8 @@ This is the engineering port of the original Claude artifact (`forge-camp-v9.htm
 
 No frameworks, no build step, no dependencies. Persistence is `localStorage` behind a tiny wrapper (`storage` at the top of `app.js`) that keeps the artifact API's call shape, keys `forge:week`, `forge:done`, `forge:opts`, `forge:iq`.
 
+Each training day has four switches: Voice coach, Combo caller, Heavy bag, and Partner. Turning Heavy bag off (weeks 5-10) swaps every bag drill for its researched shadow version. Turning Partner on adds a safe two-person variant block to each day. The voice coach is round-aware: scripted rounds get combo calls, defense rounds get attack calls to react to, and free rounds get sparse corner prompts.
+
 ## Run it locally
 
 You need any static file server, because the service worker and wake lock require HTTPS or localhost. If you have Node installed:

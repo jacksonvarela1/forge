@@ -43,7 +43,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s max 1-2'],['30s push-up variations'],['30s 1-2, slip, 2'],['30s slips + counters'],['30s plank shoulder taps'],['30s 2-3-2 full speed']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 20'],['Side plank 3 x 30 sec each'],['Bicycles 3 x 30']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every strike from the week, zero power'],['Mobility 15 min','pigeon, 90/90, deep squat, t-spine, shoulders'],['Film 10 min','the jab and nothing else. GSP or Volkanovski.']],
+   t:[['Shadow 40-50%, 15 min','every strike from the week, zero power'],['Mobility 15 min','pigeon, 90/90, deep squat, t-spine, shoulders'],['Film 10 min','the jab and nothing else. GSP or Volkanovski. Watch one round straight through, then replay 2 or 3 exchanges counting jabs, then say one takeaway out loud. Keep this fighter all phase.']],
    r:[]}
  }},
 
@@ -69,7 +69,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s 1-2-3 max'],['30s push-ups'],['30s body-head hands'],['30s slip counter'],['30s up-downs'],['30s 1-6-3 full speed']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 25'],['Side plank 3 x 35 sec each'],['Bicycles 3 x 40']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','the new stuff: calf kick, switch kick, 1-6-3'],['Mobility 15 min'],['Film 10 min','calf and body kicks. Gaethje low, Barboza body.']],
+   t:[['Shadow 40-50%, 15 min','the new stuff: calf kick, switch kick, 1-6-3'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','calf and body kicks. Gaethje low, Barboza body.']],
    r:[]}
  }},
 
@@ -121,12 +121,12 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s feint into combo, max'],['30s push-up variations'],['30s body-head'],['30s pull counter'],['30s up-downs'],['30s free chains with feints']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 40 sec each'],['Bicycles 3 x 45']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every setup, sell each feint'],['Mobility 15 min'],['Film 10 min','feints only. Ilia or Volkanovski, watch the shoulder.']],
+   t:[['Shadow 40-50%, 15 min','every setup, sell each feint'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feints only. Ilia or Volkanovski, watch the shoulder.']],
    r:[]}
  }},
 
 /* ================= WEEK 5 ================= */
-{n:5,phase:'Phase 3 · Reaction',theme:'Counters',note:'Stop initiating everything. Read, react, punish. The bag lands this week: run every Rounds block on it, kicks at 60-70% while the shins adapt. No bag yet means shadow it, but it should already be on the truck.',
+{n:5,phase:'Phase 3 · Reaction',theme:'Counters',note:'Stop initiating everything. Read, react, punish. The bag lands this week: run every Rounds block on it, wraps and gloves every time, kicks at 60-70% while the shins adapt. NO BAG YET: shadow every Rounds block, and it should already be on the truck.',
  d:{
   mon:{tm:{work:180,rest:60,rounds:3},
    t:[['Check into return kick x15 each'],['Catch the teep, return the leg kick x12'],['Counter the jab with a lead teep x12'],['Intercept the step-in, rear teep x12'],['Counter the kick with a cross x12 each']],
@@ -147,7 +147,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s counter chains max'],['30s push-up variations'],['30s check hook'],['30s pull counter'],['30s up-downs'],['30s free counter boxing']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands.']],
+   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands.']],
    r:[]}
  }},
 
@@ -173,7 +173,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s combo-angle-combo max'],['30s push-up variations'],['30s in-out-in'],['30s counter and pivot'],['30s up-downs'],['30s free, always moving']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 30'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','angles only, slow'],['Mobility 15 min'],['Film 10 min','feet only. Volkanovski, ignore his hands entirely.']],
+   t:[['Shadow 40-50%, 15 min','angles only, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feet only. Volkanovski, ignore his hands entirely.']],
    r:[]}
  }},
 
@@ -251,7 +251,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s bursts max'],['30s push-up variations'],['30s fast-fast-slow'],['30s bait and counter'],['30s up-downs'],['30s free rhythm boxing']],
    r:[['Finisher, 5 min'],['Hollow rocks 3 x 35'],['Side plank 3 x 45 sec each'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','play with tempo, no power'],['Mobility 15 min'],['Film 10 min','pace changes. Max Holloway, count the beats.']],
+   t:[['Shadow 40-50%, 15 min','play with tempo, no power'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','pace changes. Max Holloway, count the beats.']],
    r:[]}
  }},
 
@@ -259,19 +259,19 @@ const W = [
 {n:10,phase:'Phase 5 · Creation',theme:'Free',note:'No prescribed combos. Everything you built, unscripted, on the bag and in the air. Run the 5-point checkpoint Sunday, then book the trial class.',
  d:{
   mon:{tm:{work:180,rest:60,rounds:3},
-   t:[['Free kick flow, 8 min','no script, everything you know'],['Both stances, 2 min each'],['Entry, kick, exit x12','get in, land it, get out clean']],
+   t:[['Teeps only x20','clean means full hip and the foot back to stance. Count them'],['Roundhouse x10 each','full pivot, recover balanced, count them'],['Every kick behind a hand x12','jab kick, cross kick, your pick'],['Both stances, 2 min each'],['Entry, kick, exit x12','get in, land it, get out clean']],
    r:[['R1','orthodox free'],['R2','southpaw free'],['R3','switch freely, mid-combo']]},
   tue:{tm:{work:180,rest:60,rounds:4},
-   t:[['Free flow, 15 min','kicks, hands, feints, counters, angles, rhythm. All of it, no script.']],
+   t:[['Long range only, 3 min','jab and teep, step out after everything. Nothing inside'],['Close range, 3 min','get behind the hands, finish every exchange with a kick'],['Exits, 3 min','every exchange ends with a pivot or a 45 step, never stand and admire'],['Off the back foot, 3 min','he walks you down, counter and angle off'],['Free, 3 min','checkpoints: hands home, exhale every strike, never square']],
    r:[['R1','you lead the exchange'],['R2','you counter the exchange'],['R3','your choice, switch mid-round'],['R4 fight sim','imagine a full round against someone real']]},
   wed:{tm:{work:180,rest:60,rounds:3},
-   t:[['Free boxing, 15 min','every punch, every setup, every counter, unscripted']],
+   t:[['Jab only, 3 min','step jab, double jab, body jab, feint. Count 30 clean'],['Lead hand and feet, 3 min','circle both ways, the cross stays home'],['Open and close with the jab, 3 min','every combo starts and ends on it'],['End on a slip or roll, 3 min','every combo closes with defense, then answer'],['Free, 3 min','chin down, elbows in, breathe out on every punch']],
    r:[['R1','free, pretend it is round 1'],['R2','free, pretend you are down'],['R3','free, pretend you are ahead and managing']]},
   thu:{tm:{work:180,rest:60,rounds:5},
    t:[['Rotate every 30 sec. 1:00 rest.'],['30s free max output'],['30s push-ups'],['30s free shadow'],['30s mountain climbers'],['30s sprawl into free'],['30s free, whatever comes']],
    r:[['Finisher, 5 min'],['Plank 3 x 60 sec'],['Hollow hold 3 x 45 sec'],['Leg raises 3 x 25'],['Russian twists 3 x 50']]},
   fri:{tm:{work:180,rest:60,rounds:3},
-   t:[['Free defensive flow, 15 min','every defense, every counter, pure reaction']],
+   t:[['Movement only, 3 min','the caller runs it: slip left, slip right, roll. No punches back'],['Defend then one counter, 3 min','adds checks and long guard'],['Defend first, then fire, 3 min','the caller mixes attacks and combos'],['Counter and exit, 3 min','same, plus angle out after every counter'],['Free reaction, 3 min','first answer to any imagined shot is a named defense, never a lean back']],
    r:[['R1','pure reaction, no leads'],['R2','defend, counter, angle, repeat'],['R3','free']]},
   sat:{tm:{work:180,rest:60,rounds:5},
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s free max'],['30s push-up variations'],['30s free hands'],['30s free counters'],['30s up-downs'],['30s fight sim pace']],

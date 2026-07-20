@@ -165,6 +165,33 @@ async function main() {
   assert(m.errors.length === 0, 'no uncaught errors across the camp: ' + m.errors.slice(0, 3).join(' || '));
   assert(m.wake.requests > 0, 'screen wake lock was requested');
 
+  // ---- round-aware caller spoke each vocabulary somewhere across the camp ----
+  const allSpeech = m.speech.join('\n');
+  assert(/Make him miss\. Make him pay\.|He is cutting you off|Where is your jab|Do not admire the first/.test(allSpeech),
+    'free-round corner prompts were spoken');
+  assert(/Slip right|Roll under|Check it|Parry and step in|He shoots/.test(allSpeech),
+    'defense-round attack calls were spoken');
+
+  // ---- equipment variants: no bag + partner ----
+  g('BAG_ON=false;PARTNER_ON=true');
+  g('selectWeek(6)');
+  g('selectDay(0)');
+  const vp = g('panel.innerHTML');
+  assert(!/on the bag|bag folds|make the bag|bag on your chest|bag swinging|bag jump/i.test(vp), 'no-bag: W7 Monday has no bag phrasing');
+  assert(vp.includes('With a partner'), 'partner block renders');
+  assert(vp.includes('No bag mode'), 'no-bag flag shows');
+  assert(vp.includes('Partner rules'), 'partner rules flag shows');
+  g('selectDay(3)');
+  const segs7 = JSON.parse(g('JSON.stringify(T.segs.map(s=>({d:s.d,label:s.label})))'));
+  assert(segs7.some(s => s.label === 'punch-out, 90 straights'), 'no-bag station substitution reached the timer');
+  assert(!segs7.some(s => /bag/i.test(s.label)), 'no timer label mentions the bag in no-bag mode');
+  const spNB = m.speech.length;
+  g('elGo.click()');
+  m.clock.advance(segs7.reduce((a, s) => a + s.d * 1000, 0) + 60000);
+  assert(g('T.state') === 'done', 'no-bag Thursday runs to done');
+  assert(!/on the bag/i.test(m.speech.slice(spNB).join('\n')), 'no-bag speech never mentions the bag');
+  g('elReset.click()');
+
   // stats render sanity
   g('buildGrid()');
   const stats = g('statsEl.innerHTML');
@@ -174,7 +201,7 @@ async function main() {
 
   // persist the rest of the state, then reload into a fresh context
   g('IQ.r=5;IQ.w=2;saveIQ()');
-  g('VOICE_ON=false;CALLER_ON=true;saveOpts()');
+  g('VOICE_ON=false;CALLER_ON=true;BAG_ON=false;PARTNER_ON=true;saveOpts()');
   g('stripEl.children[7].click()'); // week chip 8: selectWeek + saveWeek
 
   const m2 = bootApp(store);
@@ -183,6 +210,8 @@ async function main() {
   assert(m2.g('IQ.r') === 5 && m2.g('IQ.w') === 2, 'reload: fight IQ score restored');
   assert(m2.g('VOICE_ON') === false, 'reload: voice toggle restored');
   assert(m2.g('CALLER_ON') === true, 'reload: caller toggle restored');
+  assert(m2.g('BAG_ON') === false, 'reload: bag toggle restored');
+  assert(m2.g('PARTNER_ON') === true, 'reload: partner toggle restored');
   assert(m2.g('wIdx') === 7, 'reload: week selection restored');
   assert(m2.errors.length === 0, 'no errors on reload');
 
