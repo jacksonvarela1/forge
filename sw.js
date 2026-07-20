@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v2';
+const CACHE = 'forge-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,9 @@ const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;6
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(ASSETS);
+    /* cache: 'reload' skips the browser HTTP cache, otherwise a version bump can
+       precache stale files (GitHub Pages serves everything with max-age=600) */
+    await c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })));
     /* Fetch the font CSS and the woff2 files it names at install time, so the app
        is fully offline after the very first online visit. A synthesized Response is
        stored for the CSS because the page requests it no-cors, and a cached
