@@ -1,5 +1,6 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v5';
+const CACHE = 'forge-v6';
+try { importScripts('./audio/manifest.js'); } catch (err) {}
 const ASSETS = [
   './',
   './index.html',
@@ -19,6 +20,14 @@ self.addEventListener('install', e => {
     /* cache: 'reload' skips the browser HTTP cache, otherwise a version bump can
        precache stale files (GitHub Pages serves everything with max-age=600) */
     await c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })));
+    /* voice clips: precache what we can, tolerate individual failures. Any clip
+       that misses the cache still plays online and falls back to speech offline. */
+    if (self.AUDIO_MANIFEST && self.AUDIO_MANIFEST.files) {
+      await c.add(new Request('./audio/manifest.js', { cache: 'reload' })).catch(() => {});
+      await Promise.allSettled(self.AUDIO_MANIFEST.files.map(f =>
+        c.add('./audio/' + f)
+      ));
+    }
     /* Fetch the font CSS and the woff2 files it names at install time, so the app
        is fully offline after the very first online visit. A synthesized Response is
        stored for the CSS because the page requests it no-cors, and a cached

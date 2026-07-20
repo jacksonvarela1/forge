@@ -128,7 +128,11 @@ function makeContext(localStore, knownIds) {
     },
     MediaMetadata: class { constructor(m) { Object.assign(this, m); } },
     speechSynthesis: {
-      speak: u => { if (u.volume > 0) speech.push(u.text); },
+      /* fires onend on a rough speech-duration clock so fragment sequences advance */
+      speak: u => {
+        if (u.volume > 0) speech.push(u.text);
+        if (typeof u.onend === 'function') schedule(u.onend, Math.max(400, u.text.length * 40), false);
+      },
       cancel() {},
       getVoices: () => [],
       onvoiceschanged: null

@@ -362,14 +362,65 @@ function vnorm(t){
     .replace(/\s*&\s*/g,' and ')
     .replace(/\s{2,}/g,' ').trim();
 }
-function say(t,cut){
-  if(!VOICE_ON||!t)return;
-  const txt=vnorm(t);
-  if(!txt)return;
-  try{if(cut)speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(txt);u.rate=1.02;u.pitch=1.02;u.volume=1;if(vvoice)u.voice=vvoice;speechSynthesis.speak(u);}catch(e){}
+/* ---- clip coach ----
+   iOS routes speechSynthesis through its own channel that ignores Bluetooth,
+   so the coach ships as pre-generated audio clips played through WebAudio,
+   which follows the media route like music does. Browser speech stays as the
+   automatic fallback for any missing clip or when no manifest is present. */
+const CLIPS=(typeof window!=='undefined'&&window.AUDIO_MANIFEST)||null;
+const clipCache={};
+let clipCur=null,clipToken=0,sayChain=Promise.resolve();
+async function clipBuffer(key){
+  if(clipCache[key]!==undefined)return clipCache[key];
+  try{
+    if(!CLIPS||!CLIPS.map[key]||!ac)return (clipCache[key]=null);
+    const res=await fetch('audio/'+CLIPS.map[key]);
+    if(!res.ok)return (clipCache[key]=null);
+    const audio=await ac.decodeAudioData(await res.arrayBuffer());
+    return (clipCache[key]=audio);
+  }catch(e){return (clipCache[key]=null);}
 }
-function vstop(){try{speechSynthesis.cancel();}catch(e){}}
+function clipStop(){clipToken++;try{if(clipCur)clipCur.stop();}catch(e){}clipCur=null;}
+async function playSeq(parts,tok){
+  for(const p of parts){
+    if(tok!==clipToken)return;
+    const key=vnorm(p);
+    if(!key)continue;
+    const b=CLIPS?await clipBuffer(key):null;
+    if(tok!==clipToken)return;
+    if(b&&ac){
+      await new Promise(done=>{try{const s=ac.createBufferSource();s.buffer=b;s.connect(ac.destination);clipCur=s;s.onended=done;s.start();}catch(e){done();}});
+      clipCur=null;
+    }else{
+      try{
+        const u=new SpeechSynthesisUtterance(key);u.rate=1.02;u.pitch=1.02;u.volume=1;if(vvoice)u.voice=vvoice;
+        await new Promise(done=>{u.onend=done;u.onerror=done;speechSynthesis.speak(u);setTimeout(done,8000);});
+      }catch(e){}
+    }
+  }
+}
+function saySeq(parts,cut){
+  if(!VOICE_ON)return;
+  const ps=(parts||[]).map(p=>String(p||'').trim()).filter(Boolean);
+  if(!ps.length)return;
+  try{
+    if(cut){vstop();sayChain=Promise.resolve();}
+    if(!CLIPS){
+      /* no manifest: the browser's own speech queue handles ordering, as v9 did */
+      ps.forEach(p=>{
+        const key=vnorm(p);
+        if(!key)return;
+        const u=new SpeechSynthesisUtterance(key);u.rate=1.02;u.pitch=1.02;u.volume=1;if(vvoice)u.voice=vvoice;
+        speechSynthesis.speak(u);
+      });
+      return;
+    }
+    const tok=clipToken;
+    sayChain=sayChain.then(()=>playSeq(ps,tok)).catch(()=>{});
+  }catch(e){}
+}
+function say(t,cut){saySeq([t],cut);}
+function vstop(){try{speechSynthesis.cancel();}catch(e){}clipStop();}
 
 /* ---- combo caller ---- */
 const CALLADD={
@@ -639,27 +690,27 @@ function loadTimer(k,day){
   T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready'};
   elGo.textContent='Start';showSeg();
 }
-function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);say(vrand(VP.done)+' '+vrand(VP.donetail),true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fNext.textContent='LOG IT';fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';}}
+function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(VP.donetail)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fNext.textContent='LOG IT';fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';}}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
 function announce(sg){
   if(sg.type==='prep'){
     callerStop();
-    say(vrand(VP.open)+', '+NAME+'. '+endp(lbl(sg.next))+' Get set.',true);
+    saySeq([vrand(VP.open)+', '+NAME+'.',endp(lbl(sg.next)),'Get set.'],true);
     return;
   }
   if(sg.type==='rest'){
     callerStop();
-    say(vrand(VP.rest)+(sg.cue?' '+endp(sg.cue):''),true);
+    saySeq([vrand(VP.rest)].concat(sg.cue?[endp(sg.cue)]:[]),true);
     return;
   }
   const prev=T.segs[T.i-1];
   const newRound=!prev||prev.type!=='work';
   let t;
-  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=vrand(VP.lastwork)+' '+endp(lbl(sg.label));
-  else if(newRound) t=endp(lbl(sg.label))+' '+vrand(VP.begin);
-  else t=endp(lbl(sg.label))+(Math.random()<0.22?' '+vrand(VP.push):'');
-  say(t,true);
+  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=[vrand(VP.lastwork),endp(lbl(sg.label))];
+  else if(newRound) t=[endp(lbl(sg.label)),vrand(VP.begin)];
+  else t=[endp(lbl(sg.label))].concat(Math.random()<0.22?[vrand(VP.push)]:[]);
+  saySeq(t,true);
   setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
 }
 function advance(quiet){
@@ -686,7 +737,7 @@ function resync(){
     if(hops>0){
       const cur=T.segs[T.i];
       bell(cur.type==='rest'?'rest':'work');
-      say('Back with you. '+lbl(cur.label)+'. '+Math.max(T.left,1)+' seconds left.',true);
+      saySeq(['Back with you.',endp(lbl(cur.label)),Math.max(T.left,1)+' seconds left.'],true);
       if(cur.type==='work')setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
       else callerStop();
     }
