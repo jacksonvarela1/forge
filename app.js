@@ -395,14 +395,34 @@ const DEFATK=['Jab.','Double jab.','Right hand.','One two.','Lead hook.','Body s
 function poolFor(wi){let p=[];for(let i=1;i<=wi+1;i++)p=p.concat(CALLADD[i]||[]);p=p.concat(CALLADD[wi+1]||[]);return p;}
 let callT=null;
 function callerStop(){if(callT){clearTimeout(callT);callT=null;}}
+/* A call must match the round it lands in: no punch combos in a teep round,
+   no kick calls in a hands-only round, movement cues only in footwork rounds. */
+const KICKCALL=/kick|teep|knee|check/i;
+const HANDCALL=/jab|one|two|three|four|five|six|hook|cross|uppercut|body shot|punch|straight|hands|feint the|sell it|fake the shot/i;
+function poolFilterFor(label){
+  const L=String(label).toLowerCase();
+  const teeps=/teep/.test(L),kicks=/kick/.test(L);
+  const hands=/jab|hand|punch|box|combo|1-2|straight|counter|body/.test(L);
+  if(/footwork only|no punches|feet only|move only|movement only/.test(L))return c=>!KICKCALL.test(c)&&!HANDCALL.test(c);
+  if(/jab only|jabs only/.test(L))return c=>/jab/i.test(c)&&!KICKCALL.test(c);
+  if(teeps&&!kicks&&!hands)return c=>/teep/i.test(c)&&!HANDCALL.test(c);
+  if((teeps||kicks)&&!hands)return c=>KICKCALL.test(c)&&!HANDCALL.test(c);
+  if(hands&&!teeps&&!kicks)return c=>!KICKCALL.test(c);
+  return null;
+}
+function fromPool(pool,filter){
+  const p=filter?pool.filter(filter):pool;
+  return p.length?vrand(p):vrand(CALLCUE.filter(c=>!KICKCALL.test(c)&&!HANDCALL.test(c)));
+}
 function callerPick(ctx,label){
   const pool=poolFor(wIdx);
   const flavor=ctx==='station'?roundCall(label,DK[dIdx]):ctx;
+  const filter=poolFilterFor(label);
   const r=Math.random();
   if(r<0.10)return vrand(VP.praise);
   if(flavor==='defense')return r<0.28?vrand(CALLCUE):vrand(wIdx>=4?DEFATK:DEFPAIR);
-  if(flavor==='free')return r<0.32?vrand(CALLCUE):vrand(FREECALL);
-  return r<0.30?vrand(CALLCUE):vrand(pool);
+  if(flavor==='free')return r<0.32?vrand(CALLCUE):fromPool(FREECALL,filter);
+  return r<0.30?vrand(CALLCUE):fromPool(pool,filter);
 }
 /* cadence per round type: defense is stimulus-response (fast), technique and
    stations sit mid, free rounds get sparse corner prompts with real silence */

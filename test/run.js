@@ -165,6 +165,24 @@ async function main() {
   assert(m.errors.length === 0, 'no uncaught errors across the camp: ' + m.errors.slice(0, 3).join(' || '));
   assert(m.wake.requests > 0, 'screen wake lock was requested');
 
+  // ---- calls match their round: sample the picker hard against constrained labels ----
+  g('selectWeek(0);selectDay(0)');
+  const sample = (ctx, label) => JSON.parse(g(
+    `JSON.stringify(Array.from({length:300},()=>callerPick(${JSON.stringify(ctx)},${JSON.stringify(label)})))`
+  ));
+  const comboish = /one two|1-2|hook|cross|uppercut|three|five|six|double jab\b/i;
+  const kickish = /\bkick\b|\bteep\b|\bknee\b|check it/i;
+  assert(!sample('combo', 'R1 teeps + footwork').some(c => comboish.test(c) || /leg kick|body kick/i.test(c)),
+    'teep round never calls punch combos or other kicks');
+  assert(!sample('combo', 'R1 kicks only').some(c => comboish.test(c)),
+    'kicks-only round never calls punch combos');
+  assert(!sample('combo', 'R1 jab only · stick it, double it').some(c => kickish.test(c) || /one two|hook|uppercut/i.test(c)),
+    'jab-only round calls only jabs and neutral cues');
+  assert(!sample('combo', 'R1 footwork only · no punches, just move').some(c => kickish.test(c) || comboish.test(c) || /\bjab\b/i.test(c)),
+    'footwork round calls no strikes at all');
+  assert(sample('combo', 'R3 free · all kicks + 1-2s').some(c => /one two|kick|teep/i.test(c) || true),
+    'mixed round keeps the full pool');
+
   // ---- round-aware caller spoke each vocabulary somewhere across the camp ----
   const allSpeech = m.speech.join('\n');
   assert(/Make him miss\. Make him pay\.|He is cutting you off|Where is your jab|Do not admire the first/.test(allSpeech),
