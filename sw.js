@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v1';
+const CACHE = 'forge-v2';
 const ASSETS = [
   './',
   './index.html',

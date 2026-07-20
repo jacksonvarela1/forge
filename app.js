@@ -337,7 +337,9 @@ const VP={
 };
 function vrand(a){return a&&a.length?a[Math.floor(Math.random()*a.length)]:'';}
 let VOICE_ON=true,CALLER_ON=true,vvoice=null,vready=false;
-function vpick(){try{const vs=speechSynthesis.getVoices();vvoice=vs.find(v=>/en[-_]US/i.test(v.lang)&&/(Google US English|Samantha|Ava|Allison)/i.test(v.name))||vs.find(v=>/en[-_](US|GB)/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}catch(e){}}
+function vpick(){try{const vs=speechSynthesis.getVoices();const en=vs.filter(v=>/^en/i.test(v.lang));const us=en.filter(v=>/en[-_]US/i.test(v.lang));
+  /* downloaded system voices beat the compact defaults: Premium, then Enhanced, then the old preference order */
+  vvoice=us.find(v=>/premium/i.test(v.name))||us.find(v=>/enhanced/i.test(v.name))||en.find(v=>/premium/i.test(v.name))||en.find(v=>/enhanced/i.test(v.name))||us.find(v=>/(Google US English|Samantha|Ava|Allison)/i.test(v.name))||vs.find(v=>/en[-_](US|GB)/i.test(v.lang))||en[0]||null;}catch(e){}}
 function vinit(){if(vready)return;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);vpick();speechSynthesis.onvoiceschanged=vpick;vready=true;}catch(e){}}
 const VNUM={'1':'one','2':'two','3':'three','4':'four','5':'five','6':'six'};
 function vnorm(t){
