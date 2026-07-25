@@ -108,13 +108,18 @@ function matchMove(label){
   if(/\d-\d/.test(L))return NUMMOVE;
   return null;
 }
+/* the VIDEO line is the app's only bridge to seeing a move performed, so it
+   opens the search instead of asking you to retype it */
+function vidHref(q){return 'https://www.youtube.com/results?search_query='+encodeURIComponent(q);}
 function liRich(arr){
   return arr.map(it=>{
     const label=it[0],cue=it.length>1?it[1]:'';
+    /* an optional third element is a video search for this drill itself */
+    const vq=it.length>2&&it[2]?`<div class="mvid"><b>VIDEO:</b> <a class="glink" href="${vidHref(it[2])}" target="_blank" rel="noopener">${it[2]}</a></div>`:'';
     const mv=matchMove(label);
-    if(!mv)return `<li><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}</li>`;
-    const det=`<div class="ldet"><div class="ldtag">${mv.tag}</div><ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul><div class="ldcue"><b>FIX:</b> ${mv.cue}</div><div class="ldvid"><b>VIDEO:</b> "${mv.vid}"</div></div>`;
-    return `<li class="exp"><button class="lrow lbtn" type="button"><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}<span class="chev">&#9656;</span></button>${det}</li>`;
+    if(!mv)return `<li><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}${vq}</li>`;
+    const det=`<div class="ldet"><div class="ldtag">${mv.tag}</div><ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul><div class="ldcue"><b>FIX:</b> ${mv.cue}</div><div class="ldvid"><b>VIDEO:</b> <a class="glink" href="${vidHref(mv.vid)}" target="_blank" rel="noopener">${mv.vid}</a></div></div>`;
+    return `<li class="exp"><button class="lrow lbtn" type="button"><b>${label}</b>${cue?`<span class="cue"> ${cue}</span>`:''}<span class="chev">&#9656;</span></button>${vq}${det}</li>`;
   }).join('');
 }
 /* earliest week each move appears, derived from the actual drills */
@@ -128,12 +133,21 @@ const MOVEWEEK={};
       scan(d.t);scan(d.r);});});
     /* the matcher resolves ties by key length, so a few moves never bind.
        pin those deterministically instead of dropping them from the deck. */
-    const FIX={'Rear Hook (4)':0,'Rear Uppercut (6)':0,'Roundhouse':0,'Head Kick':0,'Shell':2,'Pull':3,'Level Change':1,'The Rest':0,'T-Spine Opener':0};
-    const CATFALL={'Bag Work':4};
+    const FIX={'Rear Hook (4)':0,'Rear Uppercut (6)':0,'Shell':2,'Pull':3,'Level Change':1,'The Rest':0,'T-Spine Opener':0};
+    /* Bag Work is pinned to the week the bag actually arrives. The literal has
+       to stay in step with BAGWEEK below, which cannot be referenced from here
+       without hitting its temporal dead zone inside this IIFE. */
+    const CATFALL={'Bag Work':3};
     CATS.forEach(c=>c.moves.forEach(m=>{
       if(MOVEWEEK[m.name]===undefined)
         MOVEWEEK[m.name]=FIX[m.name]!==undefined?FIX[m.name]:(CATFALL[c.cat]!==undefined?CATFALL[c.cat]:0);
     }));
+    /* Applied AFTER the scan, not as a fallback: the keyword matcher binds these
+       to the wrong week rather than failing to bind them at all. Roundhouse was
+       landing on week 10 because week 1's "Body roundhouse" matches the Body Kick
+       alias first, so the app announced it as new in the final week. */
+    const PIN={'Roundhouse':0,'Head Kick':3};
+    Object.keys(PIN).forEach(n=>{if(MOVEWEEK[n]!==undefined)MOVEWEEK[n]=PIN[n];});
   }catch(e){}
 })();
 function newIn(wi){return Object.keys(MOVEWEEK).filter(n=>MOVEWEEK[n]===wi);}
@@ -484,7 +498,7 @@ CATS.forEach((c,i)=>{
   h+=`<div class="move"><div class="mtop"><span class="mname">${mv.name}</span>${wk!==undefined?`<span class="mwk">WK ${wk+1}</span>`:''}<span class="mtag">${mv.tag}</span></div>
       <ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
       <div class="mcue"><b>CUE:</b> ${mv.cue}</div>
-      <div class="mvid"><b>VIDEO:</b> "${mv.vid}"</div></div>`;});
+      <div class="mvid"><b>VIDEO:</b> <a class="glink" href="${vidHref(mv.vid)}" target="_blank" rel="noopener">${mv.vid}</a></div></div>`;});
  sec.innerHTML=h;movesEl.appendChild(sec);
 });
 
@@ -908,7 +922,18 @@ function loadTimer(k,day){
   T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready',wk:wIdx,dk:k};
   elGo.textContent='Start';showSeg();
 }
-function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(VP.donetail)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fNext.textContent='LOG IT';fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';}}
+/* The session ends in focus mode, phone on the grass, so the log button has to
+   be there and not three scrolls down the Week tab. */
+function offerLog(){
+  try{
+    if(!fGo||!fEl)return;
+    const already=isDone(wIdx,dIdx);
+    fNext.innerHTML=already?'LOGGED':`<button class="fc" id="flog" type="button" style="flex:none;padding:12px 20px">Log this session</button>`;
+    const b=document.getElementById('flog');
+    if(b)b.addEventListener('click',()=>{toggleDone(wIdx,dIdx);offerLog();});
+  }catch(e){}
+}
+function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(VP.donetail)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';offerLog();}}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
 function announce(sg){
@@ -1058,7 +1083,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&FOCUS)setFocus(fals
 
 /* ---- views ---- */
 const weekView=document.getElementById('weekView'),movesView=document.getElementById('movesView'),gearView=document.getElementById('gearView'),logView=document.getElementById('logView'),iqView=document.getElementById('iqView'),timerbar=document.getElementById('timerbar'),vWeek=document.getElementById('vWeek'),vMoves=document.getElementById('vMoves'),vGear=document.getElementById('vGear'),vLog=document.getElementById('vLog'),vIQ=document.getElementById('vIQ');
-function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';timerbar.style.display=v==='week'?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
+function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';
+ /* the timer bar follows you off the Week tab while a session is live, so
+    checking a move or logging a weigh-in mid-round does not hide your clock */
+ timerbar.style.display=(v==='week'||(T&&T.segs&&T.state==='run'))?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'&&!(T&&T.running)){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
 vWeek.addEventListener('click',()=>setView('week'));
 vMoves.addEventListener('click',()=>setView('moves'));
 vGear.addEventListener('click',()=>setView('gear'));
@@ -1095,6 +1123,15 @@ selectDay(dmap[new Date().getDay()]);
 setView('week');
 buildGrid();
 boot();
+
+/* ---- build stamp ----
+   So you can tell at a glance whether the phone actually picked up an update,
+   instead of guessing why a fix does not seem to be there. */
+const BUILD='v12';
+(function(){try{
+  const f=document.querySelector('#weekView footer');
+  if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');
+}catch(e){}})();
 
 /* ---- service worker ---- */
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});}

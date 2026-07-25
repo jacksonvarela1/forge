@@ -1,5 +1,10 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v11';
+const CACHE = 'forge-v12';
+/* Voice clips live in their own cache that survives version bumps. They are
+   content-addressed by hash, so a clip never changes under a given name and
+   there is nothing to invalidate. Keeping them out of the versioned cache is
+   what stops every app update from re-downloading 9 MB of audio. */
+const AUDIO_CACHE = 'forge-audio';
 try { importScripts('./audio/manifest.js'); } catch (err) {}
 const ASSETS = [
   './',
@@ -24,9 +29,11 @@ self.addEventListener('install', e => {
        that misses the cache still plays online and falls back to speech offline. */
     if (self.AUDIO_MANIFEST && self.AUDIO_MANIFEST.files) {
       await c.add(new Request('./audio/manifest.js', { cache: 'reload' })).catch(() => {});
-      await Promise.allSettled(self.AUDIO_MANIFEST.files.map(f =>
-        c.add('./audio/' + f)
-      ));
+      const ac = await caches.open(AUDIO_CACHE);
+      /* only fetch clips this device does not already hold */
+      const have = new Set((await ac.keys()).map(r => r.url.split('/').pop()));
+      const need = self.AUDIO_MANIFEST.files.filter(f => !have.has(f));
+      await Promise.allSettled(need.map(f => ac.add('./audio/' + f)));
     }
     /* Fetch the font CSS and the woff2 files it names at install time, so the app
        is fully offline after the very first online visit. A synthesized Response is
@@ -51,7 +58,8 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      /* drop old app-shell versions, never the audio cache */
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== AUDIO_CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -65,7 +73,8 @@ self.addEventListener('fetch', e => {
       return fetch(e.request).then(res => {
         if (res && (res.ok || res.type === 'opaque')) {
           const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+          const target = /\/audio\/[0-9a-f]{12}\.mp3$/.test(e.request.url) ? AUDIO_CACHE : CACHE;
+          caches.open(target).then(c => c.put(e.request, copy)).catch(() => {});
         }
         return res;
       }).catch(() => {

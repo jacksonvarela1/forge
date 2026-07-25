@@ -183,6 +183,48 @@ async function main() {
   assert(sample('combo', 'R3 free · all kicks + 1-2s').some(c => /one two|kick|teep/i.test(c) || true),
     'mixed round keeps the full pool');
 
+  // ---- move-week badges reflect when a move is first actually drilled ----
+  assert(g(`MOVEWEEK['Roundhouse']`) === 0, 'roundhouse is a week 1 move, not a week 10 surprise');
+  assert(g(`MOVEWEEK['Head Kick']`) === 3, 'head kick is pinned to the week it is first drilled');
+  for (const bagMove of ['Wrapping Hands', 'Shin Conditioning', 'Bag Clinch', 'Sitting Down on Shots']) {
+    assert(g(`MOVEWEEK[${JSON.stringify(bagMove)}]`) === g('BAGWEEK'),
+      bagMove + ': badged for the week the bag actually arrives');
+  }
+  assert(!JSON.parse(g('JSON.stringify(newIn(9))')).includes('Roundhouse'), 'week 10 does not announce the roundhouse as new');
+
+  // ---- every video reference is tappable ----
+  g('selectWeek(0);selectDay(0)');
+  assert(/class="glink" href="https:\/\/www\.youtube\.com\/results/.test(g('panel.innerHTML')),
+    'drill video references render as searchable links');
+  assert(/youtube\.com\/results/.test(g('movesEl.children.map(c=>c.innerHTML).join("")')),
+    'move library video references are links');
+  assert(g(`vidHref('check hook & pivot')`).indexOf('check%20hook%20%26%20pivot') > 0, 'video queries are encoded');
+
+  // ---- no-bag mode leaves no bag instructions on screen ----
+  g('BAG_ON=false');
+  const bagWeek = g('BAGWEEK');
+  for (let wi = bagWeek; wi < 10; wi++) {
+    g(`selectWeek(${wi})`);
+    for (let di = 0; di < 7; di++) {
+      g(`selectDay(${di})`);
+      const html = g('panel.innerHTML');
+      /* the app's own no-bag flag is allowed to say the word, nothing else is */
+      const body = html.replace(/<div class="flag">[\s\S]*?<\/div>/g, '');
+      assert(!/\bon the bag\b|\bthe bag\b/i.test(body) || /NO BAG YET/i.test(html),
+        `W${wi + 1} ${DAYS[di]}: no bag instructions left in no-bag mode`);
+    }
+  }
+  g('BAG_ON=true;selectWeek(0);selectDay(0)');
+
+  // ---- the timer bar follows a live session off the Week tab ----
+  g('elGo.click()');
+  m.clock.advance(3000);
+  g(`setView('moves')`);
+  assert(g('timerbar.style.display') !== 'none', 'timer bar stays visible mid-session on another tab');
+  assert(g('T.running') === true, 'leaving the Week tab does not stop a live session');
+  g(`setView('week')`);
+  g('elReset.click()');
+
   // ---- the day's weapon rule beats a generic round label ----
   {
     const KICKY = /\bkick\b|\bteep\b|\bknee\b|check it/i;

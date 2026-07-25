@@ -139,7 +139,13 @@
   .tnext{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;}
   .trow{display:flex;align-items:center;gap:12px;}
   .tclock{font-size:1.7rem;min-width:84px;}
-  .tbtn{padding:9px 10px;}
+  /* sweaty hands, sometimes gloved, phone on the grass: these are the controls
+     that get hit mid-round, so they get real targets */
+  .tbtn{padding:13px 14px;min-height:44px;min-width:46px;}
+  .tbtn.go{min-width:74px;}
+  .fc{padding:18px 8px;min-height:56px;}
+  .gcell{min-height:30px;}
+  .vbtn{min-height:40px;}
   .tround{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
   .tprog{position:absolute;left:0;top:0;height:2px;background:var(--ember);width:100%;transition:width .95s linear;}

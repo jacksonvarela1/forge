@@ -43,7 +43,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s max 1-2'],['30s push-up variations'],['30s 1-2, slip, 2'],['30s slips + counters'],['30s plank shoulder taps'],['30s 2-3-2 full speed']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 30']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every strike from the week, zero power'],['Mobility 15 min','pigeon, 90/90, deep squat, t-spine, shoulders'],['Film 10 min','the jab and nothing else. GSP or Volkanovski. Watch one round straight through, then replay 2 or 3 exchanges counting jabs, then say one takeaway out loud. Keep this fighter all phase.']],
+   t:[['Shadow 40-50%, 15 min','every strike from the week, zero power'],['Mobility 15 min','pigeon, 90/90, deep squat, t-spine, shoulders'],['Film 10 min','the jab and nothing else. GSP vs Koscheck 2 is the whole lesson in one fight. Watch one round straight through, then replay 2 or 3 exchanges counting jabs, then say one takeaway out loud. Keep this fighter all phase.','GSP vs Koscheck 2 jab']],
    r:[]}
  }},
 
@@ -95,12 +95,12 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s five-punch chains max'],['30s push-up variations'],['30s body-head'],['30s catch-counter'],['30s body-head hands'],['30s free chains']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 40']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every chain slow, both stances'],['Mobility 15 min','extra hips, the switch kicks tax them'],['Film 10 min','hands into kicks. Pereira, 1-2 into the left low kick.']],
+   t:[['Shadow 40-50%, 15 min','every chain slow, both stances'],['Mobility 15 min','extra hips, the switch kicks tax them'],['Film 10 min','hands into kicks. Alex Pereira, the 1-2 into the low kick. He is southpaw, so mirror him: his left low kick is your right. Watch the punches buy the kick.','Alex Pereira 1-2 low kick setup']],
    r:[]}
  }},
 
 /* ================= WEEK 4 ================= */
-{n:4,phase:'Phase 2 · Connection',theme:'Setups',note:'Nothing lands cold. Every strike is bought with a feint, a level change, or a hand that opens the leg. THE BAG LANDS THIS WEEK: it is a target for your setups, not a power test. Wraps and gloves every round, hands and kicks at 50 percent all week, and stop the moment a wrist or a shin complains.',
+{n:4,phase:'Phase 2 · Connection',theme:'Setups',note:'Nothing lands cold. Every strike is bought with a feint, a level change, or a hand that opens the leg. THE BAG LANDS THIS WEEK: it is a target for your setups, not a power test. Wraps and gloves every round, hands and kicks at 50 percent all week, and stop the moment a wrist or a shin complains. NO BAG YET: nothing changes this week. The setups are the point and they work perfectly in the air. Keep hunting for the bag.',
  d:{
   mon:{tm:{work:180,rest:60,rounds:3},
    t:[['Hand feint into leg kick x12 each','flash the jab, kick low'],['Level change into head kick x10 each','they cover low, you go high'],['Teep feint into leg kick x12 each'],['Question mark kick x12 each'],['Body kick then head kick, same side x10 each']],
@@ -121,7 +121,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s feint into combo, max'],['30s push-up variations'],['30s body-head'],['30s pull counter'],['30s hooks, turn the body'],['30s free chains with feints']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 45']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every setup, sell each feint'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feints only. Ilia or Volkanovski, watch the shoulder.']],
+   t:[['Shadow 40-50%, 15 min','every setup, sell each feint'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feints only. Ilia Topuria or Alexander Volkanovski, watch the shoulder and nothing else.','Ilia Topuria feints breakdown']],
    r:[]}
  }},
 
@@ -147,7 +147,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s counter chains max'],['30s push-up variations'],['30s check hook'],['30s pull counter'],['30s uppercuts in close'],['30s free counter boxing']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands. Then run a Paddy Pimblett round with the sound off and count how often his chin sits high and straight up the middle. His grappling bails him out. On the feet you will not have that excuse, and this is the exact habit these five weeks are built to kill.']],
+   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','counters. Anderson Silva, the beat before it lands, and watch the timing only, do not copy the hands-down guard. Then run a Paddy Pimblett round with the sound off and count how often his chin sits high and straight up the middle. His grappling bails him out. On the feet you will not have that excuse, and this is the exact habit these five weeks are built to kill.']],
    r:[]}
  }},
 
@@ -173,7 +173,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s combo-angle-combo max'],['30s push-up variations'],['30s in-out-in'],['30s counter and pivot'],['30s fast hands, chin down'],['30s free, always moving']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','angles only, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feet only. Volkanovski, ignore his hands entirely.']],
+   t:[['Shadow 40-50%, 15 min','angles only, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','feet only. Stephen Wonderboy Thompson, ignore his hands and his stance entirely. Watch how he never ends where he started.','Wonderboy Thompson footwork breakdown']],
    r:[]}
  }},
 
@@ -199,7 +199,7 @@ const W = [
    t:[['Rotate every 30 sec, hands on the bag. 1:00 rest.'],['30s max straights'],['30s push-up variations'],['30s body-head'],['30s slip-counter'],['30s combo, then pivot'],['30s free hands']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','no bag today, groove the clean form back in'],['Mobility 15 min','shins and hips took new impact, take all of it'],['Film 10 min','a power puncher. Ngannou or Ilia, watch the rear heel and knees.']],
+   t:[['Shadow 40-50%, 15 min','no bag today, groove the clean form back in'],['Mobility 15 min','shins and hips took new impact, take all of it'],['Film 10 min','a power puncher. Ilia Topuria or Robert Whittaker, watch the rear heel and the knees. Skip the heavyweights, that power is not mechanics you can copy.','Ilia Topuria power punching mechanics']],
    r:[]}
  }},
 
@@ -230,7 +230,7 @@ const W = [
  }},
 
 /* ================= WEEK 9 ================= */
-{n:9,phase:'Phase 5 · Creation',theme:'Rhythm',note:'A readable rhythm is how you get hit. Fast, slow, pause, burst, on the bag now. Same strikes on a beat nobody can count. This is the week it starts being fun.',
+{n:9,phase:'Phase 5 · Creation',theme:'Rhythm',note:'A readable rhythm is how you get hit. Fast, slow, pause, burst, on the bag now. NO BAG YET: rhythm is the one thing that costs you nothing without one, so run every bit of it in the air. Same strikes on a beat nobody can count. This is the week it starts being fun.',
  d:{
   mon:{tm:{work:180,rest:60,rounds:3},
    t:[['Broken-rhythm kicks x12','pause mid-combo, then kick'],['Fast-fast-slow kick chains x10'],['Double leg kick, same side x12 each'],['Kick on the half beat x12','kick while they reset'],['Fake the kick, kick anyway x10']],
@@ -251,12 +251,12 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s bursts max'],['30s push-up variations'],['30s fast-fast-slow'],['30s bait and counter'],['30s hands at fight pace'],['30s free rhythm boxing']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','play with tempo, no power'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','pace changes. Max Holloway, count the beats.']],
+   t:[['Shadow 40-50%, 15 min','play with tempo, no power'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','pace changes. Max Holloway vs Brian Ortega, count the beats out loud.','Holloway vs Ortega volume pace']],
    r:[]}
  }},
 
 /* ================= WEEK 10 ================= */
-{n:10,phase:'Phase 5 · Creation',theme:'Free',note:'No prescribed combos. Everything you built, unscripted, on the bag and in the air. Run the 5-point checkpoint Sunday, then book the trial class.',
+{n:10,phase:'Phase 5 · Creation',theme:'Free',note:'No prescribed combos. Everything you built, unscripted, on the bag and in the air. NO BAG YET: all of it in the air then, and it still counts. Run the 5-point checkpoint Sunday, then book the trial class.',
  d:{
   mon:{tm:{work:180,rest:60,rounds:3},
    t:[['Teeps only x20','clean means full hip and the foot back to stance. Count them'],['Roundhouse x10 each','full pivot, recover balanced, count them'],['Every kick behind a hand x12','jab kick, cross kick, your pick'],['Both stances, 2 min each'],['Entry, kick, exit x12','get in, land it, get out clean']],
