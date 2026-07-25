@@ -191,7 +191,10 @@ function render(){
   if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt});B.push({n:'Finisher',s:'Fin',du:'5 min',it:dr,sec:1});}
   else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:dt});if(dr&&dr.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:dr,sec:1});}
   else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1});}
-  if(PARTNER_ON&&PARTNER[k]&&PARTNER[k].length&&k!=='sun')B.push({n:'With a partner',s:'Duo',du:'',it:PARTNER[k],sec:1});
+  /* Partner work is billed at 10 minutes and comes OUT of the Rounds block, it is
+     never bolted on top: the session is capped at 60 minutes and a free sixth
+     block is how a 45 minute session quietly becomes 70. */
+  if(PARTNER_ON&&PARTNER[k]&&PARTNER[k].length&&k!=='sun')B.push({n:'With a partner',s:'Duo',du:'10 min',it:PARTNER[k],sec:1});
   if(m.cool)B.push({n:'Cooldown',s:'Cool',du:'5 min',it:COOL[m.cool]});
   let tot=0,flow='';
   B.forEach(b=>{const mn=durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
@@ -200,14 +203,16 @@ function render(){
   panel.innerHTML=`
    <div class="phase" style="border-left-color:var(${PCOL[wIdx]})"><div class="ph" style="color:var(${PCOL[wIdx]})">Week ${w.n} of 10 · ${w.phase}</div><div class="th">${w.theme}</div><div class="nt">${adaptNote(w.note)}</div>${nw.length?`<div class="nlab">New this week</div><div class="newrow">${nw.slice(0,6).map(n=>`<span class="nchip">${n}</span>`).join('')}${nw.length>6?`<span class="nchip" style="color:var(--muted)">+${nw.length-6} more</span>`:''}</div>`:''}</div>
    <div class="dhead"><div><div class="dtitle">${m.title}</div><div class="dfocus">${m.focus}</div></div><span class="badge" style="color:${col};border-color:${col}">${typeText[m.type]}</span></div>
+   <div class="pairline">${LIFT[k]?`<b>Lift today:</b> ${LIFT[k].title}. Lift first, this session 4 hours later or more.`:'<b>No lift today.</b> This is a striking-only day.'}</div>
    <div class="meter">${segs}<span class="mlabel">Intensity ${m.intensity}/5</span></div>
    <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button></div>
    <div class="swrow"><button class="sw${BAG_ON?' on':''}" id="swB" type="button">${BAG_ON?'&#9679;':'&#9675;'} Heavy bag</button><button class="sw${PARTNER_ON?' on':''}" id="swP" type="button">${PARTNER_ON?'&#9679;':'&#9675;'} Partner</button></div>
    ${flowbar}
    ${blocks}
    ${m.flag?`<div class="flag">${m.flag}</div>`:''}
-   ${(!BAG_ON&&wIdx>=4)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
-   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${PARTNER_RULES}</div>`:''}
+   ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
+   ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">First week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands at 50 percent and kicks at 50 percent all week no matter how good it feels: your wrists have spent three weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one, not week five. Sore shins mean back off, not push on.</div>`:''}
+   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<BAGWEEK?'Partner arrives with the bag at the end of week 3. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button></div>`;
   const db=document.getElementById('dbtn');
   if(db)db.addEventListener('click',()=>toggleDone(wIdx,dIdx));
@@ -262,6 +267,51 @@ function buildGrid(){
    <div class="stat"><div class="sv" style="font-size:.95rem;padding:6px 0 5px">${rankOf(tot)}</div><div class="sl">rank</div></div>`;
 }
 if(gridEl)gridEl.addEventListener('click',e=>{const c=e.target.closest('.gcell');if(!c)return;toggleDone(+c.dataset.w,+c.dataset.d);});
+
+/* ---- lifting split ---- */
+const liftdaysEl=document.getElementById('liftdays'),liftpanel=document.getElementById('liftpanel'),liftrulesEl=document.getElementById('liftrules');
+let lIdx=0;
+function liPlain(arr){
+  return (arr||[]).map(it=>`<li><b>${it[0]}</b>${it.length>1&&it[1]?`<span class="cue"> ${it[1]}</span>`:''}</li>`).join('');
+}
+function jumpFor(wi){
+  for(const b of JUMPBLOCK)if(wi>=b.from&&wi<=b.to)return b;
+  return JUMPBLOCK[JUMPBLOCK.length-1];
+}
+/* which lift lands on a given MMA weekday, or null on the three rest days */
+function liftOn(k){return LIFT[k]||null;}
+function renderLift(){
+  if(!liftpanel)return;
+  try{
+    const k=LIFTDAYS[lIdx],d=LIFT[k],m=DAYMETA[k];
+    const jb=jumpFor(wIdx);
+    const B=[{n:'Primer',it:d.primer},{n:'Main',it:d.main},{n:'Accessories',it:d.acc,sec:1},{n:'Stretch',it:d.stretch,sec:1}];
+    const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span></div><ul class="items">${liPlain(b.it)}</ul></div>`:'').join('');
+    const jump=k==='wed'?`<div class="block"><div class="blabel"><span class="name">Jump block</span><span class="dur">${jb.n} &middot; ${jb.wk}</span></div><p class="dfocus" style="margin:0 0 10px">${jb.intro}</p><ul class="items">${liPlain(jb.it)}</ul></div>`:'';
+    liftpanel.innerHTML=`
+     <div class="phase" style="border-left-color:var(--ember)"><div class="ph" style="color:var(--ember)">Lift ${lIdx+1} of 4 &middot; ${m.abbr}</div><div class="th">${d.title}</div><div class="nt">${d.pair}</div></div>
+     <div class="flag">${LIFTRULE}</div>
+     ${jump}
+     ${blocks}
+     <div class="flag">${d.note}</div>`;
+  }catch(e){liftpanel.innerHTML='<div class="empty"><b>Hiccup</b>Could not draw that lift day. Tap another day.</div>';}
+}
+function selectLift(i){
+  lIdx=i;
+  document.querySelectorAll('#liftdays .daytab').forEach((t,x)=>t.classList.toggle('active',x===i));
+  renderLift();
+}
+if(liftdaysEl){
+  LIFTDAYS.forEach((k,i)=>{
+    const b=document.createElement('button');b.className='daytab';
+    b.innerHTML=`<span class="abbr">${DAYMETA[k].abbr}</span><span class="dot" style="background:var(--ember)"></span>`;
+    b.addEventListener('click',()=>selectLift(i));liftdaysEl.appendChild(b);
+  });
+}
+if(liftrulesEl){
+  liftrulesEl.innerHTML='<h2>Rules That Run The Block</h2>'+LIFTRULES.map((r,i)=>
+    `<div class="note"><div class="n">${String(i+1).padStart(2,'0')}</div><div class="t"><b>${r[0]}.</b> <span>${r[1]}</span></div></div>`).join('');
+}
 
 /* ---- moves ---- */
 const catbarEl=document.getElementById('catbar'),movesEl=document.getElementById('moves');
@@ -530,7 +580,7 @@ const NOBAG_MAP={
  'Uppercuts in close x12 each':['Uppercuts in close x12 each','imagine the clinch, dig up short from the legs'],
  'Rotate every 30 sec on the bag. 1:00 rest.':['Rotate every 30 sec. 1:00 rest. Count reps, the number is the standard.'],
  '30s max output':['30s punch-out, 90 straights'],
- '30s sprawl into 1-2 on the bag':['30s sprawl into 1-2'],
+ '30s 1-2 on the bag, max hands':['30s 1-2, max hands'],
  'Touch, slip, counter x15 each':['Touch, slip, counter x15 each','flash the jab as his, slip it, cross back'],
  'R1|slip-counter on the bag only':['R1','slip-counter only, make every miss real'],
  'Rotate every 30 sec, hands on the bag. 1:00 rest.':['Rotate every 30 sec, hands only. 1:00 rest. Count the reps.'],
@@ -547,8 +597,11 @@ const NOBAG_MAP={
  'Slip the swing, 2-3 x15':['Slip the jab, 2-3 x15'],
  'Pivot off it, hook x12':['Pivot off him, hook x12']
 };
+/* The bag lands at the end of camp week 3, so week 4 is the first week whose
+   content can assume one. Before that there is nothing to adapt. */
+const BAGWEEK=3;
 function adaptItems(arr){
-  if(!arr||BAG_ON||wIdx<4)return arr;
+  if(!arr||BAG_ON||wIdx<BAGWEEK)return arr;
   return arr.map(it=>{
     const sub=NOBAG_MAP[it.length>1?it[0]+'|'+it[1]:'']||NOBAG_MAP[it[0]];
     return sub?sub.slice():it;
@@ -576,7 +629,7 @@ const PARTNER={
       ['Caller station','he calls random combos, you throw them in the air at range']],
  sun:[]
 };
-const PARTNER_RULES='Partner rules: no head contact before week 9, body is touch only, kicks stay light and land above the knee, no free sparring, any hard contact ends the round.';
+const PARTNER_RULES='Partner rules, agreed out loud before you touch gloves. Percentage is set BEFORE the round and nobody raises it mid-round. No head contact at all, and the week 9 mouthguard does not change that: a mouthguard protects teeth and jaws, it does not protect brains, and two beginners with nobody watching have no business trading head shots. Body contact is touch only. Kicks stay light, land above the knee, and never shin on shin until you both have pads. No free sparring. Whoever is striking wears the gloves. Any hard contact, accidental or not, ends the round for both of you. Ten minutes, and it comes out of your rounds, not on top of them.';
 
 /* ---- round-aware calling ---- */
 function roundCall(label,k){
@@ -838,9 +891,10 @@ if(fx)fx.addEventListener('click',()=>setFocus(false));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&FOCUS)setFocus(false);});
 
 /* ---- views ---- */
-const weekView=document.getElementById('weekView'),movesView=document.getElementById('movesView'),gearView=document.getElementById('gearView'),logView=document.getElementById('logView'),iqView=document.getElementById('iqView'),timerbar=document.getElementById('timerbar'),vWeek=document.getElementById('vWeek'),vMoves=document.getElementById('vMoves'),vGear=document.getElementById('vGear'),vLog=document.getElementById('vLog'),vIQ=document.getElementById('vIQ');
-function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';timerbar.style.display=v==='week'?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
+const weekView=document.getElementById('weekView'),liftView=document.getElementById('liftView'),movesView=document.getElementById('movesView'),gearView=document.getElementById('gearView'),logView=document.getElementById('logView'),iqView=document.getElementById('iqView'),timerbar=document.getElementById('timerbar'),vWeek=document.getElementById('vWeek'),vLift=document.getElementById('vLift'),vMoves=document.getElementById('vMoves'),vGear=document.getElementById('vGear'),vLog=document.getElementById('vLog'),vIQ=document.getElementById('vIQ');
+function setView(v){weekView.style.display=v==='week'?'':'none';liftView.style.display=v==='lift'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';timerbar.style.display=v==='week'?'':'none';vWeek.classList.toggle('active',v==='week');vLift.classList.toggle('active',v==='lift');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v==='lift')renderLift();if(v!=='week'){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
 vWeek.addEventListener('click',()=>setView('week'));
+vLift.addEventListener('click',()=>setView('lift'));
 vMoves.addEventListener('click',()=>setView('moves'));
 vGear.addEventListener('click',()=>setView('gear'));
 vLog.addEventListener('click',()=>setView('log'));
@@ -861,6 +915,7 @@ async function boot(){
 
 /* ---- init ---- */
 const dmap={1:0,2:1,3:2,4:3,5:4,6:5,0:6};
+selectLift(0);
 selectWeek(0);
 selectDay(dmap[new Date().getDay()]);
 setView('week');

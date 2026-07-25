@@ -23,6 +23,7 @@
     <p class="sub">Foundation to fight-ready. The coach calls your stations and your combos out loud. Put the phone down and work.</p>
     <div class="viewtoggle" role="tablist">
       <button class="vbtn active" id="vWeek" role="tab">Week</button>
+      <button class="vbtn" id="vLift" role="tab">Lift</button>
       <button class="vbtn" id="vMoves" role="tab">Moves</button>
       <button class="vbtn" id="vGear" role="tab">Gear</button>
       <button class="vbtn" id="vLog" role="tab">Log</button>
@@ -53,6 +54,17 @@
         <div class="note"><div class="n">09</div><div class="t"><b>On kicking volume.</b> <span>Capped before the bag on purpose, because your legs squat twice a week. The teep primer now opens Tue and Fri, Tuesday chains kicks into every combo, and from week 5 the bag pulls kicking toward half the work.</span></div></div>
       </section>
       <footer>Week selector remembers where you are.<br>Day tabs open to today automatically.</footer>
+    </main>
+  </div>
+</div>
+
+<div id="liftView" style="display:none">
+  <nav><div class="wrap"><div class="days" id="liftdays"></div></div></nav>
+  <div class="wrap">
+    <main>
+      <div id="liftpanel"></div>
+      <section class="notes" id="liftrules"></section>
+      <footer>Four lifts, anchored to weekdays so they never drift against the camp.</footer>
     </main>
   </div>
 </div>
@@ -153,6 +165,7 @@
 <script>window.addEventListener('error',function(e){try{console.warn('forge:',e.message);}catch(_){}});</script>
 <script src="audio/manifest.js"></script>
 <script src="data.js"></script>
+<script src="lift.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,11 +1,12 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v6';
+const CACHE = 'forge-v7';
 try { importScripts('./audio/manifest.js'); } catch (err) {}
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './data.js',
+  './lift.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-180.png',

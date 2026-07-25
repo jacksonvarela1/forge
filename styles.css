@@ -39,6 +39,8 @@
   .dtitle{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.8rem;line-height:1;text-transform:uppercase;}
   .dfocus{color:var(--muted);font-size:.87rem;margin-top:6px;max-width:92%;}
   .badge{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;padding:5px 8px;border-radius:2px;white-space:nowrap;border:1px solid;}
+  .pairline{font-family:'JetBrains Mono',monospace;font-size:.66rem;line-height:1.5;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--p4);border-radius:3px;padding:8px 11px;margin-top:12px;}
+  .pairline b{color:var(--bone);font-weight:700;letter-spacing:.04em;}
   .meter{display:flex;gap:5px;margin:14px 0 18px;align-items:center;}
   .seg{height:6px;flex:1;border-radius:2px;background:var(--line);}
   .mlabel{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;color:var(--muted);margin-left:8px;text-transform:uppercase;white-space:nowrap;}
