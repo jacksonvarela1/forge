@@ -24,6 +24,8 @@ const indexSrc = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const KNOWN_IDS = new Set(Array.from(indexSrc.matchAll(/\bid="([^"]+)"/g), m => m[1]));
 
 const BAD_SPEECH = /\bundefined\b|\bNaN\b|\[object /;
+/* independent of the app's own parser, so a bug there cannot hide a calendar bug */
+const parseISO2 = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0); };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 let failures = 0;
@@ -182,6 +184,41 @@ async function main() {
     'footwork round calls no strikes at all');
   assert(sample('combo', 'R3 free · all kicks + 1-2s').some(c => /one two|kick|teep/i.test(c) || true),
     'mixed round keeps the full pool');
+
+  // ---- the camp calendar matches the real one ----
+  {
+    assert(g('CAMP_START') === '2026-07-13', 'camp week 1 starts Monday 13 July 2026');
+    assert(g(`isoOf(parseISO('2026-07-12'))`) === '2026-07-12', 'the Sunday the camp began round-trips');
+    assert(g(`parseISO('2026-07-12').getDay()`) === 0, 'that start day really is a Sunday');
+    /* Saturday 25 July 2026 has to read as week 2, Saturday: the second
+       Saturday of the camp, since 18 July was the first. */
+    const probe = (iso, wantW, wantD) => {
+      const d = parseISO2(iso);
+      const s = new Date(2026, 6, 13, 12, 0, 0);
+      const mon = x => { const c = new Date(x.getFullYear(), x.getMonth(), x.getDate(), 12, 0, 0); c.setDate(c.getDate() - ((c.getDay() + 6) % 7)); return c; };
+      const w = Math.round(Math.round((mon(d) - mon(s)) / 86400000) / 7);
+      const dd = (d.getDay() + 6) % 7;
+      assert(w === wantW && dd === wantD, `${iso} is week ${wantW + 1} day ${wantD} (got week ${w + 1} day ${dd})`);
+    };
+    probe('2026-07-13', 0, 0);   // first Monday
+    probe('2026-07-18', 0, 5);   // first Saturday
+    probe('2026-07-25', 1, 5);   // second Saturday, today
+    probe('2026-09-19', 9, 5);   // final Saturday
+  }
+
+  // ---- mobile: nothing forces the page sideways ----
+  {
+    const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+    assert(/overflow-x:hidden/.test(css), 'the page cannot scroll sideways');
+    assert(/\.srch,\.notebox[^}]*font-size:16px/.test(css),
+      'inputs are 16px so iOS does not zoom the page when you type');
+    assert(/@media \(max-width:430px\)/.test(css) && /@media \(max-width:360px\)/.test(css),
+      'phone breakpoints exist for standard and small handsets');
+    assert(/\.tphase\{display:none;?\}/.test(css.replace(/\s/g, '')),
+      'the redundant phase label yields its width to the round counter on phones');
+    assert(/\.sw\{min-height:42px/.test(css.replace(/\s+/g, ' ').replace(/ \{/g, '{')),
+      'the session switches are a real tap target');
+  }
 
   // ---- move-week badges reflect when a move is first actually drilled ----
   assert(g(`MOVEWEEK['Roundhouse']`) === 0, 'roundhouse is a week 1 move, not a week 10 surprise');
@@ -354,7 +391,8 @@ async function main() {
   // a backup round-trips through the same shape the export writes
   const dump = g(`JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,start:START,iq:IQ,week:wIdx})`);
   const parsed = JSON.parse(dump);
-  assert(parsed.done && parsed.start === '2026-07-27' && Array.isArray(parsed.bw), 'backup payload has every key');
+  assert(parsed.done && parsed.start === g('START') && Array.isArray(parsed.bw) && parsed.notes,
+    'backup payload carries the live log, weigh-ins, notes and start date');
 
   // ---- lifting council mandates encoded in the program data ----
   const IMPACT = /sprawl|up-down|burpee|tuck jump|squat jump|sprint|broad jump|box jump/i;

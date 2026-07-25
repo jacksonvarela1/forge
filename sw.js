@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v12';
+const CACHE = 'forge-v13';
 /* Voice clips live in their own cache that survives version bumps. They are
    content-addressed by hash, so a clip never changes under a given name and
    there is nothing to invalidate. Keeping them out of the versioned cache is

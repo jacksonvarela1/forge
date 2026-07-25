@@ -269,3 +269,71 @@
   @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
   @media (prefers-reduced-motion:reduce){#panel,#moves{animation:none;}}
   @media (min-width:560px){.daytab{min-width:0;}}
+
+  /* ================= MOBILE ================= */
+  /* The page must never scroll sideways. Anything genuinely wide (the week
+     strip, day tabs, category bar, log rows) scrolls inside its own box. */
+  html,body{max-width:100%;overflow-x:hidden;}
+  /* iOS Safari zooms the whole page when you focus an input under 16px, which
+     is why typing a weight used to throw the layout. 16px exactly stops it. */
+  .srch,.notebox,input[type="date"],input[type="number"],input[type="search"],textarea{font-size:16px;}
+  /* kill the blue flash, give a real pressed state instead */
+  button,a.glink{-webkit-tap-highlight-color:transparent;}
+  button:active{opacity:.72;}
+  .dbtn:active,.sw:active,.fc:active,.tbtn:active{transform:translateY(1px);}
+
+  @media (max-width:430px){
+    .wrap{padding:0 14px;}
+    /* all ten weeks on screen at once, no scrolling to reach week 10 */
+    .weekstrip{gap:4px;}
+    .wchip{min-width:0;flex:1 1 0;font-size:.72rem;padding:9px 0;}
+    /* all seven days visible without a swipe */
+    .days{overflow-x:visible;}
+    .daytab{min-width:0;flex:1 1 0;padding:10px 2px 8px;}
+    .daytab .abbr{font-size:.7rem;letter-spacing:.02em;}
+    .vbtn{padding:10px 2px;font-size:.64rem;letter-spacing:.02em;}
+
+    /* the timer row has to fit a clock, a round counter and three real
+       buttons. The phase word is dropped because the station name already
+       reads Rest on rest segments and the clock turns ember on work. */
+    .tphase{display:none;}
+    .trow{gap:8px;}
+    .tclock{font-size:1.6rem;min-width:78px;}
+    .tbtn{padding:12px 11px;min-width:44px;}
+    .tbtn.go{min-width:66px;}
+    .tround{font-size:.62rem;}
+    .tnext{font-size:.6rem;}
+
+    /* stat tiles and forms stay readable rather than shrinking to fit */
+    .stat{padding:10px 6px;}
+    .stat .sv{font-size:1.3rem;}
+    .stat .sl{font-size:.5rem;letter-spacing:.1em;}
+    .bwform{flex-wrap:wrap;}
+    .bwinput{max-width:100%;flex:1 1 130px;}
+    .bwform .sw{flex:1 1 auto;}
+    .bwbig{font-size:1.9rem;}
+    .card{padding:12px;}
+
+    /* sunlight legibility: the smallest greys were the first thing to vanish */
+    .dfocus,.nt,.gwhy,.bwline{font-size:.86rem;}
+    ul.items li{font-size:.92rem;}
+    .flag{font-size:.83rem;}
+    .glink{font-size:.74rem;}
+  }
+
+  /* very narrow phones: the SE and anything in split view */
+  @media (max-width:360px){
+    .wchip{font-size:.66rem;}
+    .daytab .abbr{font-size:.66rem;}
+    .vbtn{font-size:.58rem;}
+    .tclock{font-size:1.45rem;min-width:70px;}
+    .tbtn{padding:12px 9px;min-width:40px;}
+    .tbtn.go{min-width:58px;}
+  }
+
+  /* Targets that were still thin: the four session switches, the tap-to-expand
+     drill rows, and the clock that opens focus mode. All hit with wet hands. */
+  .sw{min-height:42px;padding:10px 6px;}
+  .lbtn{padding-top:7px;padding-bottom:7px;min-height:34px;}
+  .lbtn::before{top:calc(.52em + 7px);}
+  #tfocus{min-height:44px;padding:4px 0;}

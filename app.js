@@ -174,12 +174,12 @@ function isoOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(
 function parseISO(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));return m?new Date(+m[1],+m[2]-1,+m[3],12,0,0):null;}
 function mondayOf(dt){const d=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate(),12,0,0);const off=(d.getDay()+6)%7;d.setDate(d.getDate()-off);return d;}
 function noonToday(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate(),12,0,0);}
-function defaultStart(){
-  /* the Monday of the earliest session already logged, else this week's Monday */
-  const dates=Object.values(DONE).filter(Boolean).sort();
-  const seed=dates.length?parseISO(dates[0]):new Date();
-  return isoOf(mondayOf(seed||new Date()));
-}
+/* Camp began Sunday 12 July 2026, so week 1 runs from Monday the 13th. The
+   program's week is Monday to Sunday with restore on the Sunday, which puts
+   that first Sunday ahead of week 1 rather than inside it. */
+const CAMP_START='2026-07-13';
+const START_MIGRATION='2';
+function defaultStart(){return CAMP_START;}
 /* {w,d} of today within the camp, or null if today falls outside the 10 weeks */
 function todaySlot(){
   const s=parseISO(START);
@@ -1108,6 +1108,16 @@ async function boot(){
   try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
   try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
   try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
+  /* One-time correction: earlier builds silently guessed a start date from
+     whatever Monday it happened to be. Overwrite that guess once, then never
+     touch it again so a date set by hand always sticks. */
+  try{
+    const mv=await storage.get('forge:startv');
+    if(!mv||mv.value!==START_MIGRATION){
+      START=CAMP_START;saveStart();
+      await storage.set('forge:startv',START_MIGRATION);
+    }
+  }catch(e){}
   if(!START){START=defaultStart();saveStart();}
   try{const r=await storage.get('forge:week');if(r&&r.value!=null){const i=parseInt(r.value,10);if(i>=0&&i<W.length){wIdx=i;}}}catch(e){}
   /* if today falls inside the camp, open on today rather than wherever you were */
@@ -1127,7 +1137,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v12';
+const BUILD='v13';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');
