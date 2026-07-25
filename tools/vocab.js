@@ -21,7 +21,11 @@ const addEnd = t => add(g(`endp(lbl(${JSON.stringify(String(t))}))`));
 
 // openers with the fighter's name, plus fixed phrases
 for (const o of g('JSON.stringify(VP.open)') ? JSON.parse(g('JSON.stringify(VP.open)')) : []) add(o + ', ' + g('NAME') + '.');
-for (const pool of ['begin', 'push', 'praise', 'half', 'ten', 'tenlast', 'rest', 'done', 'donetail']) {
+/* Derive the pools from VP itself. Hard-coding this list once cost the coach
+   its whole 'lastwork' vocabulary, which silently fell back to browser speech
+   and therefore to the phone speaker instead of the Bluetooth one. */
+for (const pool of Object.keys(JSON.parse(g('JSON.stringify(VP)')))) {
+  if (pool === 'open') continue; // openers are emitted above, with the name appended
   for (const t of JSON.parse(g(`JSON.stringify(VP.${pool})`))) add(t);
 }
 add('Get set.');

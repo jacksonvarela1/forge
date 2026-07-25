@@ -190,6 +190,91 @@ async function main() {
   assert(/Slip right|Roll under|Check it|Parry and step in|He shoots/.test(allSpeech),
     'defense-round attack calls were spoken');
 
+  // ---- a live timer survives everything the UI does around it ----
+  g('selectWeek(0);selectDay(0)');
+  const stamp00 = g(`DONE[dkey(0,0)]`);   // preserve the original log date across the toggles below
+  g('elGo.click()');
+  m.clock.advance(20000);
+  const liveI = g('T.i'), liveLeft = g('T.left');
+  assert(g('T.running') === true, 'timer is live before the interference test');
+  g('toggleDone(0,0)');                       // marking done re-renders the day
+  assert(g('T.running') === true && g('T.state') === 'run', 'marking a session done does not kill a live timer');
+  assert(g('T.i') === liveI && Math.abs(g('T.left') - liveLeft) <= 1, 'live timer keeps its position through a re-render');
+  g('BAG_ON=!BAG_ON;render();BAG_ON=!BAG_ON;render()');
+  assert(g('T.running') === true, 'flipping an equipment switch does not kill a live timer');
+  g('toggleDone(0,0)');                       // undo the log
+  g(`DONE[dkey(0,0)]=${JSON.stringify(stamp00)};saveDone()`);
+  // switching to a different day still loads that day's timer
+  g('selectDay(2)');
+  assert(g('T.dk') === 'wed' && g('T.state') === 'ready', 'changing day loads the new session');
+  g('elReset.click()');
+
+  // ---- focus mode after the session ends ----
+  g('selectWeek(0);selectDay(4)');
+  const fsegs = JSON.parse(g('JSON.stringify(T.segs.map(s=>s.d))'));
+  g('elGo.click()');
+  m.clock.advance(fsegs.reduce((a, d) => a + d * 1000, 0) + 60000);
+  assert(g('T.state') === 'done', 'session finished for the focus test');
+  const errsBefore = m.errors.length;
+  g('setFocus(true)');
+  g('paintFocus();paintProg();showSeg()');
+  g(`document.getElementById('fgo')&&document.getElementById('fgo').click()`);
+  g('setFocus(false)');
+  assert(m.errors.length === errsBefore, 'no crash repainting or clicking focus mode after the session ends');
+  g('elReset.click()');
+
+  // ---- every spoken line the coach can say has a clip ----
+  {
+    const manifestSrc = fs.readFileSync(path.join(root, 'audio', 'manifest.js'), 'utf8');
+    const sandbox = { self: {} };
+    vm.createContext(sandbox);
+    vm.runInContext(manifestSrc, sandbox);
+    const map = vm.runInContext('self.AUDIO_MANIFEST.map', sandbox);
+    const vocab = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'vocab.json'), 'utf8'));
+    const missing = vocab.filter(v => !map[v]);
+    assert(missing.length === 0, 'every vocabulary fragment has a clip (missing: ' + missing.slice(0, 3).join(' | ') + ')');
+    const pools = JSON.parse(g('JSON.stringify(VP)'));
+    const uncovered = [];
+    for (const k of Object.keys(pools)) {
+      if (k === 'open') continue;
+      for (const line of pools[k]) if (!map[g(`vnorm(${JSON.stringify(line)})`)]) uncovered.push(k + ': ' + line);
+    }
+    assert(uncovered.length === 0, 'every coach pool is voiced, not just the ones vocab.js remembered (' + uncovered.slice(0, 3).join(' | ') + ')');
+  }
+
+  // ---- tracking: camp calendar, bodyweight, notes, backup ----
+  g(`START='2026-07-27'`);
+  assert(g(`isoOf(mondayOf(parseISO('2026-07-30')))`) === '2026-07-27', 'mondayOf snaps to the week Monday');
+  assert(g(`(function(){const s=todaySlot();return s?JSON.stringify(s):'null';})()`) !== undefined, 'todaySlot resolves');
+  assert(g(`parseISO('not a date')`) === null, 'parseISO rejects junk');
+  // bodyweight: the 7 day average is what drives the display, not the last entry
+  g(`BW=[{d:'2026-07-20',w:180},{d:'2026-07-21',w:179},{d:'2026-07-22',w:181},{d:'2026-07-27',w:177},{d:'2026-07-28',w:176},{d:'2026-07-29',w:178}]`);
+  const avg = g(`bwAvg('2026-07-29',7)`);
+  assert(Math.abs(avg - 177) < 0.001, 'bwAvg averages only the trailing window (got ' + avg + ')');
+  const tr = JSON.parse(g('JSON.stringify(bwTrend())'));
+  assert(tr && tr.delta < 0, 'bwTrend reports a loss when the average fell (' + (tr && tr.delta) + ')');
+  g('paintWeight()');
+  const wc = g('weightCardEl.innerHTML');
+  assert(/\bavg\b/.test(wc) && !/undefined|NaN/.test(wc), 'weight card renders clean');
+  g('BW=[]'); g('paintWeight()');
+  assert(!/undefined|NaN/.test(g('weightCardEl.innerHTML')), 'weight card clean with no data');
+  // notes round-trip and flag their cell
+  g(`NOTES={};NOTES[dkey(2,3)]='felt heavy';`);
+  g('buildGrid()');
+  assert(g('gridEl.innerHTML').includes('noted'), 'a noted session is marked on the grid');
+  // today card and tools render in both the set and unset states
+  g('paintToday();paintTools()');
+  assert(!/undefined|NaN/.test(g('todayCardEl.innerHTML')), 'today card clean');
+  assert(g('logToolsEl.innerHTML').includes('2026-07-27'), 'tools show the camp start date');
+  g('START=null;paintToday();paintTools()');
+  assert(!/undefined|NaN/.test(g('todayCardEl.innerHTML') + g('logToolsEl.innerHTML')), 'today card and tools clean with no start date');
+  assert(g('todaySlot()') === null, 'todaySlot is null without a start date');
+  g(`START='2026-07-27'`);
+  // a backup round-trips through the same shape the export writes
+  const dump = g(`JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,start:START,iq:IQ,week:wIdx})`);
+  const parsed = JSON.parse(dump);
+  assert(parsed.done && parsed.start === '2026-07-27' && Array.isArray(parsed.bw), 'backup payload has every key');
+
   // ---- lifting council mandates encoded in the program data ----
   const IMPACT = /sprawl|up-down|burpee|tuck jump|squat jump|sprint|broad jump|box jump/i;
   for (let wi = 0; wi < 10; wi++) {
@@ -270,7 +355,16 @@ async function main() {
   assert(m2.g('CALLER_ON') === true, 'reload: caller toggle restored');
   assert(m2.g('BAG_ON') === false, 'reload: bag toggle restored');
   assert(m2.g('PARTNER_ON') === true, 'reload: partner toggle restored');
-  assert(m2.g('wIdx') === 7, 'reload: week selection restored');
+  /* Today wins over the stored week when today falls inside the camp, so the
+     app opens on the session he actually owes. The stored week is the fallback
+     for a camp that has not started or has already finished. */
+  const slot2 = JSON.parse(m2.g('JSON.stringify(todaySlot())'));
+  if (slot2) {
+    assert(m2.g('wIdx') === slot2.w && m2.g('dIdx') === slot2.d, 'reload: opens on today when inside the camp');
+  } else {
+    assert(m2.g('wIdx') === 7, 'reload: falls back to the stored week outside the camp');
+  }
+  assert(typeof m2.g('START') === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m2.g('START')), 'reload: camp start date persisted');
   assert(m2.errors.length === 0, 'no errors on reload');
 
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');

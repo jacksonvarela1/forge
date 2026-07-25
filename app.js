@@ -149,6 +149,38 @@ function paintDone(){
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('full',weekFull(x)));
   document.querySelectorAll('.daytab .dot').forEach((dt,x)=>dt.classList.toggle('dn',isDone(wIdx,x)));
 }
+/* ---- camp calendar ----
+   The app stores the Monday that camp week 1 started, so it can tell you which
+   week you are actually in instead of making you remember. Everything degrades
+   gracefully if it was never set. */
+let START=null,BW=[],NOTES={};
+function isoOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+/* Anchored at noon, not midnight: subtracting two midnights across a daylight
+   saving boundary gives 23 or 25 hours and rounds to the wrong day. */
+function parseISO(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));return m?new Date(+m[1],+m[2]-1,+m[3],12,0,0):null;}
+function mondayOf(dt){const d=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate(),12,0,0);const off=(d.getDay()+6)%7;d.setDate(d.getDate()-off);return d;}
+function noonToday(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate(),12,0,0);}
+function defaultStart(){
+  /* the Monday of the earliest session already logged, else this week's Monday */
+  const dates=Object.values(DONE).filter(Boolean).sort();
+  const seed=dates.length?parseISO(dates[0]):new Date();
+  return isoOf(mondayOf(seed||new Date()));
+}
+/* {w,d} of today within the camp, or null if today falls outside the 10 weeks */
+function todaySlot(){
+  const s=parseISO(START);
+  if(!s)return null;
+  const now=new Date();
+  const days=Math.round((mondayOf(now)-mondayOf(s))/86400000);
+  const w=Math.round(days/7);
+  if(w<0||w>=W.length)return null;
+  return {w:w,d:(now.getDay()+6)%7};
+}
+function campDayCount(){
+  const s=parseISO(START);
+  if(!s)return 0;
+  return Math.round((noonToday()-s)/86400000)+1;
+}
 const RANKS=[[0,'Walk-on'],[1,'Debut'],[7,'Novice'],[14,'Amateur'],[28,'Prospect'],[42,'Contender'],[56,'Main Card'],[70,'Camp Done']];
 function rankOf(n){let r=RANKS[0][1];RANKS.forEach(x=>{if(n>=x[0])r=x[1];});return r;}
 function streak(){
@@ -213,9 +245,16 @@ function render(){
    ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
    ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">First week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands at 50 percent and kicks at 50 percent all week no matter how good it feels: your wrists have spent three weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one, not week five. Sore shins mean back off, not push on.</div>`:''}
    ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<BAGWEEK?'Partner arrives with the bag at the end of week 3. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
-   <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button></div>`;
+   <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
+    <textarea class="srch notebox" id="notebox" rows="2" placeholder="How did it go? What felt off? Two words is enough.">${(NOTES[dkey(wIdx,dIdx)]||'').replace(/</g,'&lt;')}</textarea></div>`;
   const db=document.getElementById('dbtn');
   if(db)db.addEventListener('click',()=>toggleDone(wIdx,dIdx));
+  const nb=document.getElementById('notebox');
+  if(nb)nb.addEventListener('change',()=>{
+    const k=dkey(wIdx,dIdx),v=nb.value.trim();
+    if(v)NOTES[k]=v;else delete NOTES[k];
+    saveNotes();buildGrid();
+  });
   const sv=document.getElementById('swV');
   if(sv)sv.addEventListener('click',()=>{VOICE_ON=!VOICE_ON;if(!VOICE_ON){vstop();callerStop();}saveOpts();render();});
   const sc=document.getElementById('swC');
@@ -225,7 +264,10 @@ function render(){
   const sp=document.getElementById('swP');
   if(sp)sp.addEventListener('click',()=>{PARTNER_ON=!PARTNER_ON;saveOpts();render();});
   paintDone();
-  loadTimer(k,day);
+  /* Never rebuild a timer that is mid-session on this same day. render() runs
+     again every time you mark a session done or flip a switch, and reloading
+     would silently reset a live round back to Ready. */
+  if(!(T&&T.segs&&T.state==='run'&&T.wk===wIdx&&T.dk===k))loadTimer(k,day);
  }catch(e){if(panel)panel.innerHTML='<div class="empty"><b>Hiccup</b>Could not draw that day. Tap another day, then come back.</div>';}
 }
 function selectWeek(i){
@@ -244,17 +286,159 @@ function selectDay(i){dIdx=i;document.querySelectorAll('.daytab').forEach((t,x)=
  const t=document.querySelectorAll('.daytab')[i];if(t)t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});}
 
 /* ---- log grid ---- */
-const gridEl=document.getElementById('grid'),statsEl=document.getElementById('stats');
+const gridEl=document.getElementById('grid'),statsEl=document.getElementById('stats'),
+      todayCardEl=document.getElementById('todaycard'),weightCardEl=document.getElementById('weightcard'),
+      logToolsEl=document.getElementById('logtools');
+
+/* ---- bodyweight ----
+   He is told to trust only the 7 day average, so the average is what the app
+   shows big and the raw entry is what it shows small. */
+function bwSorted(){return BW.slice().sort((a,b)=>a.d<b.d?-1:1);}
+function bwAvg(endISO,days){
+  const end=parseISO(endISO);if(!end)return null;
+  const from=new Date(end.getFullYear(),end.getMonth(),end.getDate()-(days-1));
+  const win=BW.filter(x=>{const d=parseISO(x.d);return d&&d>=from&&d<=end;});
+  if(!win.length)return null;
+  return win.reduce((a,x)=>a+x.w,0)/win.length;
+}
+function bwTrend(){
+  const s=bwSorted();
+  if(s.length<2)return null;
+  const last=s[s.length-1].d;
+  const now=bwAvg(last,7);
+  const prevEnd=parseISO(last);prevEnd.setDate(prevEnd.getDate()-7);
+  const then=bwAvg(isoOf(prevEnd),7);
+  if(now==null||then==null)return null;
+  return {now:now,delta:now-then,first:s[0],last:s[s.length-1]};
+}
+function paintWeight(){
+  if(!weightCardEl)return;
+  const s=bwSorted(),t=bwTrend();
+  const latest=s.length?s[s.length-1]:null;
+  const avg=latest?bwAvg(latest.d,7):null;
+  let body;
+  if(!s.length){
+    body='<div class="bwnote">Log it most mornings, first thing, after the bathroom. Single days are noise, the 7 day average is the signal.</div>';
+  }else{
+    const total=s.length>1?(s[s.length-1].w-s[0].w):0;
+    const wk=t?t.delta:null;
+    const col=wk==null?'--muted':(wk<-1.2?'--ember':(wk<=0?'--restore':'--steel'));
+    body=`<div class="bwrow">
+        <div class="bwbig">${avg!=null?avg.toFixed(1):latest.w.toFixed(1)}<span class="bwunit">lb avg</span></div>
+        <div class="bwside">
+          <div class="bwline">Last entry <b>${latest.w.toFixed(1)}</b> on ${latest.d.slice(5)}</div>
+          <div class="bwline">This week <b style="color:var(${col})">${wk==null?'not enough data':(wk>0?'+':'')+wk.toFixed(1)+' lb'}</b></div>
+          <div class="bwline">Since you started <b>${total>0?'+':''}${total.toFixed(1)} lb</b> over ${s.length} entries</div>
+        </div>
+      </div>
+      ${wk!=null&&wk<-1.2?'<div class="bwnote">Faster than 1.2 lb a week for two weeks running is the signal to eat more, not less. That is when you start losing muscle instead of fat.</div>':''}`;
+  }
+  weightCardEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Bodyweight</span></div>
+    ${body}
+    <div class="bwform"><input class="srch bwinput" id="bwval" type="number" step="0.1" inputmode="decimal" placeholder="today’s weight"><button class="sw bwadd" id="bwadd" type="button">Log it</button></div></div>`;
+  const inp=document.getElementById('bwval'),btn=document.getElementById('bwadd');
+  if(btn)btn.addEventListener('click',()=>{
+    const v=parseFloat(inp&&inp.value);
+    if(!isFinite(v)||v<=0||v>1000)return;
+    const d=todayISO();
+    BW=BW.filter(x=>x.d!==d);
+    BW.push({d:d,w:Math.round(v*10)/10});
+    saveBW();paintWeight();
+  });
+  if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&btn)btn.click();});
+}
+
+/* ---- today, and what you owe ---- */
+function paintToday(){
+  if(!todayCardEl)return;
+  const slot=todaySlot();
+  if(!slot){
+    todayCardEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Today</span></div>
+      <div class="bwnote">Set the date your camp started and this becomes a live calendar: it will jump you to today's session and show what you still owe.</div></div>`;
+  }else{
+    const done=isDone(slot.w,slot.d);
+    const m=DAYMETA[DK[slot.d]];
+    /* everything before today that never got logged */
+    let missed=0;
+    for(let w=0;w<=slot.w;w++)for(let d=0;d<7;d++){
+      if(w===slot.w&&d>=slot.d)continue;
+      if(!isDone(w,d))missed++;
+    }
+    todayCardEl.innerHTML=`<div class="card${done?' cardon':''}"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Week ${slot.w+1} &middot; ${m.abbr}</span></div>
+      <div class="todaytitle">${m.title}</div>
+      <div class="bwline">${done?'Logged. That is the day.':'Not logged yet.'}${missed?` <b>${missed}</b> session${missed>1?'s':''} still open behind you.`:' Nothing outstanding behind you.'}</div>
+      <div class="bwform"><button class="sw" id="gotoday" type="button">Open today</button><button class="sw${done?' on':''}" id="marktoday" type="button">${done?'&#10003; Done':'Mark done'}</button></div></div>`;
+    const go=document.getElementById('gotoday');
+    if(go)go.addEventListener('click',()=>{selectWeek(slot.w);saveWeek(slot.w);selectDay(slot.d);setView('week');});
+    const mk=document.getElementById('marktoday');
+    if(mk)mk.addEventListener('click',()=>toggleDone(slot.w,slot.d));
+  }
+}
+
+/* ---- backup ----
+   There is no account and no server. Months of training live in one browser
+   profile, so an export that survives a cleared cache is not optional. */
+function paintTools(){
+  if(!logToolsEl)return;
+  logToolsEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
+    <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
+    <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
+    <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones.</div>
+    <div class="bwform"><button class="sw" id="expbtn" type="button">Copy backup</button><button class="sw" id="impbtn" type="button">Restore</button></div>
+    <div id="iomsg" class="bwnote"></div></div>`;
+  const msg=t=>{const e=document.getElementById('iomsg');if(e)e.textContent=t;};
+  const sv=document.getElementById('startset');
+  if(sv)sv.addEventListener('click',()=>{
+    const v=document.getElementById('startval');
+    const d=parseISO(v&&v.value);
+    if(!d)return msg('That date did not read right.');
+    START=isoOf(mondayOf(d));saveStart();paintToday();paintTools();buildGrid();
+    msg('Camp week 1 now starts '+START+'.');
+  });
+  const ex=document.getElementById('expbtn');
+  if(ex)ex.addEventListener('click',async()=>{
+    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,start:START,iq:IQ,week:wIdx});
+    try{await navigator.clipboard.writeText(dump);msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
+    catch(e){
+      const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.value=dump;
+      logToolsEl.appendChild(ta);ta.select();msg('Could not reach the clipboard. Select the text above and copy it by hand.');
+    }
+  });
+  const im=document.getElementById('impbtn');
+  if(im)im.addEventListener('click',()=>{
+    const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.placeholder='paste your backup here, then hit Restore again';
+    ta.id='impbox';
+    const existing=document.getElementById('impbox');
+    if(!existing){logToolsEl.appendChild(ta);msg('Paste the backup above, then hit Restore again.');return;}
+    try{
+      const o=JSON.parse(existing.value);
+      if(!o||typeof o!=='object')throw 0;
+      if(o.done&&typeof o.done==='object')DONE=o.done;
+      if(Array.isArray(o.bw))BW=o.bw.filter(x=>x&&x.d&&isFinite(x.w));
+      if(o.notes&&typeof o.notes==='object')NOTES=o.notes;
+      if(typeof o.start==='string')START=o.start;
+      if(o.iq&&typeof o.iq.r==='number')IQ=o.iq;
+      saveDone();saveBW();saveNotes();saveStart();saveIQ();
+      existing.remove();
+      paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
+      msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back.');
+    }catch(e){msg('That did not parse as a backup. Paste the whole thing, including the braces.');}
+  });
+}
 function buildGrid(){
   if(!gridEl)return;
-  const tw=wIdx,td=dIdx;
+  const slot=todaySlot();
   let h=`<div class="ghead"><span class="gwn"></span>${DK.map(k=>`<span class="ghd">${DAYMETA[k].abbr[0]}</span>`).join('')}</div>`;
   W.forEach((w,i)=>{
     h+=`<div class="grow"><span class="gwn">W${w.n}</span>`;
     for(let d=0;d<7;d++){
       const on=isDone(i,d)?' on':'';
-      const tn=(i===tw&&d===td)?' today':'';
-      h+=`<button class="gcell${on}${tn}" data-w="${i}" data-d="${d}" aria-label="Week ${w.n} ${DAYMETA[DK[d]].abbr}"></button>`;
+      /* today gets the ring; anything before today that is still empty reads as owed */
+      const isToday=slot&&i===slot.w&&d===slot.d;
+      const past=slot&&(i<slot.w||(i===slot.w&&d<slot.d));
+      const cls=isToday?' today':(past&&!on?' owed':'');
+      const note=NOTES[dkey(i,d)]?' noted':'';
+      h+=`<button class="gcell${on}${cls}${note}" data-w="${i}" data-d="${d}" aria-label="Week ${w.n} ${DAYMETA[DK[d]].abbr}"></button>`;
     }
     h+='</div>';
   });
@@ -262,9 +446,13 @@ function buildGrid(){
   const tot=Object.keys(DONE).length;
   const eg=document.getElementById('logempty');
   if(eg)eg.style.display=tot?'none':'';
+  /* this week's completion, which is the number that actually moves week to week */
+  let wkDone=0,wkOf=7;
+  if(slot){for(let d=0;d<7;d++)if(isDone(slot.w,d))wkDone++;}
   statsEl.innerHTML=`<div class="stat"><div class="sv">${tot}-0</div><div class="sl">record</div></div>
-   <div class="stat"><div class="sv">${streak()}</div><div class="sl">day streak</div></div>
+   <div class="stat"><div class="sv">${slot?wkDone+'/'+wkOf:streak()}</div><div class="sl">${slot?'this week':'day streak'}</div></div>
    <div class="stat"><div class="sv" style="font-size:.95rem;padding:6px 0 5px">${rankOf(tot)}</div><div class="sl">rank</div></div>`;
+  paintToday();paintWeight();paintTools();
 }
 if(gridEl)gridEl.addEventListener('click',e=>{const c=e.target.closest('.gcell');if(!c)return;toggleDone(+c.dataset.w,+c.dataset.d);});
 
@@ -668,6 +856,7 @@ const elProg=document.getElementById('tprog');
 function segCol(t){return css(t==='work'?'--ember':(t==='rest'?'--steel':'--muted'));}
 function paintProg(){
   if(!elProg)return;
+  if(T&&T.state==='done')return;
   if(!T||!T.segs){elProg.style.width='100%';elProg.style.background=css('--line');return;}
   const sg=T.segs[T.i];
   elProg.style.background=segCol(sg.type);
@@ -677,6 +866,7 @@ const PHTXT={prep:'Prep',work:'Work',rest:'Rest'};
 const PHCOL={prep:'--muted',work:'--ember',rest:'--steel'};
 function showSeg(){
   if(!T||!T.segs)return;
+  if(T.state==='done')return;
   const sg=T.segs[T.i];
   const work=sg.type==='work';
   elName.textContent=sg.label;
@@ -695,7 +885,7 @@ function loadTimer(k,day){
   const cfg=buildSegs(k,day);
   if(!cfg){T={segs:null,state:'flow'};elName.textContent='Flow day';elNext.textContent='';elRound.textContent='';elClock.textContent='--:--';elClock.style.color=css('--muted');elPhase.textContent='Flow';elPhase.style.color=css('--restore');elGo.disabled=true;elSkip.disabled=true;elReset.disabled=true;elGo.textContent='Start';paintProg();paintFocus();return;}
   elGo.disabled=false;elSkip.disabled=false;elReset.disabled=false;
-  T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready'};
+  T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready',wk:wIdx,dk:k};
   elGo.textContent='Start';showSeg();
 }
 function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(VP.donetail)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fNext.textContent='LOG IT';fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';}}
@@ -810,6 +1000,7 @@ if(fRing){fRing.style.strokeDasharray=RC.toFixed(1);fRing.style.strokeDashoffset
 let FOCUS=false;
 function paintFocus(){
   if(!FOCUS||!fEl)return;
+  if(T&&T.state==='done')return;
   if(!T||!T.segs){fName.textContent='Flow day';fClock.textContent='--:--';fPhase.textContent='Flow';fRound.textContent='';fNext.textContent='';fCue.textContent='';return;}
   const sg=T.segs[T.i];
   const col=segCol(sg.type);
@@ -859,12 +1050,22 @@ async function saveWeek(i){try{await storage.set('forge:week',String(i));}catch(
 async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));}catch(e){}}
 async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON}));}catch(e){}}
 async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));}catch(e){}}
+async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));}catch(e){}}
+async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));}catch(e){}}
+async function saveStart(){try{await storage.set('forge:start',String(START||''));}catch(e){}}
 async function boot(){
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
   try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;}}}catch(e){}
+  try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
+  try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
+  try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
+  if(!START){START=defaultStart();saveStart();}
   try{const r=await storage.get('forge:week');if(r&&r.value!=null){const i=parseInt(r.value,10);if(i>=0&&i<W.length){wIdx=i;}}}catch(e){}
-  selectWeek(wIdx);paintDone();buildGrid();paintIQ();
+  /* if today falls inside the camp, open on today rather than wherever you were */
+  const slot=todaySlot();
+  if(slot){wIdx=slot.w;dIdx=slot.d;}
+  selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();paintIQ();
 }
 
 /* ---- init ---- */

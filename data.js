@@ -147,7 +147,7 @@ const W = [
    t:[['Rotate every 30 sec, hands only. 1:00 rest.'],['30s counter chains max'],['30s push-up variations'],['30s check hook'],['30s pull counter'],['30s uppercuts in close'],['30s free counter boxing']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands.']],
+   t:[['Shadow 40-50%, 15 min','every counter, slow'],['Mobility 15 min','in order, long exhales, no bouncing: 90/90 x10 then 60 sec each side, couch stretch 90 sec each side, frog rocks x10 then 60 sec, elephant walks x10, cossack squats x8 each, pigeon 60 sec each'],['Film 10 min','counters. Anderson Silva or Pereira, the beat before it lands. Then run a Paddy Pimblett round with the sound off and count how often his chin sits high and straight up the middle. His grappling bails him out. On the feet you will not have that excuse, and this is the exact habit these five weeks are built to kill.']],
    r:[]}
  }},
 
@@ -225,7 +225,7 @@ const W = [
    t:[['Rotate every 30 sec, hands on the bag. 1:00 rest.'],['30s punch-out'],['30s push-up variations'],['30s hit the advance'],['30s slip-counter'],['30s straight punch-out'],['30s fight pace free']],
    r:[['Finisher, 3 min','one station only, the lift already gave you two'],['Bicycles 3 x 50']]},
   sun:{tm:null,
-   t:[['Shadow 40-50%, 15 min','slow everything back down'],['Mobility 15 min','biggest week yet, take every minute'],['Film 10 min','cage cutting. Khabib or Merab, cutting not chasing.']],
+   t:[['Shadow 40-50%, 15 min','slow everything back down'],['Mobility 15 min','biggest week yet, take every minute'],['Film 10 min','cage cutting. Khabib or Merab, cutting not chasing. Then Paddy Pimblett for the volume version of the same idea: he walks people down and buries them in output, and the grappling threat behind it is why the pressure works. That blend is the one you already have the base for.']],
    r:[]}
  }},
 
