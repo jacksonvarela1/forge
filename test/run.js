@@ -183,6 +183,26 @@ async function main() {
   assert(sample('combo', 'R3 free · all kicks + 1-2s').some(c => /one two|kick|teep/i.test(c) || true),
     'mixed round keeps the full pool');
 
+  // ---- the day's weapon rule beats a generic round label ----
+  {
+    const KICKY = /\bkick\b|\bteep\b|\bknee\b|check it/i;
+    for (const [di, day] of [[2, 'wed'], [3, 'thu'], [5, 'sat']]) {
+      g(`selectWeek(2);selectDay(${di})`);
+      assert(g(`DAYMETA.${day}.weapons`) === 'hands', day + ': tagged hands only');
+      const labels = JSON.parse(g('JSON.stringify(T.segs.filter(s=>s.type==="work").map(s=>s.label))'));
+      let leaked = 0;
+      for (const L of labels) {
+        const s = JSON.parse(g(`JSON.stringify(Array.from({length:250},()=>callerPick("combo",${JSON.stringify(L)})))`));
+        leaked += s.filter(c => KICKY.test(c)).length;
+      }
+      assert(leaked === 0, day + ': no kick calls on a hands-only day, even on generic round labels (' + leaked + ')');
+    }
+    // and the kicks day still gets kick calls
+    g('selectWeek(2);selectDay(0)');
+    const mon = JSON.parse(g(`JSON.stringify(Array.from({length:250},()=>callerPick("combo","R3 free")))`));
+    assert(mon.some(c => KICKY.test(c)), 'monday still calls kicks');
+  }
+
   // ---- round-aware caller spoke each vocabulary somewhere across the camp ----
   const allSpeech = m.speech.join('\n');
   assert(/Make him miss\. Make him pay\.|He is cutting you off|Where is your jab|Do not admire the first/.test(allSpeech),
@@ -270,6 +290,25 @@ async function main() {
   assert(!/undefined|NaN/.test(g('todayCardEl.innerHTML') + g('logToolsEl.innerHTML')), 'today card and tools clean with no start date');
   assert(g('todaySlot()') === null, 'todaySlot is null without a start date');
   g(`START='2026-07-27'`);
+  // a failed write is surfaced, not swallowed
+  {
+    const realSet = m.sandbox.localStorage.setItem;
+    m.sandbox.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+    await g('saveDone()');
+    assert(/Could not save/.test(g('SAVEFAIL')), 'a failed save is reported instead of swallowed');
+    m.sandbox.localStorage.setItem = realSet;
+    await g('saveDone()');
+    assert(g('SAVEFAIL') === '', 'the warning clears once saving works again');
+  }
+  // restore snapshots what it replaced, and undo puts it back
+  {
+    const keep = g('JSON.stringify(DONE)');
+    g(`PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),start:START,iq:IQ};DONE={'5-5':'2026-09-01'}`);
+    assert(Object.keys(JSON.parse(g('JSON.stringify(DONE)'))).length === 1, 'restore replaced the log');
+    g(`DONE=PRERESTORE.done;PRERESTORE=null`);
+    assert(g('JSON.stringify(DONE)') === keep, 'undo puts the previous log back exactly');
+    g(`DONE=JSON.parse(${JSON.stringify(keep)});saveDone()`);
+  }
   // a backup round-trips through the same shape the export writes
   const dump = g(`JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,start:START,iq:IQ,week:wIdx})`);
   const parsed = JSON.parse(dump);

@@ -153,7 +153,7 @@ function paintDone(){
    The app stores the Monday that camp week 1 started, so it can tell you which
    week you are actually in instead of making you remember. Everything degrades
    gracefully if it was never set. */
-let START=null,BW=[],NOTES={};
+let START=null,BW=[],NOTES={},PRERESTORE=null,SAVEFAIL='';
 function isoOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 /* Anchored at noon, not midnight: subtracting two midnights across a daylight
    saving boundary gives 23 or 25 hours and rounds to the wrong day. */
@@ -384,7 +384,8 @@ function paintTools(){
     <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
     <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
     <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones.</div>
-    <div class="bwform"><button class="sw" id="expbtn" type="button">Copy backup</button><button class="sw" id="impbtn" type="button">Restore</button></div>
+    <div class="bwform"><button class="sw" id="expbtn" type="button">Copy backup</button><button class="sw" id="impbtn" type="button">Restore</button>${PRERESTORE?'<button class="sw" id="undobtn" type="button">Undo restore</button>':''}</div>
+    ${SAVEFAIL?`<div class="bwnote" style="color:var(--ember)">${SAVEFAIL}</div>`:''}
     <div id="iomsg" class="bwnote"></div></div>`;
   const msg=t=>{const e=document.getElementById('iomsg');if(e)e.textContent=t;};
   const sv=document.getElementById('startset');
@@ -404,6 +405,15 @@ function paintTools(){
       logToolsEl.appendChild(ta);ta.select();msg('Could not reach the clipboard. Select the text above and copy it by hand.');
     }
   });
+  const un=document.getElementById('undobtn');
+  if(un)un.addEventListener('click',()=>{
+    if(!PRERESTORE)return;
+    DONE=PRERESTORE.done;BW=PRERESTORE.bw;NOTES=PRERESTORE.notes;START=PRERESTORE.start;IQ=PRERESTORE.iq;
+    PRERESTORE=null;
+    saveDone();saveBW();saveNotes();saveStart();saveIQ();
+    paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
+    const e=document.getElementById('iomsg');if(e)e.textContent='Put back the way it was before the restore.';
+  });
   const im=document.getElementById('impbtn');
   if(im)im.addEventListener('click',()=>{
     const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.placeholder='paste your backup here, then hit Restore again';
@@ -413,6 +423,9 @@ function paintTools(){
     try{
       const o=JSON.parse(existing.value);
       if(!o||typeof o!=='object')throw 0;
+      /* snapshot first: restoring an older backup over a newer log is the one
+         way this screen can destroy training history */
+      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),start:START,iq:JSON.parse(JSON.stringify(IQ))};
       if(o.done&&typeof o.done==='object')DONE=o.done;
       if(Array.isArray(o.bw))BW=o.bw.filter(x=>x&&x.d&&isFinite(x.w));
       if(o.notes&&typeof o.notes==='object')NOTES=o.notes;
@@ -421,7 +434,7 @@ function paintTools(){
       saveDone();saveBW();saveNotes();saveStart();saveIQ();
       existing.remove();
       paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
-      msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back.');
+      msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back. What was here before this restore is saved under Undo below, until you close the app.');
     }catch(e){msg('That did not parse as a backup. Paste the whole thing, including the braces.');}
   });
 }
@@ -647,12 +660,19 @@ function poolFilterFor(label){
   const L=String(label).toLowerCase();
   const teeps=/teep/.test(L),kicks=/kick/.test(L);
   const hands=/jab|hand|punch|box|combo|1-2|straight|counter|body/.test(L);
-  if(/footwork only|no punches|feet only|move only|movement only/.test(L))return c=>!KICKCALL.test(c)&&!HANDCALL.test(c);
-  if(/jab only|jabs only/.test(L))return c=>/jab/i.test(c)&&!KICKCALL.test(c);
-  if(teeps&&!kicks&&!hands)return c=>/teep/i.test(c)&&!HANDCALL.test(c);
-  if((teeps||kicks)&&!hands)return c=>KICKCALL.test(c)&&!HANDCALL.test(c);
-  if(hands&&!teeps&&!kicks)return c=>!KICKCALL.test(c);
-  return null;
+  let f=null;
+  if(/footwork only|no punches|feet only|move only|movement only/.test(L))f=c=>!KICKCALL.test(c)&&!HANDCALL.test(c);
+  else if(/jab only|jabs only/.test(L))f=c=>/jab/i.test(c)&&!KICKCALL.test(c);
+  else if(teeps&&!kicks&&!hands)f=c=>/teep/i.test(c)&&!HANDCALL.test(c);
+  else if((teeps||kicks)&&!hands)f=c=>KICKCALL.test(c)&&!HANDCALL.test(c);
+  else if(hands&&!teeps&&!kicks)f=c=>!KICKCALL.test(c);
+  /* The round label is not always enough: a generic label like "pivot after
+     every chain" on boxing day would otherwise let the full pool through, and
+     Wednesday, Thursday and Saturday are hands only by design. The day's own
+     weapon rule always applies on top. */
+  const dayw=(DAYMETA[DK[dIdx]]||{}).weapons;
+  if(dayw==='hands'){const inner=f;return c=>!KICKCALL.test(c)&&(!inner||inner(c));}
+  return f;
 }
 function fromPool(pool,filter){
   const p=filter?pool.filter(filter):pool;
@@ -1046,13 +1066,13 @@ vLog.addEventListener('click',()=>setView('log'));
 vIQ.addEventListener('click',()=>setView('iq'));
 
 /* ---- storage ---- */
-async function saveWeek(i){try{await storage.set('forge:week',String(i));}catch(e){}}
-async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));}catch(e){}}
-async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON}));}catch(e){}}
-async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));}catch(e){}}
-async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));}catch(e){}}
-async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));}catch(e){}}
-async function saveStart(){try{await storage.set('forge:start',String(START||''));}catch(e){}}
+async function saveWeek(i){try{await storage.set('forge:week',String(i));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveStart(){try{await storage.set('forge:start',String(START||''));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function boot(){
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
