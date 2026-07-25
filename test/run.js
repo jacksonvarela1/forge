@@ -19,7 +19,6 @@ const { makeContext } = require('./mocks');
 const root = path.join(__dirname, '..');
 const dataSrc = fs.readFileSync(path.join(root, 'data.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-const liftSrc = fs.readFileSync(path.join(root, 'lift.js'), 'utf8');
 const indexSrc = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 /* The DOM contract: only ids that actually exist in index.html resolve under test. */
 const KNOWN_IDS = new Set(Array.from(indexSrc.matchAll(/\bid="([^"]+)"/g), m => m[1]));
@@ -38,7 +37,6 @@ function bootApp(store) {
   const m = makeContext(store, KNOWN_IDS);
   vm.createContext(m.sandbox);
   new vm.Script(dataSrc, { filename: 'data.js' }).runInContext(m.sandbox);
-  new vm.Script(liftSrc, { filename: 'lift.js' }).runInContext(m.sandbox);
   new vm.Script(appSrc, { filename: 'app.js' }).runInContext(m.sandbox);
   m.g = expr => vm.runInContext(expr, m.sandbox);
   return m;
@@ -192,38 +190,6 @@ async function main() {
   assert(/Slip right|Roll under|Check it|Parry and step in|He shoots/.test(allSpeech),
     'defense-round attack calls were spoken');
 
-  // ---- lifting split: format contract, rendering, and MMA pairing ----
-  const LD = JSON.parse(g('JSON.stringify(LIFTDAYS)'));
-  assert(LD.length === 4, 'four lifting days');
-  for (const k of LD) {
-    assert(g(`LIFT[${JSON.stringify(k)}].main.length`) === 6, k + ': exactly 6 main exercises');
-    assert(g(`LIFT[${JSON.stringify(k)}].acc.length`) === 2, k + ': exactly 2 accessories');
-    assert(g(`LIFT[${JSON.stringify(k)}].primer.length`) > 0 && g(`LIFT[${JSON.stringify(k)}].stretch.length`) > 0, k + ': has primer and stretch');
-  }
-  for (let i = 0; i < 4; i++) {
-    g(`selectLift(${i})`);
-    const lp = g('liftpanel.innerHTML');
-    assert(lp && !lp.includes('Hiccup'), 'lift day ' + LD[i] + ' rendered');
-    assert(!/\bundefined\b|\bNaN\b/.test(lp), 'lift day ' + LD[i] + ': clean markup');
-  }
-  // the jump block only appears on Wednesday and tracks the camp week
-  g('selectLift(1)');
-  assert(g('liftpanel.innerHTML').includes('Jump block'), 'Wednesday shows the jump block');
-  g('selectLift(0)');
-  assert(!g('liftpanel.innerHTML').includes('Jump block'), 'Monday does not show the jump block');
-  for (const [wk, want] of [[0, 'Block 1'], [4, 'Block 2'], [9, 'Block 3']]) {
-    g(`selectWeek(${wk})`);
-    assert(g('jumpFor(wIdx).n') === want, `camp week ${wk + 1} maps to ${want}`);
-  }
-  // every MMA day states its lift pairing, and the three rest days say so
-  for (let di = 0; di < 7; di++) {
-    g('selectWeek(0)'); g(`selectDay(${di})`);
-    const p = g('panel.innerHTML');
-    const isLiftDay = LD.indexOf(DAYS[di]) >= 0;
-    assert(p.includes(isLiftDay ? 'Lift today:' : 'No lift today.'),
-      DAYS[di] + ': pairing line correct (lift day: ' + isLiftDay + ')');
-  }
-
   // ---- lifting council mandates encoded in the program data ----
   const IMPACT = /sprawl|up-down|burpee|tuck jump|squat jump|sprint|broad jump|box jump/i;
   for (let wi = 0; wi < 10; wi++) {
@@ -235,8 +201,17 @@ async function main() {
     const satFin = JSON.parse(g(`JSON.stringify(W[${wi}].d.sat.r.map(x=>x[0]))`));
     assert(satFin.length === 2, `W${wi + 1} sat: finisher trimmed to one core station (has ${satFin.length - 1})`);
   }
-  // every day states which lift it pairs with
+  // every day states its lift pairing, and it renders on the day card
+  const LIFTDAYS = ['mon', 'wed', 'fri', 'sat'];
   for (const dk of DAYS) assert(g(`!!DAYMETA.${dk}.lift`), dk + ': declares its lift pairing');
+  for (let di = 0; di < 7; di++) {
+    g('selectWeek(0)'); g(`selectDay(${di})`);
+    const p = g('panel.innerHTML');
+    const isLift = LIFTDAYS.indexOf(DAYS[di]) >= 0;
+    const liftLine = g(`DAYMETA.${DAYS[di]}.lift`);
+    assert(p.includes(liftLine), DAYS[di] + ': pairing line rendered');
+    assert(isLift ? /^Lift:/.test(liftLine) : /^No lift/.test(liftLine), DAYS[di] + ': pairing matches lift schedule');
+  }
   // no day rationale still references the dead Wednesday/Saturday squat schedule
   const allMeta = g('JSON.stringify(DAYMETA)') + g('JSON.stringify(W)');
   assert(!/squatted today|before your squat|days out from Wednesday|Squat day/i.test(allMeta),

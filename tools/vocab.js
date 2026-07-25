@@ -12,7 +12,6 @@ const root = path.join(__dirname, '..');
 const m = makeContext(new Map());
 vm.createContext(m.sandbox);
 new vm.Script(fs.readFileSync(path.join(root, 'data.js'), 'utf8'), { filename: 'data.js' }).runInContext(m.sandbox);
-new vm.Script(fs.readFileSync(path.join(root, 'lift.js'), 'utf8'), { filename: 'lift.js' }).runInContext(m.sandbox);
 new vm.Script(fs.readFileSync(path.join(root, 'app.js'), 'utf8'), { filename: 'app.js' }).runInContext(m.sandbox);
 const g = expr => vm.runInContext(expr, m.sandbox);
 
