@@ -111,6 +111,7 @@ function makeContext(localStore, knownIds) {
       getElementById: id => (knownIds && !knownIds.has(id)) ? null : makeEl('div'),
       createElement: t => makeEl(t),
       querySelectorAll: () => [],
+      querySelector: () => null,
       addEventListener(t, fn) { (docListeners[t] = docListeners[t] || []).push(fn); },
       visibilityState: 'visible',
       documentElement: {}

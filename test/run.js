@@ -206,6 +206,39 @@ async function main() {
     probe('2026-09-19', 9, 5);   // final Saturday
   }
 
+  // ---- "you are here" tracks today, not the week you are browsing ----
+  {
+    /* the harness runs on a virtual clock years from the real camp, so anchor
+       the start to its own "today" before asking where today falls */
+    g('START=isoOf(mondayOf(new Date()));saveStart()');
+    const slot = JSON.parse(g('JSON.stringify(todaySlot())'));
+    assert(slot && slot.w === 0, 'today resolves to a camp slot');
+    /* The mock DOM cannot hold class lists, so assert the decision paintNow
+       makes rather than the paint itself. The visual is checked in a real
+       browser. The point of the marker is that it depends on todaySlot only,
+       never on whichever week is being browsed. */
+    g(`selectWeek(${slot.w});selectDay(${slot.d})`);
+    const anchored = JSON.stringify(JSON.parse(g('JSON.stringify(todaySlot())')));
+    const other = slot.w === 0 ? 5 : 0;
+    g(`selectWeek(${other})`);
+    assert(JSON.stringify(JSON.parse(g('JSON.stringify(todaySlot())'))) === anchored,
+      'today does not move when you browse to another week');
+    assert(g('wIdx') === other, 'the browsed week is the selected one');
+    // the way back is offered while away, and hidden once home
+    g('paintNow()');
+    assert(g(`backTodayEl.style.display`) !== 'none',
+      'a way back to today shows while browsing away');
+    assert(/week /i.test(g(`backTodayEl.textContent`)),
+      'the way back names the week to return to');
+    g(`selectWeek(${slot.w});selectDay(${slot.d});paintNow()`);
+    assert(g(`backTodayEl.style.display`) === 'none',
+      'and hides once you are back on today');
+    // the completed-week dot is a separate signal from the now marker
+    const css2 = fs.readFileSync(path.join(root, 'styles.css'), 'utf8').replace(/\s/g, '');
+    assert(/\.wchip\.now::before\{/.test(css2) && /\.wchip\.full::after\{/.test(css2),
+      'now and complete are drawn as two different marks');
+  }
+
   // ---- mobile: nothing forces the page sideways ----
   {
     const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');

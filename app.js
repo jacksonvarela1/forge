@@ -162,6 +162,22 @@ function weekFull(i){for(let d=0;d<7;d++)if(!isDone(i,d))return false;return tru
 function paintDone(){
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('full',weekFull(x)));
   document.querySelectorAll('.daytab .dot').forEach((dt,x)=>dt.classList.toggle('dn',isDone(wIdx,x)));
+  paintNow();
+}
+/* Where you actually are today, which is a different question from which week
+   you happen to be looking at. The completed-week dot sits at the bottom of a
+   chip and is green; this marker sits at the top and is ember, so browsing
+   ahead never makes you lose your place. */
+function paintNow(){
+  const slot=todaySlot();
+  document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('now',!!slot&&x===slot.w));
+  document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('now',!!slot&&x===slot.d&&wIdx===slot.w));
+  const btn=backTodayEl;
+  if(btn){
+    const away=!!slot&&(wIdx!==slot.w||dIdx!==slot.d);
+    btn.style.display=away?'':'none';
+    if(away)btn.textContent='Back to week '+(slot.w+1)+' '+DAYMETA[DK[slot.d]].abbr;
+  }
 }
 /* ---- camp calendar ----
    The app stores the Monday that camp week 1 started, so it can tell you which
@@ -212,6 +228,12 @@ const stripEl=document.getElementById('weekstrip');
 W.forEach((w,i)=>{const b=document.createElement('button');b.className='wchip';b.textContent=w.n;
  b.addEventListener('click',()=>{selectWeek(i);saveWeek(i);});stripEl.appendChild(b);});
 
+const backTodayEl=document.getElementById('backtoday');
+if(backTodayEl)backTodayEl.addEventListener('click',()=>{
+  const slot=todaySlot();
+  if(!slot)return;
+  selectWeek(slot.w);saveWeek(slot.w);selectDay(slot.d);
+});
 const daysEl=document.getElementById('days');
 DK.forEach((k,i)=>{const m=DAYMETA[k];const b=document.createElement('button');b.className='daytab';
  b.innerHTML=`<span class="abbr">${m.abbr}</span><span class="dot" style="background:var(${typeColor[m.type]})"></span>`;
@@ -1137,7 +1159,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v13';
+const BUILD='v14';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');

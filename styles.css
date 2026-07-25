@@ -337,3 +337,17 @@
   .lbtn{padding-top:7px;padding-bottom:7px;min-height:34px;}
   .lbtn::before{top:calc(.52em + 7px);}
   #tfocus{min-height:44px;padding:4px 0;}
+
+  /* "You are here" versus "this one is finished".
+     Top ember bar = the camp week you are actually in today.
+     Bottom green dot = every day of that week is logged.
+     Different edge, different colour, so they can never be read as the same
+     thing, and browsing ahead to week 7 never hides where you really are. */
+  .wchip.now::before{content:"";position:absolute;left:22%;right:22%;top:2px;height:3px;border-radius:2px;background:var(--ember);}
+  .wchip.now{border-color:var(--ember);color:var(--bone);}
+  .wchip.now.active::before{background:#1a1206;}
+  .daytab.now .abbr::after{content:"";display:block;width:5px;height:5px;border-radius:50%;background:var(--ember);margin:3px auto -8px;}
+  .daytab.now.active .abbr::after{background:var(--ember);}
+  .wlabel{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .backtoday{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);background:transparent;border:1px solid var(--ember);border-radius:3px;padding:6px 9px;min-height:32px;cursor:pointer;white-space:nowrap;}
+  .backtoday:active{opacity:.7;}
