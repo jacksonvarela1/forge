@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v8';
+const CACHE = 'forge-v9';
 try { importScripts('./audio/manifest.js'); } catch (err) {}
 const ASSETS = [
   './',
