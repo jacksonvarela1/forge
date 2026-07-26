@@ -369,19 +369,28 @@ function paintWeight(){
       </div>
       ${wk!=null&&wk<-1.2?'<div class="bwnote">Faster than 1.2 lb a week for two weeks running is the signal to eat more, not less. That is when you start losing muscle instead of fat.</div>':''}`;
   }
+  /* The last fortnight, so a missed morning is visible instead of silently
+     dragging the average around. Tap an entry to delete it. */
+  const recent=s.slice(-14).reverse().map(x=>
+    `<button class="bwchip" type="button" data-d="${x.d}" title="Tap to remove">${x.d.slice(5)} <b>${x.w.toFixed(1)}</b></button>`).join('');
   weightCardEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Bodyweight</span></div>
     ${body}
-    <div class="bwform"><input class="srch bwinput" id="bwval" type="number" step="0.1" inputmode="decimal" placeholder="today’s weight"><button class="sw bwadd" id="bwadd" type="button">Log it</button></div></div>`;
-  const inp=document.getElementById('bwval'),btn=document.getElementById('bwadd');
+    <div class="bwform"><input class="srch bwinput" id="bwdate" type="date" value="${todayISO()}" max="${todayISO()}"><input class="srch bwinput" id="bwval" type="number" step="0.1" inputmode="decimal" placeholder="weight"><button class="sw bwadd" id="bwadd" type="button">Log it</button></div>
+    ${recent?`<div class="bwnote">Logged so far, tap one to remove it:</div><div class="bwchips">${recent}</div>`:''}</div>`;
+  const inp=document.getElementById('bwval'),btn=document.getElementById('bwadd'),dat=document.getElementById('bwdate');
   if(btn)btn.addEventListener('click',()=>{
     const v=parseFloat(inp&&inp.value);
     if(!isFinite(v)||v<=0||v>1000)return;
-    const d=todayISO();
+    /* any date, not just today: missing a morning should not mean losing it */
+    const d=(dat&&parseISO(dat.value))?dat.value:todayISO();
     BW=BW.filter(x=>x.d!==d);
     BW.push({d:d,w:Math.round(v*10)/10});
     saveBW();paintWeight();
   });
   if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&btn)btn.click();});
+  weightCardEl.querySelectorAll('.bwchip').forEach(c=>c.addEventListener('click',()=>{
+    BW=BW.filter(x=>x.d!==c.dataset.d);saveBW();paintWeight();
+  }));
 }
 
 /* ---- today, and what you owe ---- */
@@ -1159,7 +1168,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v14';
+const BUILD='v15';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');

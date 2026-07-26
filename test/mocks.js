@@ -35,6 +35,8 @@ function makeEl(tag) {
     value: '',
     id: '',
     appendChild(c) { this.children.push(c); return c; },
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
     addEventListener(t, fn) { (listeners[t] = listeners[t] || []).push(fn); },
     removeEventListener() {},
     click() { (listeners.click || []).slice().forEach(fn => fn({ target: el, closest: () => null })); },

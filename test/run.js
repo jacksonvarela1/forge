@@ -390,6 +390,25 @@ async function main() {
   assert(/\bavg\b/.test(wc) && !/undefined|NaN/.test(wc), 'weight card renders clean');
   g('BW=[]'); g('paintWeight()');
   assert(!/undefined|NaN/.test(g('weightCardEl.innerHTML')), 'weight card clean with no data');
+  // a missed morning can be filled in afterwards, on its own date
+  {
+    g(`BW=[];NOTES={};paintWeight()`);
+    assert(/id="bwdate"/.test(g('weightCardEl.innerHTML')), 'the weight form carries a date, not just today');
+    g(`BW=BW.filter(x=>x.d!=='2026-07-25');BW.push({d:'2026-07-25',w:186.2});saveBW()`);
+    g(`BW=BW.filter(x=>x.d!=='2026-07-26');BW.push({d:'2026-07-26',w:188.6});saveBW()`);
+    const stored = JSON.parse(JSON.parse(g(`JSON.stringify(localStorage.getItem('forge:bw'))`)));
+    assert(stored.length === 2 && stored.some(x => x.d === '2026-07-25' && x.w === 186.2),
+      'a backfilled day persists alongside today');
+    assert(Math.abs(g(`bwAvg('2026-07-26',7)`) - 187.4) < 0.001, 'the backfilled day counts toward the average');
+    g('paintWeight()');
+    assert(/07-25/.test(g('weightCardEl.innerHTML')) && /07-26/.test(g('weightCardEl.innerHTML')),
+      'both days are listed so a gap is visible');
+    // and a wrong entry can be removed
+    g(`BW=BW.filter(x=>x.d!=='2026-07-25');saveBW()`);
+    assert(JSON.parse(JSON.parse(g(`JSON.stringify(localStorage.getItem('forge:bw'))`))).length === 1,
+      'an entry can be removed');
+    g('BW=[];saveBW();paintWeight()');
+  }
   // notes round-trip and flag their cell
   g(`NOTES={};NOTES[dkey(2,3)]='felt heavy';`);
   g('buildGrid()');
