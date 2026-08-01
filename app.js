@@ -137,7 +137,7 @@ const MOVEWEEK={};
     /* Bag Work is pinned to the week the bag actually arrives. The literal has
        to stay in step with BAGWEEK below, which cannot be referenced from here
        without hitting its temporal dead zone inside this IIFE. */
-    const CATFALL={'Bag Work':3};
+    const CATFALL={'Bag Work':4};
     CATS.forEach(c=>c.moves.forEach(m=>{
       if(MOVEWEEK[m.name]===undefined)
         MOVEWEEK[m.name]=FIX[m.name]!==undefined?FIX[m.name]:(CATFALL[c.cat]!==undefined?CATFALL[c.cat]:0);
@@ -146,13 +146,19 @@ const MOVEWEEK={};
        to the wrong week rather than failing to bind them at all. Roundhouse was
        landing on week 10 because week 1's "Body roundhouse" matches the Body Kick
        alias first, so the app announced it as new in the final week. */
-    const PIN={'Roundhouse':0,'Head Kick':3};
+    /* Wrapping Hands would otherwise bind to week 6's "Wrap and glove up"
+       reminder; the wraps matter from the week the bag arrives. Keep the 4 in
+       step with BAGWEEK, which is unreachable from inside this IIFE. */
+    const PIN={'Roundhouse':0,'Head Kick':3,'Wrapping Hands':4};
     Object.keys(PIN).forEach(n=>{if(MOVEWEEK[n]!==undefined)MOVEWEEK[n]=PIN[n];});
   }catch(e){}
 })();
 function newIn(wi){return Object.keys(MOVEWEEK).filter(n=>MOVEWEEK[n]===wi);}
 
 let wIdx=0,dIdx=0;
+/* Rounds trimmed off today's session before it starts: the short-day valve
+   corner note 07 prescribes. Resets whenever the day changes, never persisted. */
+let CUT=0;
 let DONE={};
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function dkey(w,d){return w+'-'+d;}
@@ -252,13 +258,16 @@ function render(){
   const nw=newIn(wIdx);
   const col=`var(${typeColor[m.type]})`;
   let segs='';for(let s2=1;s2<=5;s2++)segs+=`<div class="seg" style="background:${s2<=m.intensity?col:'var(--line)'}"></div>`;
-  const rl=day.tm?`${day.tm.rounds} x ${fmt(day.tm.work)}`:'';
+  const effRounds=day.tm?Math.max(1,day.tm.rounds-CUT):0;
+  const rl=day.tm?`${effRounds} x ${fmt(day.tm.work)}`:'';
+  /* the stepper hides while a session is live so it cannot fight the timer */
+  const stepper=(day.tm&&!(T&&T.segs&&T.state==='run'&&T.wk===wIdx&&T.dk===k))?` <button class="cutbtn" id="cutminus" type="button" ${effRounds<=1?'disabled':''}>&minus;</button><button class="cutbtn" id="cutplus" type="button" ${CUT<=0?'disabled':''}>+</button>`:'';
   const B=[];
   const dt=adaptItems(day.t),dr=adaptItems(day.r);
   if(m.warm)B.push({n:'Warm-up',s:'Warm',du:'5 min',it:WARM[m.warm]});
-  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt});B.push({n:'Finisher',s:'Fin',du:'5 min',it:dr,sec:1});}
+  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt,step:1});B.push({n:'Finisher',s:'Fin',du:'5 min',it:dr,sec:1});}
   else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:dt});if(dr&&dr.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:dr,sec:1});}
-  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1});}
+  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1,step:1});}
   /* Partner work is billed at 10 minutes and comes OUT of the Rounds block, it is
      never bolted on top: the session is capped at 60 minutes and a free sixth
      block is how a 45 minute session quietly becomes 70. */
@@ -267,11 +276,12 @@ function render(){
   let tot=0,flow='';
   B.forEach(b=>{const mn=durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
   const flowbar=`<div class="flow">${flow}<div class="ftot">&#8776; ${tot} min</div></div>`;
-  const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
+  const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}${b.step?stepper:''}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
   panel.innerHTML=`
    <div class="phase" style="border-left-color:var(${PCOL[wIdx]})"><div class="ph" style="color:var(${PCOL[wIdx]})">Week ${w.n} of 10 · ${w.phase}</div><div class="th">${w.theme}</div><div class="nt">${adaptNote(w.note)}</div>${nw.length?`<div class="nlab">New this week</div><div class="newrow">${nw.slice(0,6).map(n=>`<span class="nchip">${n}</span>`).join('')}${nw.length>6?`<span class="nchip" style="color:var(--muted)">+${nw.length-6} more</span>`:''}</div>`:''}</div>
    <div class="dhead"><div><div class="dtitle">${m.title}</div><div class="dfocus">${m.focus}</div></div><span class="badge" style="color:${col};border-color:${col}">${typeText[m.type]}</span></div>
    <div class="pairline">${m.lift}</div>
+   ${(wIdx>0&&NOTES[dkey(wIdx-1,dIdx)])?`<div class="pairline"><b>Last ${m.abbr}:</b> ${String(NOTES[dkey(wIdx-1,dIdx)]).replace(/</g,'&lt;')}</div>`:''}
    <div class="meter">${segs}<span class="mlabel">Intensity ${m.intensity}/5</span></div>
    <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button></div>
    <div class="swrow"><button class="sw${BAG_ON?' on':''}" id="swB" type="button">${BAG_ON?'&#9679;':'&#9675;'} Heavy bag</button><button class="sw${PARTNER_ON?' on':''}" id="swP" type="button">${PARTNER_ON?'&#9679;':'&#9675;'} Partner</button></div>
@@ -279,8 +289,8 @@ function render(){
    ${blocks}
    ${m.flag?`<div class="flag">${m.flag}</div>`:''}
    ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
-   ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">First week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands at 50 percent and kicks at 50 percent all week no matter how good it feels: your wrists have spent three weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one, not week five. Sore shins mean back off, not push on.</div>`:''}
-   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<BAGWEEK?'Partner arrives with the bag at the end of week 3. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
+   ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">The bag lands this weekend. Most of this week is still air work, so nothing changes until it is hanging. The moment it is up: wraps and 16 oz gloves every round, hands and kicks at 50 percent, and stop the second a wrist or a shin complains.</div>`:''}${(BAG_ON&&wIdx===BAGWEEK+1)?`<div class="flag">First full week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands and kicks stay at 50 percent all week no matter how good it feels: your wrists have spent five weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one on the bag, not week five. Sore shins mean back off, not push on.</div>`:''}
+   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?'Partner arrives with the bag at the end of week 5. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
     <textarea class="srch notebox" id="notebox" rows="2" placeholder="How did it go? What felt off? Two words is enough.">${(NOTES[dkey(wIdx,dIdx)]||'').replace(/</g,'&lt;')}</textarea></div>`;
   const db=document.getElementById('dbtn');
@@ -299,6 +309,10 @@ function render(){
   if(sb)sb.addEventListener('click',()=>{BAG_ON=!BAG_ON;saveOpts();render();});
   const sp=document.getElementById('swP');
   if(sp)sp.addEventListener('click',()=>{PARTNER_ON=!PARTNER_ON;saveOpts();render();});
+  const cm=document.getElementById('cutminus');
+  if(cm)cm.addEventListener('click',()=>{CUT++;render();});
+  const cp=document.getElementById('cutplus');
+  if(cp)cp.addEventListener('click',()=>{CUT=Math.max(0,CUT-1);render();});
   paintDone();
   /* Never rebuild a timer that is mid-session on this same day. render() runs
      again every time you mark a session done or flip a switch, and reloading
@@ -307,7 +321,7 @@ function render(){
  }catch(e){if(panel)panel.innerHTML='<div class="empty"><b>Hiccup</b>Could not draw that day. Tap another day, then come back.</div>';}
 }
 function selectWeek(i){
-  wIdx=i;
+  wIdx=i;CUT=0;
   document.querySelectorAll('.wchip').forEach((c,x)=>{
     const on=x===i;
     c.classList.toggle('active',on);
@@ -318,7 +332,7 @@ function selectWeek(i){
   });
   render();
 }
-function selectDay(i){dIdx=i;document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('active',x===i));render();
+function selectDay(i){dIdx=i;CUT=0;document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('active',x===i));render();
  const t=document.querySelectorAll('.daytab')[i];if(t)t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});}
 
 /* ---- log grid ---- */
@@ -367,7 +381,7 @@ function paintWeight(){
           <div class="bwline">Since you started <b>${total>0?'+':''}${total.toFixed(1)} lb</b> over ${s.length} entries</div>
         </div>
       </div>
-      ${wk!=null&&wk<-1.2?'<div class="bwnote">Faster than 1.2 lb a week for two weeks running is the signal to eat more, not less. That is when you start losing muscle instead of fat.</div>':''}`;
+      ${wk!=null&&wk<-1.2?'<div class="bwnote">You are down more than 1.2 lb this week. If next week looks the same, eat more, not less: past that rate the loss starts coming out of muscle instead of fat.</div>':''}`;
   }
   /* The last fortnight, so a missed morning is visible instead of silently
      dragging the average around. Tap an entry to delete it. */
@@ -411,7 +425,7 @@ function paintToday(){
     }
     todayCardEl.innerHTML=`<div class="card${done?' cardon':''}"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Week ${slot.w+1} &middot; ${m.abbr}</span></div>
       <div class="todaytitle">${m.title}</div>
-      <div class="bwline">${done?'Logged. That is the day.':'Not logged yet.'}${missed?` <b>${missed}</b> session${missed>1?'s':''} still open behind you.`:' Nothing outstanding behind you.'}</div>
+      <div class="bwline"><b>Day ${campDayCount()} of 70</b>${streak()>1?` &middot; ${streak()} straight`:''}. ${done?'Logged. That is the day.':'Not logged yet.'}${missed?` <b>${missed}</b> session${missed>1?'s':''} still open behind you.`:' Nothing outstanding behind you.'}</div>
       <div class="bwform"><button class="sw" id="gotoday" type="button">Open today</button><button class="sw${done?' on':''}" id="marktoday" type="button">${done?'&#10003; Done':'Mark done'}</button></div></div>`;
     const go=document.getElementById('gotoday');
     if(go)go.addEventListener('click',()=>{selectWeek(slot.w);saveWeek(slot.w);selectDay(slot.d);setView('week');});
@@ -595,7 +609,23 @@ const VP={
  done:['That is the session.','Session done.','That is it for today.','Work is done.'],
  donetail:['Good work, '+NAME+'. Go log it.','Well done, '+NAME+'. Log it.','Nice work today, '+NAME+'. Log it.']
 };
-function vrand(a){return a&&a.length?a[Math.floor(Math.random()*a.length)]:'';}
+/* A cornerman does not say the same thing twice in ninety seconds. Each pool
+   remembers its recent picks and draws from what is left, falling back to the
+   full pool only when everything has been said recently. */
+const VHIST=new WeakMap();
+function vrand(a){
+  if(!a||!a.length)return '';
+  if(a.length<3)return a[Math.floor(Math.random()*a.length)];
+  let h=VHIST.get(a)||[];
+  const fresh=a.filter(x=>h.indexOf(x)<0);
+  const pool=fresh.length?fresh:a;
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  h.push(pick);
+  const cap=Math.ceil(a.length/2);
+  if(h.length>cap)h=h.slice(h.length-cap);
+  VHIST.set(a,h);
+  return pick;
+}
 let VOICE_ON=true,CALLER_ON=true,vvoice=null,vready=false;
 let BAG_ON=true,PARTNER_ON=false;
 function vpick(){try{const vs=speechSynthesis.getVoices();const en=vs.filter(v=>/^en/i.test(v.lang));const us=en.filter(v=>/en[-_]US/i.test(v.lang));
@@ -694,7 +724,14 @@ const FREECALL=['He is cutting you off. Angle out.','Doubling his jab. Answer it
    the answer, week 5 on calls the attack only so he chooses. */
 const DEFPAIR=['Jab. Slip right.','Jab. Slip left.','One two. Catch, then counter.','Hook. Roll under.','Low kick. Check it.','Teep. Parry and step in.','He shoots. Sprawl.'];
 const DEFATK=['Jab.','Double jab.','Right hand.','One two.','Lead hook.','Body shot.','Low kick.','Head kick.','Teep.','He shoots.'];
-function poolFor(wi){let p=[];for(let i=1;i<=wi+1;i++)p=p.concat(CALLADD[i]||[]);p=p.concat(CALLADD[wi+1]||[]);return p;}
+/* memoised so the same array identity comes back per week, which is what lets
+   vrand's repeat-suppression history work on the combo pool too */
+const POOLCACHE={};
+function poolFor(wi){
+  if(POOLCACHE[wi])return POOLCACHE[wi];
+  let p=[];for(let i=1;i<=wi+1;i++)p=p.concat(CALLADD[i]||[]);p=p.concat(CALLADD[wi+1]||[]);
+  POOLCACHE[wi]=p;return p;
+}
 let callT=null;
 function callerStop(){if(callT){clearTimeout(callT);callT=null;}}
 /* A call must match the round it lands in: no punch combos in a teep round,
@@ -783,7 +820,7 @@ const NOBAG_MAP={
  'Power teep x15 each':['Power teep x15 each','knee up a beat, then drive, standing foot pivoted'],
  'Switch kick x12 each':['Switch kick x12 each','kick and hold 3 seconds at extension, then return on balance'],
  'R1 kicks only':['R1 kicks only','full turn, land balanced, never at half hip'],
- '1-2 at 80% x20':['1-2 snap x20','arm loose like a towel snap, fist tight only at the end, never lock the elbow out'],
+ '1-2 at 70% x20':['1-2 snap x20','arm loose like a towel snap, fist tight only at the end, never lock the elbow out'],
  '1-2-3 x15':['1-2-3 x15','picture him stepping in, the hook meets him mid-step'],
  'Uppercuts in close x12 each':['Uppercuts in close x12 each','imagine the clinch, dig up short from the legs'],
  'Rotate every 30 sec on the bag. 1:00 rest.':['Rotate every 30 sec. 1:00 rest. Count reps, the number is the standard.'],
@@ -805,9 +842,10 @@ const NOBAG_MAP={
  'Slip the swing, 2-3 x15':['Slip the jab, 2-3 x15'],
  'Pivot off it, hook x12':['Pivot off him, hook x12']
 };
-/* The bag lands at the end of camp week 3, so week 4 is the first week whose
-   content can assume one. Before that there is nothing to adapt. */
-const BAGWEEK=3;
+/* The bag lands Friday of camp week 5 (14-16 Aug), so week 6 is the first FULL
+   week on it. BAGWEEK is the arrival week; week notes and flags handle the
+   partial-week nuance. Keep CATFALL in the MOVEWEEK block in step with this. */
+const BAGWEEK=4;
 function adaptItems(arr){
   if(!arr||BAG_ON||wIdx<BAGWEEK)return arr;
   return arr.map(it=>{
@@ -828,12 +866,12 @@ const PARTNER={
  tue:[['Caller rounds','he calls number combos, you throw them at range, zero contact. Swap caller each round'],
       ['1-for-1 flow','slow 2-3 punch combos to gloves and guard only, he answers with the same. Whoever punches wears the gloves']],
  wed:[['Jab tag','jabs only, score by touching glove or lead shoulder. Force scores nothing, head is off limits'],
-      ['Parry and return, 1 min each','slow marked jabs at your guard, you parry and jab his glove back']],
+      ['Parry and return, 1 min each','slow marked jabs at your guard, you parry and jab back into the air an inch short of his shoulder']],
  thu:[['Swap in one station: mirror footwork 30s','he leads, you keep exact range. Swap roles next round'],
       ['Or teep-back 30s','he marches forward, you stop him with light teeps to the hip']],
  fri:[['Defense reps x10 each','slow announced jabs and crosses that stop at your guard: slip, parry, block. Swap'],
-      ['From week 3: add one counter','defend, then jab his glove. The one throwing wears the gloves']],
- sat:[['Gloves as mitts, 30s stations','he holds gloves palms out at chest height, you fire the called combo. Nothing off target'],
+      ['Once he is here: add one counter','defend, then jab back into the air an inch short of his shoulder. The one throwing wears the gloves']],
+ sat:[['Called combos at range, 30s stations','he calls, you throw in the air at his chest height, zero contact. You wear the gloves, he stays a full step outside your range. Swap every station'],
       ['Caller station','he calls random combos, you throw them in the air at range']],
  sun:[]
 };
@@ -855,7 +893,7 @@ function stationCall(nm){
 /* ---- timer ---- */
 function buildSegs(k,day){
   if(!day.tm)return null;
-  const R=day.tm.rounds,wk2=day.tm.work,rs=day.tm.rest,segs=[];
+  const R=Math.max(1,day.tm.rounds-CUT),wk2=day.tm.work,rs=day.tm.rest,segs=[];
   const CQ=(CORNER[k]||[]).slice();
   let ci=Math.floor(Math.random()*Math.max(1,CQ.length));
   const nextCue=()=>{if(!CQ.length)return '';const c=CQ[ci%CQ.length];ci++;return c;};
@@ -1168,7 +1206,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v15';
+const BUILD='v16';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');

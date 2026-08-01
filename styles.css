@@ -192,6 +192,9 @@
   .bwchip{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.04em;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:6px 8px;min-height:32px;cursor:pointer;}
   .bwchip b{color:var(--bone);font-weight:700;}
   .bwchip:active{opacity:.6;}
+  .cutbtn{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.8rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:3px;min-width:34px;min-height:30px;margin-left:6px;cursor:pointer;vertical-align:middle;}
+  .cutbtn:disabled{opacity:.3;cursor:default;}
+  .cutbtn:active:not(:disabled){color:var(--ember);border-color:var(--ember);}
   .notebox{margin:9px 0 0;resize:vertical;font-size:.85rem;line-height:1.45;}
   .gcell.owed{border-color:var(--ember);border-style:dashed;}
   .gcell.noted::after{content:"";position:absolute;right:2px;top:2px;width:4px;height:4px;border-radius:50%;background:var(--steel);}

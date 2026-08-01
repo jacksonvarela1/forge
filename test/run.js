@@ -295,6 +295,56 @@ async function main() {
   g(`setView('week')`);
   g('elReset.click()');
 
+  // ---- week-3 audit batch: kick order, dupes, progression, stepper, coach memory ----
+  {
+    // head-height kicks run last on every Monday, per the day's own rule
+    for (let wi = 0; wi < 10; wi++) {
+      const labels = JSON.parse(g(`JSON.stringify(W[${wi}].d.mon.t.map(x=>x[0]))`));
+      const headIdx = labels.findIndex(l => /head kick/i.test(l) && !/body kick then head kick/i.test(l));
+      if (headIdx >= 0) assert(headIdx >= labels.length - 2,
+        `W${wi + 1} mon: head kick drill sits late in the list (index ${headIdx} of ${labels.length})`);
+    }
+    // no rotation runs the same station twice
+    for (let wi = 0; wi < 10; wi++) for (const dk of ['thu', 'sat']) {
+      const st = JSON.parse(g(`JSON.stringify(W[${wi}].d.${dk}.t.filter(x=>/^30s/i.test(x[0])).map(x=>x[0]))`));
+      assert(new Set(st).size === st.length, `W${wi + 1} ${dk}: no duplicate stations (${st.join(' | ')})`);
+    }
+    // the back half actually progresses: mon/wed 4 rounds from week 7, fri from week 8
+    for (let wi = 6; wi < 10; wi++) {
+      assert(g(`W[${wi}].d.mon.tm.rounds`) === 4 && g(`W[${wi}].d.wed.tm.rounds`) === 4,
+        `W${wi + 1}: mon and wed run 4 rounds`);
+      assert(g(`W[${wi}].d.mon.r.length`) === 4, `W${wi + 1} mon: has a prescribed fourth round`);
+    }
+    for (let wi = 7; wi < 10; wi++) assert(g(`W[${wi}].d.fri.tm.rounds`) === 4, `W${wi + 1}: fri runs 4 rounds`);
+    assert(g('W[5].d.mon.tm.rounds') === 3, 'week 6 mon stays at 3 rounds (deload and first full bag week)');
+    // shin ramp never exceeds 70 before week 8
+    const wk7 = g('JSON.stringify(W[6])');
+    assert(!/80%/.test(wk7), 'week 7 caps kicks at 70 percent');
+    // the round stepper trims the session and resets on day change
+    g('selectWeek(0);selectDay(3)');
+    const full = g('T.segs.filter(s=>s.type==="work").length');
+    g('CUT=2;render()');
+    const cutSegs = g('T.segs.filter(s=>s.type==="work").length');
+    assert(cutSegs < full, `stepper trims work segments (${full} -> ${cutSegs})`);
+    assert(/cutminus/.test(g('panel.innerHTML')), 'stepper buttons render on the timed block');
+    g('selectDay(4)');
+    assert(g('CUT') === 0, 'stepper resets when the day changes');
+    // the coach does not repeat itself back to back
+    const draws = JSON.parse(g('JSON.stringify(Array.from({length:24},()=>vrand(CALLCUE)))'));
+    let repeats = 0;
+    for (let i = 1; i < draws.length; i++) if (draws[i] === draws[i - 1]) repeats++;
+    assert(repeats === 0, 'vrand never repeats the same line back to back (' + repeats + ')');
+    // last week's note reads back on the same weekday
+    g(`NOTES[dkey(0,4)]='left hip tight, cut head kicks';saveNotes()`);
+    g('selectWeek(1);selectDay(4)');
+    assert(g('panel.innerHTML').includes('left hip tight'), 'last week\'s note for this weekday shows on the day card');
+    g('selectWeek(0);selectDay(4)');
+    assert(!/Last FRI/.test(g('panel.innerHTML')), 'week 1 shows no read-back');
+    g(`delete NOTES[dkey(0,4)];saveNotes()`);
+    // partner copy carries no stale week-3 references
+    assert(!/week 3/.test(g('JSON.stringify(PARTNER)') + g('PARTNER_RULES')), 'partner drills have no stale week references');
+  }
+
   // ---- the day's weapon rule beats a generic round label ----
   {
     const KICKY = /\bkick\b|\bteep\b|\bknee\b|check it/i;
@@ -472,14 +522,27 @@ async function main() {
   const allMeta = g('JSON.stringify(DAYMETA)') + g('JSON.stringify(W)');
   assert(!/squatted today|before your squat|days out from Wednesday|Squat day/i.test(allMeta),
     'no stale squat-schedule references remain');
-  // the bag now arrives a week early, so week 4 is the first adaptable week
-  assert(g('BAGWEEK') === 3, 'bag week is camp week 4');
-  g('BAG_ON=false;selectWeek(3);selectDay(0)');
-  assert(g('panel.innerHTML').includes('No bag mode'), 'week 4 supports no-bag mode');
-  g('BAG_ON=true;selectWeek(3);selectDay(0)');
-  assert(g('panel.innerHTML').includes('First week on the bag'), 'week 4 shows the bag on-ramp warning');
-  g('selectWeek(4)');
-  assert(!g('panel.innerHTML').includes('First week on the bag'), 'week 5 does not repeat the on-ramp warning');
+  /* The bag and partner arrive 14 to 16 August. With camp week 1 starting
+     Monday 13 July that is the FRIDAY of camp week 5, so week 5 is a partial
+     week and week 6 is the first full one. Derived here from the calendar
+     rather than hardcoded, so the two can never drift apart again. */
+  {
+    const campStart = parseISO2(g('CAMP_START'));
+    const bagArrives = parseISO2('2026-08-14');
+    const bagWeek = Math.floor(Math.round((bagArrives - campStart) / 86400000) / 7);
+    assert(g('BAGWEEK') === bagWeek,
+      `BAGWEEK matches the real delivery week (app ${g('BAGWEEK')}, calendar ${bagWeek} = camp week ${bagWeek + 1})`);
+    assert(bagWeek === 4, 'the bag lands in camp week 5 on this calendar');
+    g(`BAG_ON=false;selectWeek(${bagWeek});selectDay(0)`);
+    assert(g('panel.innerHTML').includes('No bag mode'), 'the arrival week supports no-bag mode');
+    g(`BAG_ON=true;selectWeek(${bagWeek});selectDay(0)`);
+    assert(g('panel.innerHTML').includes('lands this weekend'), 'the arrival week says the bag lands this weekend, not that it is already here');
+    g(`selectWeek(${bagWeek + 1});selectDay(0)`);
+    assert(g('panel.innerHTML').includes('First full week on the bag'), 'the following week is the first full bag week');
+    g(`selectWeek(${bagWeek - 1});selectDay(0)`);
+    assert(!/lands Friday|First full week on the bag/.test(g('panel.innerHTML')),
+      'the week before says nothing about a bag being here');
+  }
   // partner block is time-billed so it cannot silently blow the 60 minute cap
   g('PARTNER_ON=true;selectWeek(5);selectDay(1)');
   assert(g('panel.innerHTML').includes('With a partner'), 'partner block renders');
