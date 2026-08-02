@@ -345,6 +345,44 @@ async function main() {
     assert(!/week 3/.test(g('JSON.stringify(PARTNER)') + g('PARTNER_RULES')), 'partner drills have no stale week references');
   }
 
+  // ---- weekly tape, day cues, milestones ----
+  {
+    // the tape card renders on every Sunday and toggles persist
+    g('selectWeek(2);selectDay(6)');
+    assert(g('panel.innerHTML').includes('weekly tape') || g('panel.innerHTML').includes('The weekly tape'),
+      'Sunday shows the weekly tape card');
+    assert(!/undefined|NaN/.test(g('panel.innerHTML')), 'tape card renders clean');
+    g('CHECKS[2]=[1,0,1,1,0];saveChecks()');
+    g('render()');
+    assert(/3\/5 this week/.test(g('panel.innerHTML')), 'the tape card scores the week');
+    g('CHECKS[0]=[1,0,1,1,1];CHECKS[1]=[1,0,1,1,1];saveChecks();render()');
+    assert(/Feet has failed/.test(g('panel.innerHTML')), 'the worst checkpoint is named as the focus');
+    const stored = JSON.parse(JSON.parse(g(`JSON.stringify(localStorage.getItem('forge:check'))`)));
+    assert(stored && stored['2'] && stored['2'][0] === 1, 'checkpoint grades persist');
+    g('CHECKS={};saveChecks()');
+    // day cues appear mid-round on their own day and never leak kicks onto hands days
+    g('selectWeek(2);selectDay(0)');
+    const monDraws = JSON.parse(g(`JSON.stringify(Array.from({length:400},()=>callerPick("combo","R3 free · all kicks")))`));
+    assert(monDraws.some(c => /Base foot|Shin, not foot|Chamber the knee|Kick through it/.test(c)),
+      'Monday rounds hear Monday kick cues');
+    g('selectDay(2)');
+    const wedDraws = JSON.parse(g(`JSON.stringify(Array.from({length:400},()=>callerPick("combo","R4 free hands")))`));
+    assert(wedDraws.some(c => /Rear heel|Retract faster|Lead hand stays home/.test(c)),
+      'Wednesday rounds hear boxing cues');
+    assert(!wedDraws.some(c => /\bkick\b|\bteep\b|\bknee\b|check it/i.test(c)),
+      'no kick-flavored cue reaches a hands-only day');
+    // the milestone nudge fires on its week
+    const RealSlot = JSON.parse(g('JSON.stringify(todaySlot())'));
+    g(`START=isoOf(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()-7*4-((new Date().getDay()+6)%7)));saveStart();paintToday()`);
+    assert(/Bag and partner land this weekend/.test(g('todayCardEl.innerHTML')), 'week 5 shows the bag milestone');
+    g(`START='2026-07-13';saveStart();paintToday()`);
+    // backup carries the tape grades
+    g('CHECKS[3]=[1,1,1,1,1];saveChecks()');
+    const dump2 = JSON.parse(g(`JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx})`));
+    assert(dump2.check && dump2.check['3'], 'backup payload carries the weekly tape');
+    g('CHECKS={};saveChecks()');
+  }
+
   // ---- the day's weapon rule beats a generic round label ----
   {
     const KICKY = /\bkick\b|\bteep\b|\bknee\b|check it/i;

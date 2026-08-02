@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v16';
+const CACHE = 'forge-v17';
 /* Voice clips live in their own cache that survives version bumps. They are
    content-addressed by hash, so a clip never changes under a given name and
    there is nothing to invalidate. Keeping them out of the versioned cache is
@@ -32,8 +32,15 @@ self.addEventListener('install', e => {
       const ac = await caches.open(AUDIO_CACHE);
       /* only fetch clips this device does not already hold */
       const have = new Set((await ac.keys()).map(r => r.url.split('/').pop()));
+      const wanted = new Set(self.AUDIO_MANIFEST.files);
       const need = self.AUDIO_MANIFEST.files.filter(f => !have.has(f));
       await Promise.allSettled(need.map(f => ac.add('./audio/' + f)));
+      /* and drop clips the manifest no longer references, so a voice change
+         does not leave the old voice sitting in storage forever */
+      for (const req of await ac.keys()) {
+        const f = req.url.split('/').pop();
+        if (/\.mp3$/.test(f) && !wanted.has(f)) await ac.delete(req);
+      }
     }
     /* Fetch the font CSS and the woff2 files it names at install time, so the app
        is fully offline after the very first online visit. A synthesized Response is

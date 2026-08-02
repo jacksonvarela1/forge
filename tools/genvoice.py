@@ -9,15 +9,17 @@ import sys
 
 import edge_tts
 
-VOICE = "en-US-ChristopherNeural"
-RATE = "+8%"
+VOICE = "en-US-AndrewNeural"
+RATE = "+4%"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIO = os.path.join(ROOT, "audio")
 CONCURRENCY = 6
 
 
 def fname(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12] + ".mp3"
+    # The voice is part of the name: a voice change must produce new filenames,
+    # or phones holding the old clips under the same names would never update.
+    return hashlib.sha1((VOICE + "|" + text).encode("utf-8")).hexdigest()[:12] + ".mp3"
 
 
 async def gen_one(sem, text, path, tries=4):
@@ -61,8 +63,14 @@ async def main():
     )
     with open(os.path.join(AUDIO, "manifest.js"), "w", encoding="utf-8") as f:
         f.write(manifest)
+    # prune clips no longer referenced by the manifest (old voices, old lines)
+    pruned = 0
+    for f in os.listdir(AUDIO):
+        if f.endswith(".mp3") and f not in files:
+            os.remove(os.path.join(AUDIO, f))
+            pruned += 1
     total = sum(os.path.getsize(os.path.join(AUDIO, f)) for f in files)
-    print(f"done: {len(files)} clips, {total // 1024} KB, manifest written")
+    print(f"done: {len(files)} clips, {total // 1024} KB, {pruned} stale pruned, manifest written")
 
 
 asyncio.run(main())

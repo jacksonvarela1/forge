@@ -189,7 +189,7 @@ function paintNow(){
    The app stores the Monday that camp week 1 started, so it can tell you which
    week you are actually in instead of making you remember. Everything degrades
    gracefully if it was never set. */
-let START=null,BW=[],NOTES={},PRERESTORE=null,SAVEFAIL='';
+let START=null,BW=[],NOTES={},CHECKS={},PRERESTORE=null,SAVEFAIL='';
 function isoOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 /* Anchored at noon, not midnight: subtracting two midnights across a daylight
    saving boundary gives 23 or 25 hours and rounds to the wrong day. */
@@ -291,6 +291,7 @@ function render(){
    ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
    ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">The bag lands this weekend. Most of this week is still air work, so nothing changes until it is hanging. The moment it is up: wraps and 16 oz gloves every round, hands and kicks at 50 percent, and stop the second a wrist or a shin complains.</div>`:''}${(BAG_ON&&wIdx===BAGWEEK+1)?`<div class="flag">First full week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands and kicks stay at 50 percent all week no matter how good it feels: your wrists have spent five weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one on the bag, not week five. Sore shins mean back off, not push on.</div>`:''}
    ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?'Partner arrives with the bag at the end of week 5. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
+   ${k==='sun'?checkCard():''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
     <textarea class="srch notebox" id="notebox" rows="2" placeholder="How did it go? What felt off? Two words is enough.">${(NOTES[dkey(wIdx,dIdx)]||'').replace(/</g,'&lt;')}</textarea></div>`;
   const db=document.getElementById('dbtn');
@@ -313,6 +314,16 @@ function render(){
   if(cm)cm.addEventListener('click',()=>{CUT++;render();});
   const cp=document.getElementById('cutplus');
   if(cp)cp.addEventListener('click',()=>{CUT=Math.max(0,CUT-1);render();});
+  const ck=document.getElementById('ckrow');
+  if(ck)ck.addEventListener('click',e=>{
+    const b=e.target.closest('.ckchip');
+    if(!b)return;
+    const i=+b.dataset.ck;
+    const cur=CHECKS[wIdx]||[0,0,0,0,0];
+    cur[i]=cur[i]?0:1;
+    CHECKS[wIdx]=cur;
+    saveChecks();render();
+  });
   paintDone();
   /* Never rebuild a timer that is mid-session on this same day. render() runs
      again every time you mark a session done or flip a switch, and reloading
@@ -408,6 +419,13 @@ function paintWeight(){
 }
 
 /* ---- today, and what you owe ---- */
+/* one dated nudge per key week, surfaced where he actually looks */
+const MILESTONES={
+ 4:'Bag and partner land this weekend. Wraps ready, everything at 50 percent when it hangs.',
+ 6:'Lifting deloads this week while the bag load arrives. That is the plan working, not you slacking.',
+ 7:'Call a gym this week and ask about a beginner or fundamentals slot. The Gear tab has the maps and what to say.',
+ 9:'Book the trial class for the week after camp. Mouthguard ordered? Gear tab.',
+};
 function paintToday(){
   if(!todayCardEl)return;
   const slot=todaySlot();
@@ -426,6 +444,7 @@ function paintToday(){
     todayCardEl.innerHTML=`<div class="card${done?' cardon':''}"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Week ${slot.w+1} &middot; ${m.abbr}</span></div>
       <div class="todaytitle">${m.title}</div>
       <div class="bwline"><b>Day ${campDayCount()} of 70</b>${streak()>1?` &middot; ${streak()} straight`:''}. ${done?'Logged. That is the day.':'Not logged yet.'}${missed?` <b>${missed}</b> session${missed>1?'s':''} still open behind you.`:' Nothing outstanding behind you.'}</div>
+      ${MILESTONES[slot.w]?`<div class="bwnote" style="color:var(--ember)">${MILESTONES[slot.w]}</div>`:''}
       <div class="bwform"><button class="sw" id="gotoday" type="button">Open today</button><button class="sw${done?' on':''}" id="marktoday" type="button">${done?'&#10003; Done':'Mark done'}</button></div></div>`;
     const go=document.getElementById('gotoday');
     if(go)go.addEventListener('click',()=>{selectWeek(slot.w);saveWeek(slot.w);selectDay(slot.d);setView('week');});
@@ -457,7 +476,7 @@ function paintTools(){
   });
   const ex=document.getElementById('expbtn');
   if(ex)ex.addEventListener('click',async()=>{
-    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,start:START,iq:IQ,week:wIdx});
+    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx});
     try{await navigator.clipboard.writeText(dump);msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
     catch(e){
       const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.value=dump;
@@ -467,9 +486,9 @@ function paintTools(){
   const un=document.getElementById('undobtn');
   if(un)un.addEventListener('click',()=>{
     if(!PRERESTORE)return;
-    DONE=PRERESTORE.done;BW=PRERESTORE.bw;NOTES=PRERESTORE.notes;START=PRERESTORE.start;IQ=PRERESTORE.iq;
+    DONE=PRERESTORE.done;BW=PRERESTORE.bw;NOTES=PRERESTORE.notes;CHECKS=PRERESTORE.check||{};START=PRERESTORE.start;IQ=PRERESTORE.iq;
     PRERESTORE=null;
-    saveDone();saveBW();saveNotes();saveStart();saveIQ();
+    saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();
     paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
     const e=document.getElementById('iomsg');if(e)e.textContent='Put back the way it was before the restore.';
   });
@@ -484,13 +503,14 @@ function paintTools(){
       if(!o||typeof o!=='object')throw 0;
       /* snapshot first: restoring an older backup over a newer log is the one
          way this screen can destroy training history */
-      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),start:START,iq:JSON.parse(JSON.stringify(IQ))};
+      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),check:JSON.parse(JSON.stringify(CHECKS)),start:START,iq:JSON.parse(JSON.stringify(IQ))};
       if(o.done&&typeof o.done==='object')DONE=o.done;
       if(Array.isArray(o.bw))BW=o.bw.filter(x=>x&&x.d&&isFinite(x.w));
       if(o.notes&&typeof o.notes==='object')NOTES=o.notes;
+      if(o.check&&typeof o.check==='object')CHECKS=o.check;
       if(typeof o.start==='string')START=o.start;
       if(o.iq&&typeof o.iq.r==='number')IQ=o.iq;
-      saveDone();saveBW();saveNotes();saveStart();saveIQ();
+      saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();
       existing.remove();
       paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
       msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back. What was here before this restore is saved under Undo below, until you close the app.');
@@ -705,25 +725,25 @@ function vstop(){try{speechSynthesis.cancel();}catch(e){}clipStop();}
 
 /* ---- combo caller ---- */
 const CALLADD={
- 1:['Jab','One two','One two three','Two three two','Leg kick','Teep','One two, leg kick','Body kick','Check it','Double jab'],
- 2:['One one two','One two three two','One two five two','Calf kick','Switch kick','Kick, hands, kick','One six three','Body jab','Rear teep'],
- 3:['One two three two three','Hand, kick, hand','Question mark kick','Three two three','Body, then head','Level fake, one two','Five strikes','Kick, hand, kick'],
- 4:['Feint the jab, cross','Hand feint, low kick','Low, low, high','Body feint, uppercut','Teep feint, leg kick','Sell it first','Fake the shot, go high'],
- 5:['Check hook','Pull counter','Cross counter','Slip and counter','Sprawl, uppercut','Check and return','Counter it','Make him miss'],
- 6:['One two, pivot, hook','Angle, then kick','Switch stance, kick','Circle out','Off angle','In and out','Cut the angle'],
- 7:['Sit down on it','Power one two','Kick through it','Heavy hands','Body kick, hard'],
- 8:['Walk it down','Hit the return','Chase kick','Punch out','Pressure','Cut him off'],
- 9:['Fast fast slow','Pause, then finish','Burst of six','Stutter step','Change the pace','Half beat'],
- 10:['Free','Your call','Make it up','Whatever you see','Improvise']
+ 1:['Jab','One two','One two three','Two three two','Leg kick','Teep','One two, leg kick','Body kick','Check it','Double jab','Jab to the body','One two, step out','Double jab, cross'],
+ 2:['One one two','One two three two','One two five two','Calf kick','Switch kick','Kick, hands, kick','One six three','Body jab','Rear teep','Two three','One two, slip','Calf kick, same leg again'],
+ 3:['One two three two three','Hand, kick, hand','Question mark kick','Three two three','Body, then head','Level fake, one two','Five strikes','Kick, hand, kick','One two, body kick','Jab, cross, switch kick','Three to the body, three to the head'],
+ 4:['Feint the jab, cross','Hand feint, low kick','Low, low, high','Body feint, uppercut','Teep feint, leg kick','Sell it first','Fake the shot, go high','Show the teep, throw the cross','Feint low, finish high'],
+ 5:['Check hook','Pull counter','Cross counter','Slip and counter','Sprawl, uppercut','Check and return','Counter it','Make him miss','Catch it, send it back','Slip outside, dig the body'],
+ 6:['One two, pivot, hook','Angle, then kick','Switch stance, kick','Circle out','Off angle','In and out','Cut the angle','One two, angle out','Southpaw kick, switch back'],
+ 7:['Sit down on it','Power one two','Kick through it','Heavy hands','Body kick, hard','Sit down, one two','Through the target, not at it'],
+ 8:['Walk it down','Hit the return','Chase kick','Punch out','Pressure','Cut him off','Six strikes, no pause','Cut the exit'],
+ 9:['Fast fast slow','Pause, then finish','Burst of six','Stutter step','Change the pace','Half beat','Slow hands, then explode','Break the beat, then finish'],
+ 10:['Free','Your call','Make it up','Whatever you see','Improvise','Show me something new','String it all together']
 };
 const CALLCUE=['Hands up','Snap it back','Pivot','Breathe','Angle off','Chin down','Do not stand still','Land balanced','Turn the hip over','Elbows in','Move your head','Reset your stance','Loose arms, no locked elbows'];
 /* free rounds get a cornerman, not a dictation machine: one short tactical
    prompt at a time, real silence between. Lines stay under 8 words. */
-const FREECALL=['He is cutting you off. Angle out.','Doubling his jab. Answer it.','You are square. Fix your feet.','Change levels. Body, then head.','Circle off the power hand.','Second combo. Do not admire the first.','Make him miss. Make him pay.','Get in, do the work, get out.','Where is your jab?','He is timing your rhythm. Break it.'];
+const FREECALL=['He is cutting you off. Angle out.','Doubling his jab. Answer it.','You are square. Fix your feet.','Change levels. Body, then head.','Circle off the power hand.','Second combo. Do not admire the first.','Make him miss. Make him pay.','Get in, do the work, get out.','Where is your jab?','He is timing your rhythm. Break it.','Feet first, hands second.','Level change, then answer up top.','He is breathing hard. Go now.','You won that exchange. Take another.','Stop waiting. Make something happen.'];
 /* defense rounds: the voice plays the opponent. Weeks 1-4 call the attack and
    the answer, week 5 on calls the attack only so he chooses. */
-const DEFPAIR=['Jab. Slip right.','Jab. Slip left.','One two. Catch, then counter.','Hook. Roll under.','Low kick. Check it.','Teep. Parry and step in.','He shoots. Sprawl.'];
-const DEFATK=['Jab.','Double jab.','Right hand.','One two.','Lead hook.','Body shot.','Low kick.','Head kick.','Teep.','He shoots.'];
+const DEFPAIR=['Jab. Slip right.','Jab. Slip left.','One two. Catch, then counter.','Hook. Roll under.','Low kick. Check it.','Teep. Parry and step in.','He shoots. Sprawl.','Double jab. Parry, parry.','Body shot. Elbows in.'];
+const DEFATK=['Jab.','Double jab.','Right hand.','One two.','Lead hook.','Body shot.','Low kick.','Head kick.','Teep.','He shoots.','Jab jab.','He swings wide.','Level change.'];
 /* memoised so the same array identity comes back per week, which is what lets
    vrand's repeat-suppression history work on the combo pool too */
 const POOLCACHE={};
@@ -760,15 +780,32 @@ function fromPool(pool,filter){
   const p=filter?pool.filter(filter):pool;
   return p.length?vrand(p):vrand(CALLCUE.filter(c=>!KICKCALL.test(c)&&!HANDCALL.test(c)));
 }
+/* the day's own corner cues, spoken mid-round: Monday hears kick corrections,
+   Wednesday hears boxing ones. Same voiced lines the rest announcements use.
+   A cue still has to fit the round: no kick coaching in a jab-only round, and
+   nothing kick-flavored at all on a hands-only day. */
+function dayCue(filter){
+  const a=CORNER[DK[dIdx]];
+  if(!a||!a.length)return vrand(CALLCUE);
+  const dayw=(DAYMETA[DK[dIdx]]||{}).weapons;
+  for(let i=0;i<3;i++){
+    const c=endp(vrand(a));
+    if(dayw==='hands'&&KICKCALL.test(c))continue;
+    if(filter&&(KICKCALL.test(c)||HANDCALL.test(c))&&!filter(c))continue;
+    return c;
+  }
+  const neutral=CALLCUE.filter(c=>!KICKCALL.test(c)&&!HANDCALL.test(c));
+  return neutral.length?vrand(neutral):vrand(CALLCUE);
+}
 function callerPick(ctx,label){
   const pool=poolFor(wIdx);
   const flavor=ctx==='station'?roundCall(label,DK[dIdx]):ctx;
   const filter=poolFilterFor(label);
   const r=Math.random();
   if(r<0.10)return vrand(VP.praise);
-  if(flavor==='defense')return r<0.28?vrand(CALLCUE):vrand(wIdx>=4?DEFATK:DEFPAIR);
-  if(flavor==='free')return r<0.32?vrand(CALLCUE):fromPool(FREECALL,filter);
-  return r<0.30?vrand(CALLCUE):fromPool(pool,filter);
+  if(flavor==='defense')return r<0.20?vrand(CALLCUE):(r<0.32?dayCue(filter):vrand(wIdx>=4?DEFATK:DEFPAIR));
+  if(flavor==='free')return r<0.22?vrand(CALLCUE):(r<0.36?dayCue(filter):fromPool(FREECALL,filter));
+  return r<0.20?vrand(CALLCUE):(r<0.34?dayCue(filter):fromPool(pool,filter));
 }
 /* cadence per round type: defense is stimulus-response (fast), technique and
    stations sit mid, free rounds get sparse corner prompts with real silence */
@@ -801,15 +838,39 @@ function callerStart(){
 const CORNER={
  mon:['Base foot. Turn it all the way over.','Land balanced, hands back up.','Chamber the knee before you extend.','Kick through it, not at it.','Shin, not foot.'],
  tue:['Every combo ends somewhere new. Pivot off.','Snap each punch back to your chin.','Body first, then head.','Let each rotation feed the next one.','Do not reset between punches. Chain it.'],
- wed:['Rear heel spins out on the cross.','Retract faster than you throw.','Lead hand stays home when the cross goes.','Light feet today. You squatted.','Do not lean past your front knee.'],
- thu:['Form holds when the arms burn. Slow down before you get ugly.','Breathe through your nose. Bring it down.','Hips heavy on the sprawl.','Output, not flailing.','Land in stance, not flat footed.'],
+ wed:['Rear heel spins out on the cross.','Retract faster than you throw.','Lead hand stays home when the cross goes.','Light feet tonight. You hinged heavy this morning.','Do not lean past your front foot.'],
+ thu:['Form holds when the arms burn. Slow down before you get ugly.','Breathe through your nose. Bring it down.','Level change from the legs, never the waist.','Output, not flailing.','Land in stance, not flat footed.'],
  fri:['Small slips. A big lean is just a slow miss.','Come up already throwing.','Defense and counter are one motion.','Do not freeze. React and fire.','Eyes up. Hands up.'],
  sat:['Hands up even when you are gassed.','Full extension, full retraction.','Turn the body on every hook.','Last round should look like the first.','Keep the pace honest.'],
  sun:[]
 };
 function cornerCue(){const a=CORNER[DK[dIdx]]||[];return a.length?a[Math.floor(Math.random()*a.length)]:'';}
 
-/* ---- equipment adaptation ---- */
+/* ---- the weekly tape ----
+   The week 10 exam, run every Sunday instead of once. Film one round at half
+   speed, watch it back, tap what held up. What keeps failing is next week's
+   focus, and by week 10 the checkpoint is a formality instead of a surprise. */
+function checkCard(){
+  const cur=CHECKS[wIdx]||[0,0,0,0,0];
+  const chips=CHECK5.map((c,i)=>`<button class="ckchip${cur[i]?' on':''}" data-ck="${i}" type="button">${c[0]}</button>`).join('');
+  const held=cur.filter(Boolean).length;
+  /* which checkpoint fails most across every graded week */
+  let worst='',worstMiss=0;
+  const graded=Object.keys(CHECKS);
+  if(graded.length){
+    CHECK5.forEach((c,i)=>{
+      const miss=graded.filter(w=>!(CHECKS[w]||[])[i]).length;
+      if(miss>worstMiss){worstMiss=miss;worst=c[0];}
+    });
+  }
+  const legend=CHECK5.map(c=>`<div class="bwline"><b>${c[0]}:</b> ${c[1]}</div>`).join('');
+  return `<div class="card"><div class="cardhead"><span class="cardtitle">The weekly tape</span><span class="cardtag">${graded.length?held+'/5 this week':'not graded yet'}</span></div>
+    <div class="bwnote">Film one round of shadow at half speed, watch it back once, and tap what held up. Grade it like a coach who does not like you.</div>
+    <div class="bwchips" id="ckrow">${chips}</div>
+    ${legend}
+    ${worst&&worstMiss>1?`<div class="bwnote" style="color:var(--ember)">${worst} has failed ${worstMiss} of your ${graded.length} graded weeks. That is next week's focus, every session.</div>`:''}
+  </div>`;
+}
 /* Exact-label swaps for weeks 5-10 when there is no bag yet. Derived from the
    program's own NO BAG YET notes: shadow versions chase snap and full
    retraction instead of impact. Filled per drill; unknown labels pass through. */
@@ -1170,12 +1231,14 @@ async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));;SA
 async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveStart(){try{await storage.set('forge:start',String(START||''));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveChecks(){try{await storage.set('forge:check',JSON.stringify(CHECKS));SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function boot(){
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
   try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;}}}catch(e){}
   try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
   try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
+  try{const r=await storage.get('forge:check');if(r&&r.value){const c=JSON.parse(r.value);if(c&&typeof c==='object')CHECKS=c;}}catch(e){}
   try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
   /* One-time correction: earlier builds silently guessed a start date from
      whatever Monday it happened to be. Overwrite that guess once, then never
@@ -1206,7 +1269,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v16';
+const BUILD='v17';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');

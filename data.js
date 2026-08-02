@@ -397,3 +397,13 @@ const CATS = [
  {name:'Static Stretches',tag:'Cooldown holds.',steps:['Hamstrings, groin, shoulders, chest, lats, wrists. 60 sec each, ease in, breathe.'],cue:'After training only, never before. Static stretching cold blunts your power output.',vid:'post workout static stretching'}
 ]}
 ];
+
+/* The week 10 exam, run weekly. Film one round, watch it back, grade honestly.
+   These mirror the five checkpoints week 10 Sunday already grades. */
+const CHECK5=[
+ ['Hands','back to guard after every strike, zero drops'],
+ ['Feet','never crossed, never square, never flat'],
+ ['Pivot','every kick pivots, every landing balanced'],
+ ['Flow','1-2-3 is one motion, not three decisions'],
+ ['Gas','the last round looks like the first']
+];
