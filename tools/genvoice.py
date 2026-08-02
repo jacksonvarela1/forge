@@ -9,7 +9,7 @@ import sys
 
 import edge_tts
 
-VOICE = "en-US-AndrewNeural"
+VOICE = "en-GB-RyanNeural"
 RATE = "+4%"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIO = os.path.join(ROOT, "audio")
