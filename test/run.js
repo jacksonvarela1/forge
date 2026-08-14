@@ -639,6 +639,58 @@ async function main() {
   assert(typeof m2.g('START') === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m2.g('START')), 'reload: camp start date persisted');
   assert(m2.errors.length === 0, 'no errors on reload');
 
+  /* ===== v19: profiles, onboarding, and vacation tools ===== */
+
+  // The original install has data but never named a fighter: it is claimed as
+  // Jackson silently, keeps the named coach, and never sees onboarding.
+  assert(m2.g('WHO') === 'Jackson', 'profiles: legacy install claimed as Jackson');
+  assert(m2.g('ONBOARD') === false, 'profiles: legacy install skips onboarding');
+  assert(m2.g('coachNamed()') === true, 'profiles: legacy install keeps the named coach');
+  assert(m2.g('nsKey("forge:done")') === 'forge:done', 'profiles: Jackson keeps his original un-prefixed keys');
+
+  // A buddy switching in gets a clean namespaced world; Jackson's log survives.
+  await m2.g('(async()=>{WHO="Pax";await saveWho();})()');
+  await m2.g('boot()');
+  assert(m2.g('WHO') === 'Pax', 'profiles: switch lands on the buddy');
+  assert(m2.g('nsKey("forge:done")') === 'forge:p:pax:done', 'profiles: buddy keys carry the name prefix');
+  assert(m2.g('Object.keys(DONE).length') === 0, 'profiles: buddy starts with an empty log, no leak from Jackson');
+  assert(m2.g('coachNamed()') === false, 'profiles: buddy gets the generic coach, not Jackson lines');
+  assert(m2.g('typeof START==="string" && !!parseISO(START)') === true, 'profiles: buddy gets a start date of their own');
+  const paxStart = m2.g('START');
+  await m2.g('(async()=>{await toggleDone(0,0);})()');
+  assert(store.has('forge:p:pax:done'), 'profiles: buddy log writes under the buddy namespace');
+  await m2.g('boot()');
+  assert(m2.g('START') === paxStart, 'profiles: startv migration never rewrites a buddy start date');
+  await m2.g('(async()=>{WHO="Jackson";await saveWho();})()');
+  await m2.g('boot()');
+  assert(m2.g('Object.keys(DONE).length') === 70, 'profiles: switching back restores all 70 of Jackson\'s sessions');
+  assert(m2.g('isDone(0,0)') === true, 'profiles: buddy toggling day one never touched Jackson\'s cell');
+
+  // Vacation shift: sliding the start forward a week re-derives the bag week.
+  assert(m2.g('BAGWEEK') === 4, 'vacation: bag week derives to 4 on the original calendar');
+  m2.g('START=isoOf(mondayOf(new Date(parseISO(START).getTime()+7*86400000)));recomputeBagWeek()');
+  assert(m2.g('BAGWEEK') === 3, 'vacation: shifting camp back a week moves the bag to week 4 on the new numbering');
+  m2.g('START=isoOf(mondayOf(new Date(parseISO(START).getTime()-7*86400000)));recomputeBagWeek()');
+  assert(m2.g('BAGWEEK') === 4, 'vacation: shifting back again restores the derived bag week');
+
+  // Makeup: the missed day loads trimmed, flagged, and clears when you move on.
+  m2.g('goMakeup(2,3)');
+  assert(m2.g('wIdx') === 2 && m2.g('dIdx') === 3, 'makeup: navigates to the missed cell');
+  assert(m2.g('CUT') === Math.max(0, m2.g('W[2].d[DK[3]].tm.rounds') - 2), 'makeup: rounds trimmed by two');
+  assert(m2.g('MAKEUP && MAKEUP.w===2 && MAKEUP.d===3') === true, 'makeup: makeup mode armed');
+  m2.g('selectDay(5)');
+  assert(m2.g('MAKEUP') === null, 'makeup: navigating away disarms makeup mode');
+  assert(m2.g('CUT') === 0, 'makeup: round trim resets on navigation');
+
+  // A truly fresh phone boots into onboarding and stays quiet about it.
+  const m3 = bootApp(new Map());
+  await m3.g('boot()');
+  assert(m3.g('ONBOARD') === true, 'onboard: an empty phone asks who is training');
+  assert(m3.g('WHO') === '', 'onboard: nobody is claimed until a name is given');
+  assert(m3.errors.length === 0, 'onboard: fresh boot throws nothing');
+
+  assert(m2.errors.length === 0, 'profiles: no errors across profile switches');
+
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');
   process.exit(failures ? 1 : 0);
 }

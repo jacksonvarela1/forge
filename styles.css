@@ -361,3 +361,20 @@
   .wlabel{display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .backtoday{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);background:transparent;border:1px solid var(--ember);border-radius:3px;padding:6px 9px;min-height:32px;cursor:pointer;white-space:nowrap;}
   .backtoday:active{opacity:.7;}
+
+  /* ================= v19: the camp you can see ================= */
+  .cbtrack{height:4px;background:var(--line);border-radius:2px;margin-top:12px;overflow:hidden;}
+  .cbfill{height:100%;border-radius:2px;background:var(--ember);transition:width .6s ease;}
+  .cblabel{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .obcard{border-left-color:var(--ember);margin-top:14px;}
+  .obchip{flex:0 1 auto;padding:9px 12px;}
+  .stats{flex-wrap:wrap;}
+  .rankstrip{flex:1 1 100%;margin-top:2px;}
+  .rstrack{height:4px;background:var(--line);border-radius:2px;overflow:hidden;}
+  .rsfill{height:100%;background:var(--restore);border-radius:2px;transition:width .6s ease;}
+  .rslabel{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-top:4px;text-align:right;}
+  .focus.fdone{background:radial-gradient(circle at 50% 42%,#12281C 0%,#101A15 55%,#0F1319 100%);}
+  .focus.fdone .fclock{color:var(--restore);}
+  .dbtn.on{box-shadow:0 0 18px rgba(126,155,138,.25);}
+  .card{transition:border-color .25s ease;}
+  .gcell{transition:background .2s ease,border-color .2s ease;}

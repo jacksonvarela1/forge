@@ -20,7 +20,7 @@ const add = t => { const k = g(`vnorm(${JSON.stringify(String(t))})`); if (k) ke
 const addEnd = t => add(g(`endp(lbl(${JSON.stringify(String(t))}))`));
 
 // openers with the fighter's name, plus fixed phrases
-for (const o of g('JSON.stringify(VP.open)') ? JSON.parse(g('JSON.stringify(VP.open)')) : []) add(o + ', ' + g('NAME') + '.');
+for (const o of g('JSON.stringify(VP.open)') ? JSON.parse(g('JSON.stringify(VP.open)')) : []) { add(o + ', ' + g('NAME') + '.'); add(o + '.'); }
 /* Derive the pools from VP itself. Hard-coding this list once cost the coach
    its whole 'lastwork' vocabulary, which silently fell back to browser speech
    and therefore to the phone speaker instead of the Bluetooth one. */

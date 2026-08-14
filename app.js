@@ -1,8 +1,28 @@
 /* ---- storage: same call shape as the artifact API, backed by localStorage outside artifacts ---- */
-const storage = window.storage ?? {
+const rawstorage = window.storage ?? {
   get: async k => { const v = localStorage.getItem(k); return v == null ? null : { value: v }; },
   set: async (k, v) => { localStorage.setItem(k, v); return {}; },
 };
+
+/* ---- fighters ----
+   Name-based profiles, no passwords: each fighter on a device gets their own
+   log, weight, notes, camp start and settings. The original install keeps its
+   un-prefixed keys, so nothing already logged moves an inch; everyone else
+   lives under their own prefix. Who is active and the roster are shared. */
+let WHO='';
+const SHARED_KEYS={'forge:who':1,'forge:names':1};
+function nsKey(k){
+  if(SHARED_KEYS[k])return k;
+  if(!WHO||WHO.toLowerCase()==='jackson')return k;
+  return 'forge:p:'+WHO.toLowerCase().replace(/[^a-z0-9]/g,'')+':'+k.slice(6);
+}
+const storage={
+  get:k=>rawstorage.get(nsKey(k)),
+  set:(k,v)=>rawstorage.set(nsKey(k),v),
+};
+/* the coach only speaks a name he has clips for; everyone else gets the same
+   lines without one, which still beats a robot saying the wrong name */
+function coachNamed(){return !WHO||WHO.toLowerCase()==='jackson';}
 
 /* ---------------- RENDER ---------------- */
 const DK=['mon','tue','wed','thu','fri','sat','sun'];
@@ -175,6 +195,7 @@ function paintDone(){
    chip and is green; this marker sits at the top and is ember, so browsing
    ahead never makes you lose your place. */
 function paintNow(){
+  paintCampBar();
   const slot=todaySlot();
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('now',!!slot&&x===slot.w));
   document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('now',!!slot&&x===slot.d&&wIdx===slot.w));
@@ -201,7 +222,9 @@ function noonToday(){const n=new Date();return new Date(n.getFullYear(),n.getMon
    that first Sunday ahead of week 1 rather than inside it. */
 const CAMP_START='2026-07-13';
 const START_MIGRATION='2';
-function defaultStart(){return CAMP_START;}
+/* the original camp has a fixed history; a new fighter's camp starts the
+   Monday of the week they walk in */
+function defaultStart(){return coachNamed()?CAMP_START:isoOf(mondayOf(new Date()));}
 /* {w,d} of today within the camp, or null if today falls outside the 10 weeks */
 function todaySlot(){
   const s=parseISO(START);
@@ -288,9 +311,12 @@ function render(){
    ${flowbar}
    ${blocks}
    ${m.flag?`<div class="flag">${m.flag}</div>`:''}
+   ${(MAKEUP&&MAKEUP.w===wIdx&&MAKEUP.d===dIdx)?`<div class="flag">Makeup session: trimmed short on purpose so tomorrow&rsquo;s real session survives it. Run what is here, mark it done, and the missed cell fills in. No guilt, just reps.</div>`:''}
    ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
    ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">The bag lands this weekend. Most of this week is still air work, so nothing changes until it is hanging. The moment it is up: wraps and 16 oz gloves every round, hands and kicks at 50 percent, and stop the second a wrist or a shin complains.</div>`:''}${(BAG_ON&&wIdx===BAGWEEK+1)?`<div class="flag">First full week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands and kicks stay at 50 percent all week no matter how good it feels: your wrists have spent five weeks punching air and your shins have never hit anything. Boxer’s wrist happens in week one on the bag, not week five. Sore shins mean back off, not push on.</div>`:''}
-   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?'Partner arrives with the bag at the end of week 5. Until then these drills are a preview. ':''}${PARTNER_RULES}</div>`:''}
+   ${(BAG_ON&&wIdx>=BAGWEEK&&!WRAPS_ON)?`<div class="flag">No wraps yet, so no bag rounds yet: bare knuckles on a bag is how a good week ends a training month. Twelve dollars fixes this. Until then every bag drill runs as shadow.</div>`:''}
+   ${(BAG_ON&&wIdx>=BAGWEEK&&WRAPS_ON&&!GLOVES_ON)?`<div class="flag">No gloves: bag work is wraps only, straight punches only, 50 percent, and stop at the first skin hot spot. Hooks wait for gloves, they load the wrist sideways.</div>`:''}
+   ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?`Partner arrives with the bag at the end of week ${BAGWEEK+1}. Until then these drills are a preview. `:''}${PARTNER_RULES}</div>`:''}
    ${k==='sun'?checkCard():''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
     <textarea class="srch notebox" id="notebox" rows="2" placeholder="How did it go? What felt off? Two words is enough.">${(NOTES[dkey(wIdx,dIdx)]||'').replace(/</g,'&lt;')}</textarea></div>`;
@@ -343,7 +369,7 @@ function selectWeek(i){
   });
   render();
 }
-function selectDay(i){dIdx=i;CUT=0;document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('active',x===i));render();
+function selectDay(i){if(MAKEUP&&(MAKEUP.w!==wIdx||MAKEUP.d!==i))MAKEUP=null;dIdx=i;CUT=0;document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('active',x===i));render();
  const t=document.querySelectorAll('.daytab')[i];if(t)t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});}
 
 /* ---- log grid ---- */
@@ -441,16 +467,53 @@ function paintToday(){
       if(w===slot.w&&d>=slot.d)continue;
       if(!isDone(w,d))missed++;
     }
+    /* a week or more away is a vacation, not a failure: offer to slide the
+       whole camp instead of leaving a crater of owed cells */
+    let recentMissed=0;
+    for(let i=1;i<=7;i++){
+      const dd=new Date(noonToday());dd.setDate(dd.getDate()-i);
+      const s2=parseISO(START);if(!s2)break;
+      const w2=Math.floor(Math.round((mondayOf(dd)-mondayOf(s2))/86400000)/7),d2=(dd.getDay()+6)%7;
+      if(w2>=0&&w2<10&&!isDone(w2,d2))recentMissed++;
+    }
+    /* the most recent past day never logged, for the makeup offer */
+    let mk_w=-1,mk_d=-1;
+    outer:for(let w=slot.w;w>=0;w--)for(let d=(w===slot.w?slot.d-1:6);d>=0;d--){
+      if(!isDone(w,d)){mk_w=w;mk_d=d;break outer;}
+    }
     todayCardEl.innerHTML=`<div class="card${done?' cardon':''}"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Week ${slot.w+1} &middot; ${m.abbr}</span></div>
       <div class="todaytitle">${m.title}</div>
       <div class="bwline"><b>Day ${campDayCount()} of 70</b>${streak()>1?` &middot; ${streak()} straight`:''}. ${done?'Logged. That is the day.':'Not logged yet.'}${missed?` <b>${missed}</b> session${missed>1?'s':''} still open behind you.`:' Nothing outstanding behind you.'}</div>
       ${MILESTONES[slot.w]?`<div class="bwnote" style="color:var(--ember)">${MILESTONES[slot.w]}</div>`:''}
-      <div class="bwform"><button class="sw" id="gotoday" type="button">Open today</button><button class="sw${done?' on':''}" id="marktoday" type="button">${done?'&#10003; Done':'Mark done'}</button></div></div>`;
+      <div class="bwform"><button class="sw" id="gotoday" type="button">Open today</button><button class="sw${done?' on':''}" id="marktoday" type="button">${done?'&#10003; Done':'Mark done'}</button></div>
+      ${mk_w>=0?`<div class="bwform"><button class="sw" id="makeupbtn" type="button">Make up ${DAYMETA[DK[mk_d]].abbr} &middot; short version</button></div>`:''}
+      ${recentMissed>=5?`<div class="bwnote">Away for a stretch? You can slide the whole camp back a week instead of chasing ${missed} owed sessions. Week numbers move, nothing you logged is touched.</div><div class="bwform"><button class="sw" id="shiftbtn" type="button">Shift camp back one week</button></div>`:''}</div>`;
     const go=document.getElementById('gotoday');
     if(go)go.addEventListener('click',()=>{selectWeek(slot.w);saveWeek(slot.w);selectDay(slot.d);setView('week');});
     const mk=document.getElementById('marktoday');
     if(mk)mk.addEventListener('click',()=>toggleDone(slot.w,slot.d));
+    const mb=document.getElementById('makeupbtn');
+    if(mb)mb.addEventListener('click',()=>goMakeup(mk_w,mk_d));
+    const sb=document.getElementById('shiftbtn');
+    if(sb)sb.addEventListener('click',()=>{
+      const s2=parseISO(START);if(!s2)return;
+      s2.setDate(s2.getDate()+7);
+      START=isoOf(mondayOf(s2));saveStart();recomputeBagWeek();
+      const ns=todaySlot();
+      if(ns){wIdx=ns.w;dIdx=ns.d;}
+      selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();
+    });
   }
+}
+/* A makeup is the missed day trimmed to about two rounds plus its technique
+   block: enough to bank the skill without wrecking tomorrow's real session. */
+let MAKEUP=null;
+function goMakeup(w,d){
+  selectWeek(w);saveWeek(w);selectDay(d);
+  const day=W[w].d[DK[d]];
+  if(day&&day.tm)CUT=Math.max(0,day.tm.rounds-2);
+  MAKEUP={w:w,d:d};
+  render();setView('week');
 }
 
 /* ---- backup ----
@@ -458,7 +521,17 @@ function paintToday(){
    profile, so an export that survives a cleared cache is not optional. */
 function paintTools(){
   if(!logToolsEl)return;
-  logToolsEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
+  /* the fighter card: who this camp belongs to, what they own, who else
+     trains on this phone */
+  const eqChip=(id,label,on)=>`<button class="sw obchip${on?' on':''}" data-eq="${id}" type="button">${on?'&#9679;':'&#9675;'} ${label}</button>`;
+  const others=NAMES.filter(n=>n.toLowerCase()!==(WHO||'jackson').toLowerCase());
+  const fighter=`<div class="card"><div class="cardhead"><span class="cardtitle">Fighter</span><span class="cardtag">${(WHO||'Jackson').toUpperCase()}</span></div>
+    ${GOALS?`<div class="bwline">Here to <b>${GOALS}</b>.</div>`:''}
+    <div class="bwnote">Gear on hand. The program adapts around whatever is tapped on.</div>
+    <div class="bwchips">${eqChip('gl','Gloves',GLOVES_ON)}${eqChip('wr','Wraps',WRAPS_ON)}${eqChip('bag','Bag',BAG_ON)}${eqChip('p','Partner',PARTNER_ON)}</div>
+    ${others.length?`<div class="bwnote">Also training on this phone:</div><div class="bwchips">${others.map(n=>`<button class="bwchip" data-who="${n.replace(/"/g,'&quot;')}" type="button">${n}</button>`).join('')}</div>`:''}
+    <div class="bwform"><button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
+  logToolsEl.innerHTML=fighter+`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
     <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
     <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
     <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones.</div>
@@ -466,12 +539,34 @@ function paintTools(){
     ${SAVEFAIL?`<div class="bwnote" style="color:var(--ember)">${SAVEFAIL}</div>`:''}
     <div id="iomsg" class="bwnote"></div></div>`;
   const msg=t=>{const e=document.getElementById('iomsg');if(e)e.textContent=t;};
+  /* fighter card wiring: gear toggles write straight to opts, name chips
+     switch the whole app to that fighter's world, add opens onboarding */
+  logToolsEl.querySelectorAll('.obchip[data-eq]').forEach(c=>c.addEventListener('click',()=>{
+    const id=c.dataset.eq;
+    if(id==='gl')GLOVES_ON=!GLOVES_ON;
+    if(id==='wr')WRAPS_ON=!WRAPS_ON;
+    if(id==='bag')BAG_ON=!BAG_ON;
+    if(id==='p')PARTNER_ON=!PARTNER_ON;
+    saveOpts();render();buildGrid();
+  }));
+  logToolsEl.querySelectorAll('.bwchip[data-who]').forEach(c=>c.addEventListener('click',async()=>{
+    WHO=c.dataset.who;
+    await saveWho();
+    boot();
+  }));
+  const af=document.getElementById('addfighter');
+  if(af)af.addEventListener('click',()=>{
+    ONBOARD=true;
+    OB_STATE.name='';
+    paintOnboard();setView('week');
+    try{window.scrollTo(0,0);}catch(e){}
+  });
   const sv=document.getElementById('startset');
   if(sv)sv.addEventListener('click',()=>{
     const v=document.getElementById('startval');
     const d=parseISO(v&&v.value);
     if(!d)return msg('That date did not read right.');
-    START=isoOf(mondayOf(d));saveStart();paintToday();paintTools();buildGrid();
+    START=isoOf(mondayOf(d));saveStart();recomputeBagWeek();paintToday();paintTools();buildGrid();
     msg('Camp week 1 now starts '+START+'.');
   });
   const ex=document.getElementById('expbtn');
@@ -544,6 +639,12 @@ function buildGrid(){
   statsEl.innerHTML=`<div class="stat"><div class="sv">${tot}-0</div><div class="sl">record</div></div>
    <div class="stat"><div class="sv">${slot?wkDone+'/'+wkOf:streak()}</div><div class="sl">${slot?'this week':'day streak'}</div></div>
    <div class="stat"><div class="sv" style="font-size:.95rem;padding:6px 0 5px">${rankOf(tot)}</div><div class="sl">rank</div></div>`;
+  /* rank as a ladder you can see yourself climbing, not a static word */
+  const next=RANKS.find(r=>r[0]>tot);
+  const prev=RANKS.filter(r=>r[0]<=tot).slice(-1)[0]||RANKS[0];
+  const span=next?next[0]-prev[0]:1;
+  const into=next?tot-prev[0]:1;
+  statsEl.innerHTML+=`<div class="rankstrip"><div class="rstrack"><div class="rsfill" style="width:${next?Math.round(100*into/span):100}%"></div></div><div class="rslabel">${next?`${next[0]-tot} session${next[0]-tot>1?'s':''} to ${next[1].toUpperCase()}`:'CAMP DONE'}</div></div>`;
   paintToday();paintWeight();paintTools();
 }
 if(gridEl)gridEl.addEventListener('click',e=>{const c=e.target.closest('.gcell');if(!c)return;toggleDone(+c.dataset.w,+c.dataset.d);});
@@ -627,7 +728,8 @@ const VP={
  rest:['Nice work. Breathe.','Good round. Breathe it down.','That is a round. Shake it out.','Good work. Reset.','Nice. Get your air back.','That is the way. Breathe.'],
  lastwork:['Last round. Leave nothing.','Final round. Everything you have.','Last one. Make it the best one.','This is the last one. Empty it.'],
  done:['That is the session.','Session done.','That is it for today.','Work is done.'],
- donetail:['Good work, '+NAME+'. Go log it.','Well done, '+NAME+'. Log it.','Nice work today, '+NAME+'. Log it.']
+ donetail:['Good work, '+NAME+'. Go log it.','Well done, '+NAME+'. Log it.','Nice work today, '+NAME+'. Log it.'],
+ donetailg:['Good work. Go log it.','Well done. Log it.','Nice work today. Log it.']
 };
 /* A cornerman does not say the same thing twice in ninety seconds. Each pool
    remembers its recent picks and draws from what is left, falling back to the
@@ -647,7 +749,7 @@ function vrand(a){
   return pick;
 }
 let VOICE_ON=true,CALLER_ON=true,vvoice=null,vready=false;
-let BAG_ON=true,PARTNER_ON=false;
+let BAG_ON=true,PARTNER_ON=false,GLOVES_ON=true,WRAPS_ON=true,GOALS='';
 function vpick(){try{const vs=speechSynthesis.getVoices();const en=vs.filter(v=>/^en/i.test(v.lang));const us=en.filter(v=>/en[-_]US/i.test(v.lang));
   /* downloaded system voices beat the compact defaults: Premium, then Enhanced, then the old preference order */
   vvoice=us.find(v=>/premium/i.test(v.name))||us.find(v=>/enhanced/i.test(v.name))||en.find(v=>/premium/i.test(v.name))||en.find(v=>/enhanced/i.test(v.name))||us.find(v=>/(Google US English|Samantha|Ava|Allison)/i.test(v.name))||vs.find(v=>/en[-_](US|GB)/i.test(v.lang))||en[0]||null;}catch(e){}}
@@ -903,10 +1005,20 @@ const NOBAG_MAP={
  'Slip the swing, 2-3 x15':['Slip the jab, 2-3 x15'],
  'Pivot off it, hook x12':['Pivot off him, hook x12']
 };
-/* The bag lands Friday of camp week 5 (14-16 Aug), so week 6 is the first FULL
-   week on it. BAGWEEK is the arrival week; week notes and flags handle the
-   partial-week nuance. Keep CATFALL in the MOVEWEEK block in step with this. */
-const BAGWEEK=4;
+/* The bag physically arrives 14-16 Aug 2026. Which CAMP week that is depends
+   on the start date, and the start date can now shift (vacations happen), so
+   the week is derived instead of hardcoded. recomputeBagWeek() runs after any
+   change to START and re-pins the bag move badges to match. */
+const BAG_DATE='2026-08-14';
+let BAGWEEK=4;
+function recomputeBagWeek(){
+  const s=parseISO(START)||parseISO(CAMP_START);
+  BAGWEEK=Math.max(0,Math.round((mondayOf(parseISO(BAG_DATE))-mondayOf(s))/(7*86400000)));
+  try{
+    CATS.forEach(c=>{if(c.cat==='Bag Work')c.moves.forEach(m=>{MOVEWEEK[m.name]=BAGWEEK;});});
+    MOVEWEEK['Wrapping Hands']=BAGWEEK;
+  }catch(e){}
+}
 function adaptItems(arr){
   if(!arr||BAG_ON||wIdx<BAGWEEK)return arr;
   return arr.map(it=>{
@@ -1063,13 +1175,23 @@ function offerLog(){
     if(b)b.addEventListener('click',()=>{toggleDone(wIdx,dIdx);offerLog();});
   }catch(e){}
 }
-function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(VP.donetail)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';if(FOCUS&&fEl){fEl.classList.remove('fwork','frest','fprep');fName.textContent='Session complete';fClock.textContent='00:00';fPhase.textContent='Done';fPhase.style.color=css('--restore');fCue.textContent='';if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';offerLog();}}
+function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
+  if(FOCUS&&fEl){
+    fEl.classList.remove('fwork','frest','fprep');fEl.classList.add('fdone');
+    fName.textContent='Session complete';fClock.textContent='00:00';
+    fPhase.textContent='Done';fPhase.style.color=css('--restore');
+    /* the moment that makes it feel like building something: what this session
+       just added to the pile */
+    const doneNow=Object.keys(DONE).length+(isDone(wIdx,dIdx)?0:1);
+    fCue.textContent='Day '+campDayCount()+' of 70 · session '+doneNow+' in the books · '+rankOf(doneNow);
+    if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';offerLog();
+  }}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
 function announce(sg){
   if(sg.type==='prep'){
     callerStop();
-    saySeq([vrand(VP.open)+', '+NAME+'.',endp(lbl(sg.next)),'Get set.'],true);
+    saySeq([coachNamed()?vrand(VP.open)+', '+NAME+'.':vrand(VP.open)+'.',endp(lbl(sg.next)),'Get set.'],true);
     return;
   }
   if(sg.type==='rest'){
@@ -1199,7 +1321,7 @@ function setFocus(on){
   FOCUS=on;
   if(!fEl)return;
   fEl.classList.toggle('on',on);
-  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep');}
+  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep','fdone');}
 }
 const tfocus=document.getElementById('tfocus');
 if(tfocus)tfocus.addEventListener('click',()=>setFocus(true));
@@ -1226,24 +1348,100 @@ vIQ.addEventListener('click',()=>setView('iq'));
 /* ---- storage ---- */
 async function saveWeek(i){try{await storage.set('forge:week',String(i));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
-async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveStart(){try{await storage.set('forge:start',String(START||''));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveChecks(){try{await storage.set('forge:check',JSON.stringify(CHECKS));SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+let NAMES=[],ONBOARD=false;
+const onboardEl=document.getElementById('onboard'),campbarEl=document.getElementById('campbar');
+/* First open on a fresh phone: who are you, what do you have, why are you
+   here. Three questions, then the camp is theirs. */
+function paintOnboard(){
+  if(!onboardEl)return;
+  if(!ONBOARD){onboardEl.innerHTML='';return;}
+  const chip=(id,label,on)=>`<button class="sw obchip${on?' on':''}" data-ob="${id}" type="button">${on?'&#9679;':'&#9675;'} ${label}</button>`;
+  const st=OB_STATE;
+  onboardEl.innerHTML=`<div class="card obcard"><div class="cardhead"><span class="cardtitle">Who is training?</span></div>
+    <div class="bwnote">This camp is about to be yours: your own log, your own weigh-ins, your own coach. Nothing here is shared with anyone.</div>
+    <div class="bwform"><input class="srch bwinput" id="obname" type="text" maxlength="20" placeholder="your first name" value="${st.name.replace(/"/g,'&quot;')}"></div>
+    <div class="bwnote">What do you have right now? Tap what applies, the program adapts around it.</div>
+    <div class="bwchips">${chip('gloves','Boxing gloves',st.gloves)}${chip('wraps','Hand wraps',st.wraps)}${chip('bag','Heavy bag',st.bag)}${chip('partner','Training partner',st.partner)}</div>
+    <div class="bwnote">Why are you here? Pick any that fit.</div>
+    <div class="bwchips">${chip('g1','Learn to strike',st.g1)}${chip('g2','Get conditioned',st.g2)}${chip('g3','Be ready if it ever goes down',st.g3)}${chip('g4','Head for a real gym',st.g4)}</div>
+    <div class="bwnote">Your 10 weeks start Monday of this week. Change it if you want.</div>
+    <div class="bwform"><input class="srch bwinput" id="obstart" type="date" value="${st.start}"><button class="sw" id="obgo" type="button">Start the camp</button></div>
+    <div id="obmsg" class="bwnote"></div></div>`;
+  onboardEl.querySelectorAll('.obchip').forEach(c=>c.addEventListener('click',()=>{
+    const id=c.dataset.ob;OB_STATE[id]=!OB_STATE[id];
+    const nm=document.getElementById('obname'),dt=document.getElementById('obstart');
+    if(nm)OB_STATE.name=nm.value;if(dt&&parseISO(dt.value))OB_STATE.start=dt.value;
+    paintOnboard();
+  }));
+  const go=document.getElementById('obgo');
+  if(go)go.addEventListener('click',async()=>{
+    const nm=document.getElementById('obname');
+    const name=(nm&&nm.value||'').trim();
+    const msg=document.getElementById('obmsg');
+    if(!name){if(msg)msg.textContent='It needs a name. That is the whole login.';return;}
+    const dt=document.getElementById('obstart');
+    const startPick=(dt&&parseISO(dt.value))?isoOf(mondayOf(parseISO(dt.value))):defaultStart();
+    WHO=name;
+    if(NAMES.map(x=>x.toLowerCase()).indexOf(name.toLowerCase())<0)NAMES.push(name);
+    ONBOARD=false;
+    await saveWho();
+    /* write their choices into THEIR namespace, then boot into it */
+    GLOVES_ON=OB_STATE.gloves;WRAPS_ON=OB_STATE.wraps;BAG_ON=OB_STATE.bag;PARTNER_ON=OB_STATE.partner;
+    GOALS=[OB_STATE.g1&&'learn striking',OB_STATE.g2&&'get conditioned',OB_STATE.g3&&'be ready if it ever goes down',OB_STATE.g4&&'walk into a real gym'].filter(Boolean).join(', ');
+    START=startPick;
+    await saveOpts();await saveStart();
+    try{await storage.set('forge:startv',START_MIGRATION);}catch(e){}
+    boot();
+  });
+}
+const OB_STATE={name:'',gloves:false,wraps:false,bag:false,partner:false,g1:true,g2:true,g3:false,g4:false,start:isoOf(mondayOf(new Date()))};
+/* the camp as a bar you can watch fill: day marker over 70, in phase color */
+function paintCampBar(){
+  if(!campbarEl)return;
+  const slot=todaySlot();
+  if(!slot){campbarEl.innerHTML='';return;}
+  const pct=Math.max(1,Math.min(100,Math.round(100*campDayCount()/70)));
+  campbarEl.innerHTML=`<div class="cbtrack"><div class="cbfill" style="width:${pct}%;background:var(${PCOL[slot.w]||'--ember'})"></div></div><div class="cblabel">DAY ${campDayCount()} OF 70${WHO?` &middot; ${WHO.toUpperCase()}`:''}${GOALS?` &middot; ${GOALS.toUpperCase()}`:''}</div>`;
+}
+async function saveWho(){try{await rawstorage.set('forge:who',WHO);await rawstorage.set('forge:names',JSON.stringify(NAMES));}catch(e){}}
 async function boot(){
+  /* who is training on this device, before any namespaced key is read */
+  try{
+    const w=await rawstorage.get('forge:who');
+    if(w&&typeof w.value==='string')WHO=w.value;
+    const nm=await rawstorage.get('forge:names');
+    if(nm&&nm.value){const a=JSON.parse(nm.value);if(Array.isArray(a))NAMES=a.filter(x=>typeof x==='string'&&x);}
+  }catch(e){}
+  if(WHO)ONBOARD=false;
+  if(!WHO){
+    /* legacy install: data exists but no profile was ever named. That is the
+       original fighter; claim the un-prefixed keys silently, ask nothing. */
+    let legacy=false;
+    try{const r=await rawstorage.get('forge:done');legacy=!!(r&&r.value);}catch(e){}
+    if(!legacy){try{const r=await rawstorage.get('forge:start');legacy=!!(r&&r.value);}catch(e){}}
+    if(legacy){WHO='Jackson';if(NAMES.indexOf('Jackson')<0)NAMES.push('Jackson');saveWho();}
+    else ONBOARD=true;
+  }
+  /* reset per-profile state so switching fighters never leaks a log across */
+  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;
+  VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
-  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;}}}catch(e){}
+  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;GLOVES_ON=o.gl!==false;WRAPS_ON=o.wr!==false;GOALS=typeof o.goals==='string'?o.goals:'';}}}catch(e){}
   try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
   try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
   try{const r=await storage.get('forge:check');if(r&&r.value){const c=JSON.parse(r.value);if(c&&typeof c==='object')CHECKS=c;}}catch(e){}
   try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
-  /* One-time correction: earlier builds silently guessed a start date from
-     whatever Monday it happened to be. Overwrite that guess once, then never
-     touch it again so a date set by hand always sticks. */
-  try{
+  /* One-time correction for the ORIGINAL install only: earlier builds guessed
+     a start date. New fighters pick their own start in onboarding, and it must
+     never be overwritten by a migration meant for someone else's history. */
+  if(coachNamed())try{
     const mv=await storage.get('forge:startv');
     if(!mv||mv.value!==START_MIGRATION){
       START=CAMP_START;saveStart();
@@ -1252,10 +1450,11 @@ async function boot(){
   }catch(e){}
   if(!START){START=defaultStart();saveStart();}
   try{const r=await storage.get('forge:week');if(r&&r.value!=null){const i=parseInt(r.value,10);if(i>=0&&i<W.length){wIdx=i;}}}catch(e){}
+  recomputeBagWeek();
   /* if today falls inside the camp, open on today rather than wherever you were */
   const slot=todaySlot();
   if(slot){wIdx=slot.w;dIdx=slot.d;}
-  selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();paintIQ();
+  selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();paintIQ();paintOnboard();
 }
 
 /* ---- init ---- */
@@ -1269,7 +1468,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v18';
+const BUILD='v19';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');
