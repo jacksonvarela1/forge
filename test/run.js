@@ -683,10 +683,15 @@ async function main() {
   assert(m2.g('CUT') === 0, 'makeup: round trim resets on navigation');
 
   // A truly fresh phone boots into onboarding and stays quiet about it.
-  const m3 = bootApp(new Map());
+  const store3 = new Map();
+  const m3 = bootApp(store3);
   await m3.g('boot()');
   assert(m3.g('ONBOARD') === true, 'onboard: an empty phone asks who is training');
   assert(m3.g('WHO') === '', 'onboard: nobody is claimed until a name is given');
+  assert(store3.size === 0, 'onboard: nothing is persisted before the card is answered');
+  // Close the app before answering, reopen: still asks, still claims nobody.
+  await m3.g('boot()');
+  assert(m3.g('ONBOARD') === true && m3.g('WHO') === '', 'onboard: reopening before naming never invents a fighter');
   assert(m3.errors.length === 0, 'onboard: fresh boot throws nothing');
 
   assert(m2.errors.length === 0, 'profiles: no errors across profile switches');

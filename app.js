@@ -1428,6 +1428,20 @@ async function boot(){
     if(legacy){WHO='Jackson';if(NAMES.indexOf('Jackson')<0)NAMES.push('Jackson');saveWho();}
     else ONBOARD=true;
   }
+  if(ONBOARD){
+    /* nobody is named yet: run on in-memory defaults and persist NOTHING.
+       Writing forge:start here would make the legacy check claim the next
+       boot as the original fighter, so a buddy who opens the app and closes
+       it before answering would wake up as someone else. */
+    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};
+    VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';
+    START=defaultStart();
+    recomputeBagWeek();
+    const slot0=todaySlot();
+    if(slot0){wIdx=slot0.w;dIdx=slot0.d;}
+    selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();paintIQ();paintOnboard();
+    return;
+  }
   /* reset per-profile state so switching fighters never leaks a log across */
   DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;
   VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';
@@ -1468,7 +1482,7 @@ boot();
 /* ---- build stamp ----
    So you can tell at a glance whether the phone actually picked up an update,
    instead of guessing why a fix does not seem to be there. */
-const BUILD='v19';
+const BUILD='v20';
 (function(){try{
   const f=document.querySelector('#weekView footer');
   if(f)f.innerHTML+='<br>Build '+BUILD+(CLIPS?' &middot; '+Object.keys(CLIPS.map).length+' coach clips':' &middot; coach clips not loaded');
