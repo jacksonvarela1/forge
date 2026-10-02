@@ -1,11 +1,12 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v23';
+const CACHE = 'forge-v24';
 /* Voice clips live in their own cache that survives version bumps. They are
    content-addressed by hash, so a clip never changes under a given name and
    there is nothing to invalidate. Keeping them out of the versioned cache is
    what stops every app update from re-downloading 9 MB of audio. */
 const AUDIO_CACHE = 'forge-audio';
-try { importScripts('./audio/manifest.js'); } catch (err) {}
+/* versioned, so a first install can never read a stale HTTP-cached manifest */
+try { importScripts('./audio/manifest.js?b=' + CACHE); } catch (err) {}
 const ASSETS = [
   './',
   './index.html',
@@ -35,12 +36,9 @@ self.addEventListener('install', e => {
       const wanted = new Set(self.AUDIO_MANIFEST.files);
       const need = self.AUDIO_MANIFEST.files.filter(f => !have.has(f));
       await Promise.allSettled(need.map(f => ac.add('./audio/' + f)));
-      /* and drop clips the manifest no longer references, so a voice change
-         does not leave the old voice sitting in storage forever */
-      for (const req of await ac.keys()) {
-        const f = req.url.split('/').pop();
-        if (/\.mp3$/.test(f) && !wanted.has(f)) await ac.delete(req);
-      }
+      /* pruning clips the new manifest no longer lists happens at ACTIVATE, not
+         here: while the old build is still running or waiting for the Update
+         tap it still needs them. */
     }
     /* Fetch the font CSS and the woff2 files it names at install time, so the app
        is fully offline after the very first online visit. A synthesized Response is
@@ -85,12 +83,28 @@ self.addEventListener('message', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys()
-      /* drop old app-shell versions only: never the audio cache, never anything else */
-      .then(keys => Promise.all(keys.filter(k => /^forge-v/.test(k) && k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    /* drop old app-shell versions only: never the audio cache, never anything else */
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => /^forge-v/.test(k) && k !== CACHE).map(k => caches.delete(k)));
+    } catch (err) {}
+    /* now the old build is gone, drop clips the new manifest no longer lists,
+       so a voice change does not leave the old voice in storage. Never prune
+       against a missing or empty manifest. */
+    try {
+      const files = self.AUDIO_MANIFEST && self.AUDIO_MANIFEST.files;
+      if (files && files.length) {
+        const wanted = new Set(files);
+        const ac = await caches.open(AUDIO_CACHE);
+        for (const req of await ac.keys()) {
+          const f = req.url.split('/').pop();
+          if (/\.mp3$/.test(f) && !wanted.has(f)) await ac.delete(req);
+        }
+      }
+    } catch (err) {}
+    await self.clients.claim();
+  })());
 });
 
 /* Cache-first: serve from cache, fall back to network and cache what comes back. */

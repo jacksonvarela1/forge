@@ -1178,6 +1178,197 @@ async function main() {
     assert(/forge:bk/.test(mm.g("localStorage.getItem('forge:bk')===null?'':'forge:bk'")), 'backup: the stamp persists');
   }
 
+  /* ===== v24: the forge's own staging ===== */
+  {
+    const mm = await lifeMachine({ '0-0': '2026-09-28', '0-1': '2026-09-29', '0-6': '2026-09-30', '1-0': '2026-10-01' }, '2026-10-01', '2026-09-28');
+    // rounds banked: Monday 3, Tuesday 4, Sunday 0, week 2 Monday 3
+    assert(mm.g('roundsBanked()') === 10, 'rounds: Mon 3 + Tue 4 + Sun 0 + week 2 Mon 3 = 10 (' + mm.g('roundsBanked()') + ')');
+    assert(mm.g('weekCount(0)') === 3 && mm.g('weekRounds(0)') === 7, 'rounds: week 1 is 3 sessions and 7 rounds');
+    assert(mm.g('lifetimeRounds()') === 10, 'rounds: lifetime equals the camp until a camp is archived');
+    assert(/>10</.test(mm.g('statsEl.innerHTML')) && /rounds/.test(mm.g('statsEl.innerHTML')), 'rounds: the stat tile shows it');
+
+    // rank emblem: chevrons climb with the ladder
+    assert(mm.g('rankEmblem(0)') === '', 'emblem: a walk-on has no chevrons yet');
+    assert((mm.g('rankEmblem(14)').match(/<path/g) || []).length === 3, 'emblem: Amateur is three chevrons');
+    const done70 = mm.g('rankEmblem(70)');
+    assert((done70.match(/<path/g) || []).length === 6 && /gold/.test(done70), 'emblem: camp done is six gold chevrons');
+
+    // forge heat: three of the last seven days trained
+    assert(Math.abs(mm.g('heatOf()') - 0.5) < 0.001 || mm.g('heatOf()') > 0.4, 'heat: three training days this week is a warm forge (' + mm.g('heatOf()') + ')');
+    mm.g("DONE={}");
+    assert(mm.g('heatOf()') === 0, 'heat: a cold week is a cold forge');
+
+    // embers and the corner
+    assert((mm.g('sparksHTML(9)').match(/<i /g) || []).length === 9, 'sparks: the count asked for');
+    const cl = mm.g('cornerOfDay()');
+    assert(typeof cl === 'string' && cl.length > 10 && !new RegExp('[' + String.fromCharCode(8211, 8212) + ']').test(cl), 'corner: one clean line for the day');
+    assert(mm.g('cornerOfDay()') === cl, 'corner: steady for the day, no flicker');
+    mm.g('selectWeek(0);selectDay(3);paintHero()'); // 2026-10-01 is a Thursday
+    assert(/CORNER/.test(mm.g('heroEl.innerHTML')), 'corner: the hero carries it');
+    mm.g('buildGrid()');
+    assert((mm.g('gridEl.innerHTML').match(/gphl/g) || []).length === 5, 'grid: five phase labels');
+  }
+  {
+    // tale of the tape: this week against last, winners marked
+    const mm = await lifeMachine({ '0-0': '2026-09-28', '0-1': '2026-09-29', '0-2': '2026-09-30', '0-3': '2026-10-01', '1-0': '2026-10-05', '1-1': '2026-10-06' }, '2026-10-07', '2026-09-28');
+    const t = mm.g('taleHTML()');
+    assert(/Tale of the tape/.test(t) && /WEEK 2 VS WEEK 1/.test(t), 'tale: week 2 against week 1');
+    assert(/tr win/.test(t) && !/tl win/.test(t), 'tale: last week had more sessions, so that column wins');
+    assert(!/undefined|NaN/.test(t), 'tale: no undefined or NaN');
+    mm.g("CHECKS={0:[1,1,1,0,0],1:[1,1,1,1,0]}");
+    assert(/4\/5/.test(mm.g('taleHTML()')) && /3\/5/.test(mm.g('taleHTML()')), 'tale: the tape grades sit side by side');
+    const quiet = await lifeMachine({}, '2026-10-07', '2026-09-28');
+    assert(quiet.g('taleHTML()') === '', 'tale: nothing to compare means no card');
+    assert(/Tale of the tape/.test(mm.g('todayCardEl.innerHTML')), 'tale: it rides on the Today card');
+  }
+  {
+    // the Combine
+    const mm = await lifeMachine({}, '2026-10-01', '2026-09-28');
+    mm.g("lifeAct('benchlog',{dataset:{v:'71'}})");
+    mm.clock.jumpSilent(86400000 * 14);
+    mm.g("lifeAct('benchlog',{dataset:{v:'80'}})");
+    assert(mm.g('BENCH.length') === 2, 'combine: two results logged');
+    const html = mm.g('benchHTML()');
+    assert(/Best <b>80<\/b>/.test(html) && /\+9/.test(html) && /<path/.test(html), 'combine: best, the change since the first, and a trend line');
+    mm.g("lifeAct('benchtype',{dataset:{t:'plank'}})");
+    assert(/Plank hold/.test(mm.g('benchHTML()')) && mm.g('benchRows("plank").length') === 0, 'combine: tests keep separate histories');
+    assert(mm.g("lifeAct('benchlog',{dataset:{v:'-3'}})") === undefined && mm.g('BENCH.length') === 2, 'combine: nonsense numbers are refused');
+    assert(/forge:bench/.test(mm.g("localStorage.getItem('forge:bench')?'forge:bench':''")), 'combine: results persist');
+    assert(mm.g("STORE_KEYS.indexOf('forge:bench')>=0") === true, 'combine: it is part of the backup key list');
+    mm.g("lifeAct('benchdel',{dataset:{id:'0'}})");
+    assert(mm.g('BENCH.length') === 1, 'combine: tapping a result removes it');
+  }
+  {
+    // the fight card
+    const mm = await lifeMachine(mkDone(12, '2026-09-20'), '2026-10-01', '2026-09-07');
+    const s = JSON.parse(mm.g('JSON.stringify(cardStats())'));
+    assert(s.tot === 12 && s.cells.length === 70 && s.cells.filter(Boolean).length === 12 && s.rank === 'Novice', 'card: stats are the real record (' + s.tot + ', ' + s.rank + ')');
+    assert(s.name === 'Jackson' && s.rounds > 0, 'card: name and rounds');
+    assert((await mm.g('openFightCard()')) === false, 'card: no canvas support fails quietly instead of throwing');
+    assert((await mm.g('shareFightCard()')) === false, 'card: sharing with nothing drawn fails quietly');
+    assert(mm.errors.length === 0, 'card: no uncaught errors');
+  }
+  {
+    // the walk-out: your name and rank on the prep screen
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);setFocus(true);elGo.click()');
+    assert(!/&[a-z]+;/.test(mm.g('fCue.textContent')), 'walk-out: no raw HTML entity reaches the screen');
+    assert(/JACKSON/.test(mm.g('fCue.textContent')) && /WALK-ON/.test(mm.g('fCue.textContent')), 'walk-out: the prep screen says who is walking out and their rank (' + mm.g('fCue.textContent') + ')');
+  }
+
+  /* ===== review fixes: every confirmed finding gets a test ===== */
+  {
+    // Run it back's undo can be found, and only while the new camp is untouched
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13');
+    await mm.g('runItBack()');
+    assert(/undocamp/.test(mm.g('todayCardEl.innerHTML')), 'undo: the Today card offers Undo run it back right after');
+    assert(/undocamp/.test(mm.g('campbarEl.innerHTML')), 'undo: so does the Week tab landing');
+    mm.g('toggleDone(0,0)');
+    assert(!/undocamp/.test(mm.g('todayCardEl.innerHTML')), 'undo: gone once the new camp has a session');
+    mm.g('undoCamp()');
+    assert(mm.g('totDone()') === 1 && mm.g('CAMPS.length') === 1, 'undo: a stale undo can never wipe the new camp');
+  }
+  {
+    // closing out asks first, replay never does, and it can be reopened
+    const mm = await lifeMachine(mkDone(40, '2026-09-05'), '2026-10-01', '2026-07-13');
+    mm.g("globalThis.__c=0;globalThis.confirm=()=>{globalThis.__c++;return false;}");
+    mm.g("lifeAct('closeout',{})");
+    assert(mm.g('FINISH') === null && mm.g('globalThis.__c') === 1, 'closeout: asks before hiding Pick up, and No leaves the camp open');
+    mm.g("globalThis.confirm=()=>true;lifeAct('closeout',{})");
+    assert(mm.g('FINISH !== null') === true && mm.g('lapsed()') === false, 'closeout: Yes closes it out');
+    mm.g("globalThis.__c=0;globalThis.confirm=()=>{globalThis.__c++;return false;};lifeAct('replay',{})");
+    assert(mm.g('globalThis.__c') === 0, 'closeout: replaying a finale never prompts');
+    mm.g("closeFinale();lifeAct('reopen',{})");
+    assert(mm.g('FINISH') === null && mm.g('lapsed()') === true && /Pick up at Week/.test(mm.g('campbarEl.innerHTML')), 'closeout: reopening brings Pick up back');
+    // a camp closed at 69 that later reaches 70 gets a finale with the real total
+    const m2 = await lifeMachine(mkDone(69, '2026-09-19'), '2026-09-21', '2026-07-13');
+    m2.g("globalThis.confirm=()=>true;lifeAct('closeout',{})");
+    m2.g('closeFinale();toggleDone(9,6)');
+    assert(m2.g('FINISH.tot') === 70 && m2.g('FINISH.full') === true, 'closeout: finishing later updates the finale record');
+  }
+  {
+    // switching fighter mid-session leaves no ghost timer
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);elGo.click()');
+    mm.g('globalThis.confirm=()=>false');
+    assert((await mm.g("switchFighter('Bob')")) === false && mm.g('WHO') === 'Jackson' && mm.g('T.state') === 'run', 'switch: cancelling keeps the session and the fighter');
+    mm.g('globalThis.confirm=()=>true');
+    assert((await mm.g("switchFighter('Bob')")) === true, 'switch: confirming switches');
+    assert(mm.g('T.state') === 'ready' && mm.g('sessionRunning()') === false && mm.g('elGo.textContent') === 'Start', 'switch: the old timer is gone, not paused');
+  }
+  {
+    // the hero never un-logs an older session
+    const mm = await lifeMachine({ '0-1': '2026-07-13' }, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);paintHero()');
+    const hero = mm.g('heroEl.innerHTML');
+    assert(/not today/.test(hero) && /trainnow/.test(hero) && !/data-act="marktoday"/.test(hero), 'hero: a session logged earlier offers Train today, not Mark done');
+    mm.g("lifeAct('marktoday',{})");
+    assert(mm.g("DONE['0-1']") === '2026-07-14', 'hero: even a stale Mark done re-stamps instead of un-logging');
+  }
+  {
+    // repair never deletes anything when offline; fighter names keep the v20 key rule
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    assert((await mm.g('repairApp()')) === false, 'repair: offline it does nothing and says so');
+    mm.g("WHO='Jackson.'");
+    assert(mm.g("nsKey('forge:done')") === 'forge:p:jackson:done', 'keys: only exactly Jackson owns the un-prefixed keys, as in v20');
+    mm.g("WHO='jackson'");
+    assert(mm.g("nsKey('forge:done')") === 'forge:done' && mm.g('coachNamed()') === true, 'keys: jackson in any case is Jackson');
+  }
+  {
+    // the update bar follows the session; equipment changes reach the caller cache
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('SWAPPED=true;paintUpdate()');
+    assert(mm.g('updbar.style.display') === '', 'update bar: shows when idle');
+    mm.g('selectWeek(0);selectDay(1);elGo.click()');
+    assert(mm.g('updbar.style.display') === 'none', 'update bar: hides the moment a session starts');
+    mm.g('selectWeek(6);selectDay(1)');
+    let withBag = 0, noBag = 0;
+    mm.g("elReset.click();elReset.click()");
+    for (let i = 0; i < 400; i++) if (/sit down|through it|heavy hands/i.test(mm.g("callerPick('combo','R1 power 1-2 only, full sit-down')"))) withBag++;
+    mm.g('BAG_ON=false');
+    for (let i = 0; i < 400; i++) if (/sit down|through it|heavy hands/i.test(mm.g("callerPick('combo','R1 power 1-2 only, full sit-down')"))) noBag++;
+    assert(withBag > 0 && noBag === 0, 'caller: switching the bag off takes effect immediately, not after a reload (' + withBag + ' then ' + noBag + ')');
+    mm.g('BAG_ON=true;buildGrid()');
+    assert(/not done/.test(mm.g('gridEl.innerHTML')), 'a11y: grid cells say their state');
+  }
+  {
+    // the service worker only prunes clips once it is the active build
+    const swSrc3 = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+    const deleted = [];
+    const handlers = {};
+    const audioKeys = [{ url: 'https://x/audio/aaaaaaaaaaaa.mp3' }, { url: 'https://x/audio/bbbbbbbbbbbb.mp3' }];
+    const audioCache = { keys: async () => audioKeys, delete: async r => { deleted.push(r.url.split('/').pop()); return true; }, add: async () => {}, put: async () => {} };
+    const shell = { addAll: async () => {}, add: async () => {}, put: async () => {}, keys: async () => [], delete: async () => true };
+    const sandbox = {
+      self: null, console, setTimeout, clearTimeout, Promise, Request: function (u) { this.url = u; }, Response: function () {},
+      caches: { open: async n => (n === 'forge-audio' ? audioCache : shell), keys: async () => ['forge-v1', 'forge-v99', 'forge-audio', 'other'], delete: async () => true, match: async () => undefined },
+      fetch: async () => ({ ok: false }),
+      importScripts: () => {},
+    };
+    sandbox.self = {
+      addEventListener: (t, f) => { (handlers[t] = handlers[t] || []).push(f); },
+      removeEventListener: () => {},
+      skipWaiting: async () => {},
+      clients: { matchAll: async () => [], claim: async () => {} },
+      AUDIO_MANIFEST: { files: ['aaaaaaaaaaaa.mp3'] },
+    };
+    vm.createContext(sandbox);
+    new vm.Script(swSrc3, { filename: 'sw.js' }).runInContext(sandbox);
+    let p = null;
+    handlers.install.forEach(f => f({ waitUntil: x => { p = x; } }));
+    await p;
+    assert(deleted.length === 0, 'sw: installing never deletes a clip the running build may still play');
+    handlers.activate.forEach(f => f({ waitUntil: x => { p = x; } }));
+    await p;
+    assert(deleted.join(',') === 'bbbbbbbbbbbb.mp3', 'sw: activating prunes only clips the new manifest dropped (' + deleted.join(',') + ')');
+    sandbox.self.AUDIO_MANIFEST = null;
+    deleted.length = 0;
+    handlers.activate.forEach(f => f({ waitUntil: x => { p = x; } }));
+    await p;
+    assert(deleted.length === 0, 'sw: a missing manifest prunes nothing');
+    assert(/importScripts\('\.\/audio\/manifest\.js\?b=' \+ CACHE\)/.test(swSrc3), 'sw: the manifest import is versioned');
+  }
+
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');
   process.exit(failures ? 1 : 0);
 }

@@ -1,4 +1,4 @@
-const BUILD='v23';
+const BUILD='v24';
 /* ---- storage: same call shape as the artifact API, backed by localStorage outside artifacts ---- */
 const rawstorage = window.storage ?? {
   get: async k => { const v = localStorage.getItem(k); return v == null ? null : { value: v }; },
@@ -14,12 +14,12 @@ let WHO='';
 const SHARED_KEYS={'forge:who':1,'forge:names':1};
 /* every key a fighter owns, so backup, restore and profile switches loop one
    list instead of each remembering its own */
-const STORE_KEYS=['forge:bk','forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
+const STORE_KEYS=['forge:bench','forge:bk','forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
 function slugOf(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function nsKey(k){
   if(SHARED_KEYS[k])return k;
   const s=slugOf(WHO);
-  if(!WHO||s==='jackson')return k;
+  if(!WHO||WHO.toLowerCase()==='jackson')return k;
   return 'forge:p:'+s+':'+k.slice(6);
 }
 const storage={
@@ -31,7 +31,7 @@ const storage={
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 /* the coach only speaks a name he has clips for; everyone else gets the same
    lines without one, which still beats a robot saying the wrong name */
-function coachNamed(){return !WHO||slugOf(WHO)==='jackson';}
+function coachNamed(){return !WHO||WHO.toLowerCase()==='jackson';}
 
 /* ---------------- RENDER ---------------- */
 const DK=['mon','tue','wed','thu','fri','sat','sun'];
@@ -210,11 +210,19 @@ function toggleDone(w,d){
     if(SKIP[k]){delete SKIP[k];saveSkip();}
   }
   saveDone();paintDone();render();buildGrid();
-  if(totDone()>=W.length*7&&!FINISH)showFinale();
+  if(totDone()>=W.length*7){
+    if(!FINISH)showFinale();
+    else if(!FINISH.full){FINISH.tot=totDone();FINISH.full=true;saveFinish();showFinale();}
+  }
 }
 function weekFull(i){for(let d=0;d<7;d++)if(!isDone(i,d))return false;return true;}
 function paintDone(){
-  document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('full',weekFull(x)));
+  document.querySelectorAll('.wchip').forEach((c,x)=>{
+    c.classList.toggle('full',weekFull(x));
+    /* a chip fills from the bottom with the days logged in that week */
+    const n=weekCount(x),p=Math.round(100*n/7),tint=c.classList.contains('active')?'rgba(15,19,25,.32)':'rgba(126,155,138,.30)';
+    c.style.backgroundImage=n?'linear-gradient(to top,'+tint+' '+p+'%,transparent '+p+'%)':'none';
+  });
   document.querySelectorAll('.daytab .dot').forEach((dt,x)=>dt.classList.toggle('dn',isDone(wIdx,x)));
   paintNow();
 }
@@ -223,7 +231,7 @@ function paintDone(){
    chip and is green; this marker sits at the top and is ember, so browsing
    ahead never makes you lose your place. */
 function paintNow(){
-  paintCampBar();paintHero();
+  paintCampBar();paintHero();paintHeat();
   const slot=todaySlot();
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('now',!!slot&&x===slot.w));
   document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('now',!!slot&&x===slot.d&&wIdx===slot.w));
@@ -596,6 +604,8 @@ function backupNudge(){
   if(age<14)return '';
   return '<div class="bwnote" style="color:var(--ember)">'+(bd?'Last backup '+age+' days ago.':'No backup yet.')+' Your log lives only in this browser. <button class="bwchip" data-act="backupnow" type="button">Copy backup now</button></div>';
 }
+/* undo is offered only while the new camp is untouched, so it can never discard new work */
+function undoCampHTML(){return (PRECAMP&&totDone()===0)?'<div class="bwform">'+abtn('undocamp','Undo run it back')+'</div>':'';}
 function undoResumeHTML(){
   return (RESUME&&RESUME.on===todayISO())?`<div class="bwform">${abtn('undoresume','Undo pick up')}</div>`:'';
 }
@@ -656,7 +666,7 @@ function liveHTML(slot){
       ${MILESTONES[slot.w]?`<div class="bwnote" style="color:var(--ember)">${MILESTONES[slot.w]}</div>`:''}
       <div class="bwform">${abtn('gotoday','Open today','pri')}${(stamp&&!doneToday)?abtn('trainnow','Train today'):`<button class="sw${doneToday?' on':''}" data-act="marktoday" type="button">${doneToday?'&#10003; Done':'Mark done'}</button>`}</div>
       ${mk?`<div class="bwform">${abtn('makeup','Make up '+DAYMETA[DK[mk.d]].abbr+' &middot; short version','',` data-w="${mk.w}" data-d="${mk.d}"`)}</div>`:''}
-      ${backupNudge()}${lap?welcomeHTML():''}${undoResumeHTML()}</div>`;
+      ${backupNudge()}${lap?welcomeHTML():''}${undoResumeHTML()}${undoCampHTML()}</div>`;
 }
 
 /* the 10 weeks are over. This used to be a dead end that told you to set a
@@ -676,8 +686,8 @@ function overHTML(){
       <div class="todaytitle">${full?'All 70 sessions':endTxt}</div>
       <div class="bwline">${full?endTxt+'. ':''}<b>${tot} of 70</b> sessions logged${CAMPS.length?` &middot; Camp ${CAMPS.length+1}`:''}.</div>
       ${backupNudge()}${lapsed()?welcomeHTML():''}${undoResumeHTML()}
-      <div class="bwform">${FINISH?abtn('replay','Replay finale'):abtn('closeout',full?'See your finale':'Close out camp',lapsed()?'':'pri')}${abtn('runback','Run it back',(FINISH||full)?'pri':'')}</div>
-      ${rbHTML()}${PRECAMP?`<div class="bwform">${abtn('undocamp','Undo run it back')}</div>`:''}
+      <div class="bwform">${FINISH?abtn('replay','Replay finale')+(FINISH.full?'':abtn('reopen','Reopen camp')):abtn('closeout',full?'See your finale':'Close out camp',lapsed()?'':'pri')}${abtn('runback','Run it back',(FINISH||full)?'pri':'')}</div>
+      ${rbHTML()}${undoCampHTML()}
       <div class="bwnote">Keep going between camps: four sessions a week from the camp's own days. Tue, Sat and Sun stay open so lifting and rest still land.</div>
       <div class="bwchips">${menu.map(x=>abtn('menu',x[2],'obchip',` data-w="${x[0]}" data-d="${x[1]}"`)).join('')}</div>
       ${abtn('extrascroll','Log a session outside the camp')}</div>`;
@@ -687,12 +697,12 @@ function preHTML(){
   const days=s?Math.max(0,Math.round((s-noonToday())/86400000)):0;
   return `<div class="card"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Not started</span></div>
       <div class="todaytitle">Camp starts ${shortDate(START)}</div>
-      <div class="bwline">${days} day${days===1?'':'s'} to go. Until then the Moves tab and a few easy shadow rounds are plenty.</div></div>`;
+      <div class="bwline">${days} day${days===1?'':'s'} to go. Until then the Moves tab and a few easy shadow rounds are plenty.</div>${undoCampHTML()}</div>`;
 }
 function paintToday(){
   if(!todayCardEl)return;
   const ph=campPhase();
-  if(ph==='live')todayCardEl.innerHTML=liveHTML(todaySlot());
+  if(ph==='live')todayCardEl.innerHTML=liveHTML(todaySlot())+(lapsed()?'':taleHTML());
   else if(ph==='over')todayCardEl.innerHTML=overHTML();
   else if(ph==='pre')todayCardEl.innerHTML=preHTML();
   else todayCardEl.innerHTML=`<div class="card"><div class="cardhead"><span class="cardtitle">Today</span></div>
@@ -702,11 +712,12 @@ function paintToday(){
 function lifeBannerHTML(){
   if(ONBOARD)return '';
   const ph=campPhase();
+  if(ph==='pre'&&PRECAMP&&totDone()===0)return '<div class="wb"><div class="wbt">New camp</div><div class="bwline">Camp '+(CAMPS.length+1)+' opens '+shortDate(START)+'.</div>'+undoCampHTML()+'</div>';
   if(ph==='over'){
     if(lapsed())return welcomeHTML()+undoResumeHTML();
     const full=totDone()>=W.length*7;
     if(!FINISH)return `<div class="wb"><div class="wbt">${full?'Camp complete':'Camp ended'}</div><div class="bwline">${totDone()} of 70 logged.</div><div class="bwform">${abtn('closeout',full?'See your finale':'Close out camp','pri')}${abtn('gologtab','More options')}</div></div>`;
-    return `<div class="wb"><div class="wbt">Camp finished</div><div class="bwline">${FINISH.tot} of 70 logged. What next?</div><div class="bwform">${abtn('runback','Run it back','pri')}${abtn('gologtab','Keep going')}</div></div>`;
+    return `<div class="wb"><div class="wbt">Camp finished</div><div class="bwline">${FINISH.tot} of 70 logged. What next?</div><div class="bwform">${abtn('runback','Run it back','pri')}${abtn('gologtab','Keep going')}${FINISH.full?'':abtn('reopen','Reopen camp')}</div></div>`;
   }
   if(ph==='live'&&lapsed())return welcomeHTML()+undoResumeHTML();
   if(RESUME&&RESUME.on===todayISO())return `<div class="wb">${undoResumeHTML()}</div>`;
@@ -761,7 +772,7 @@ async function runItBack(){
   return true;
 }
 function undoCamp(){
-  if(!PRECAMP)return;
+  if(!PRECAMP||totDone()>0)return;
   const p=PRECAMP;PRECAMP=null;
   CAMPS=p.camps;DONE=p.done;NOTES=p.notes;CHECKS=p.check;SKIP=p.skip;FINISH=p.finish;START=p.start;RESUME=p.resume||null;
   saveCamps();saveDone();saveNotes();saveChecks();saveSkip();saveFinish();saveResume();saveStart();recomputeBagWeek();
@@ -780,14 +791,14 @@ function showFinale(){
   const tier=f.full?'All 70. Every one logged.':(f.tot>=42?'That is a real camp.':'They all count.');
   const held=(f.tape&&f.tape.length)?f.tape.filter(Boolean).length:null;
   const R=2*Math.PI*92,off=(R*(1-Math.max(0,Math.min(1,f.tot/(W.length*7))))).toFixed(1);
-  el.innerHTML=`<div class="fin-in">
+  el.innerHTML=sparksHTML(18)+`<div class="fin-in">
     <div class="fin-kick">THE FORGE &middot; ${f.on?shortDate(f.on).toUpperCase():''}</div>
     <div class="fin-ringwrap"><svg class="fin-ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="rbg" cx="100" cy="100" r="92"></circle><circle class="fin-fg" cx="100" cy="100" r="92" transform="rotate(-90 100 100)" style="stroke-dasharray:${R.toFixed(1)};--fin-off:${off}"></circle></svg>
       <div class="fin-num"><b>${f.tot}</b><span>of 70 sessions</span></div></div>
     <div class="fin-tier">${tier}</div>
-    <div class="fin-rank">${rankOf(f.tot).toUpperCase()}</div>
+    ${rankEmblem(f.tot,true)}<div class="fin-rank">${rankOf(f.tot).toUpperCase()}</div>
     ${held!==null?`<div class="bwnote">Week 10 tape: held ${held} of 5 checkpoints.${held===5?' Book the trial class. You earned the right to be taught live.':''}</div>`:''}
-    <div class="bwform fin-btns">${abtn('finalecopy','Copy my camp')}${abtn('finaleclose','Close','pri')}</div></div>`;
+    <div class="bwform fin-btns">${abtn('fightcard','Fight card')}${abtn('finalecopy','Copy my camp')}${abtn('finaleclose','Close','pri')}</div></div>`;
   el.classList.add('on');
   try{bell('done');saySeq([vrand(VP.done)],true);}catch(e){}
 }
@@ -802,13 +813,27 @@ async function copyFinale(btn){
   catch(e){if(btn)btn.textContent='Could not copy';}
 }
 
+/* ending a live round before changing whose camp this is, or the old timer
+   would carry on as a ghost inside the new fighter's world */
+function endLiveSession(){stopTick();callerStop();vstop();mediaOff();loadTimer(DK[dIdx],W[wIdx].d[DK[dIdx]]);}
+async function switchFighter(name){
+  if(sessionRunning()){
+    if(typeof confirm==='function'&&!confirm('A session is running. End it and switch fighters?'))return false;
+    endLiveSession();
+  }
+  WHO=name;await saveWho();boot();return true;
+}
 /* one handler for every lifecycle button, so cards can re-render freely */
 function lifeAct(a,b){
   const ds=b&&b.dataset?b.dataset:{};
   switch(a){
     case 'resume':doResume();break;
     case 'undoresume':undoResume();break;
-    case 'closeout':case 'replay':showFinale();break;
+    case 'closeout':
+      if(!FINISH&&totDone()<W.length*7&&typeof confirm==='function'&&!confirm('Close out at '+totDone()+' of 70? That hides Pick up. You can reopen the camp afterwards.'))break;
+      showFinale();break;
+    case 'replay':showFinale();break;
+    case 'reopen':FINISH=null;saveFinish();closeFinale();break;
     case 'finaleclose':closeFinale();break;
     case 'finalecopy':copyFinale(b);break;
     case 'runback':RB.open=true;buildGrid();setView('log');break;
@@ -818,12 +843,16 @@ function lifeAct(a,b){
     case 'extratype':EX.t=ds.t||EX.t;paintTools();break;
     case 'extramin':EX.m=Math.max(5,Math.min(240,EX.m+(+ds.d||0)));paintTools();break;
     case 'extralog':EXTRA.push({d:todayISO(),t:EX.t,m:EX.m});saveExtra();buildGrid();break;
-    case 'extradel':{const i=+ds.i;if(i>=0&&i<EXTRA.length){EXTRA.splice(i,1);saveExtra();buildGrid();}break;}
+    case 'extradel':{const i=+ds.i;if(i>=0&&i<EXTRA.length&&!(typeof confirm==='function'&&!confirm('Remove this session?'))){EXTRA.splice(i,1);saveExtra();buildGrid();}break;}
     case 'extrascroll':{const c=document.getElementById('extracard');if(c&&c.scrollIntoView)c.scrollIntoView({behavior:'smooth',block:'start'});break;}
     case 'menu':{const w=+ds.w,d=+ds.d;if(!guardSwitch(w,d))break;selectWeek(w);saveWeek(w);selectDay(d);setView('week');break;}
     case 'makeup':goMakeup(+ds.w,+ds.d);break;
     case 'gotoday':{const s=todaySlot();if(!s||!guardSwitch(s.w,s.d))break;selectWeek(s.w);saveWeek(s.w);selectDay(s.d);setView('week');break;}
-    case 'marktoday':{const s=todaySlot();if(s)toggleDone(s.w,s.d);break;}
+    case 'marktoday':{
+      const s=todaySlot();
+      if(s){const k=dkey(s.w,s.d);if(DONE[k]&&DONE[k]!==todayISO()){DONE[k]=todayISO();saveDone();paintDone();render();buildGrid();}else toggleDone(s.w,s.d);}
+      break;
+    }
     case 'trainnow':{const s=todaySlot();if(s){DONE[dkey(s.w,s.d)]=todayISO();saveDone();paintDone();render();buildGrid();}break;}
     case 'gologtab':setView('log');break;
     case 'herostart':{
@@ -831,6 +860,17 @@ function lifeAct(a,b){
       if(!(T&&T.segs&&T.running))elGo.click();
       setFocus(true);break;
     }
+    case 'fightcard':openFightCard();break;
+    case 'cardshare':shareFightCard();break;
+    case 'cardclose':closeFightCard();break;
+    case 'benchtype':CB.t=ds.t||CB.t;paintTools();break;
+    case 'benchlog':{
+      const el=document.getElementById('cbval');
+      const v=parseFloat(ds.v!=null?ds.v:(el&&el.value!==''?el.value:CB.v));
+      if(!isFinite(v)||v<=0||v>10000)break;
+      BENCH.push({d:todayISO(),t:CB.t,v:Math.round(v*10)/10});CB.v='';saveBench();paintTools();break;
+    }
+    case 'benchdel':{const i=+ds.id;if(i>=0&&i<BENCH.length&&!(typeof confirm==='function'&&!confirm('Remove this result?'))){BENCH.splice(i,1);saveBench();paintTools();}break;}
     case 'backupnow':{const e=document.getElementById('expbtn');if(e)e.click();break;}
   }
 }
@@ -838,6 +878,219 @@ document.addEventListener('click',e=>{
   const b=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
   if(b)lifeAct(b.dataset.act,b);
 });
+
+
+/* ================= v24: the forge's own staging =================
+   Everything below is drawn from data the app already keeps. Nothing here adds
+   a server, a library or a file. */
+
+/* rounds banked: every timed round actually worked, the number a fighter counts */
+function roundsOf(w,d){const dy=W[w]&&W[w].d[DK[d]];return dy&&dy.tm?dy.tm.rounds:0;}
+function roundsIn(doneMap){let n=0;Object.keys(doneMap||{}).forEach(k=>{const m=/^(\d+)-(\d+)$/.exec(k);if(m)n+=roundsOf(+m[1],+m[2]);});return n;}
+function roundsBanked(){return roundsIn(DONE);}
+function lifetimeRounds(){return roundsBanked()+CAMPS.reduce((a,c)=>a+roundsIn(c.done),0);}
+function weekCount(w){let n=0;for(let d=0;d<7;d++)if(isDone(w,d))n++;return n;}
+function weekRounds(w){let n=0;for(let d=0;d<7;d++)if(isDone(w,d))n+=roundsOf(w,d);return n;}
+
+/* forge heat: how hot the last week has been, 0 to 1, drives the glow behind the title */
+function heatOf(){
+  const cut=new Date(noonToday());cut.setDate(cut.getDate()-6);
+  const c=isoOf(cut),days=new Set();
+  Object.keys(DONE).forEach(k=>{const v=DONE[k];if(typeof v==='string'&&v>=c)days.add(v);});
+  return Math.min(1,days.size/6);
+}
+function paintHeat(){try{document.documentElement.style.setProperty('--heat',String(heatOf()));}catch(e){}}
+
+/* rank as chevrons, one more for every step up the ladder */
+function rankIdx(n){let r=0;RANKS.forEach((x,i)=>{if(n>=x[0])r=i;});return r;}
+function rankEmblem(n,big){
+  const idx=Math.min(rankIdx(n),6);
+  if(!idx)return '';
+  let p='';
+  for(let i=0;i<idx;i++){const y=26-i*4;p+='<path d="M7 '+y+' L20 '+(y-8)+' L33 '+y+'"></path>';}
+  return '<svg class="remblem'+(big?' big':'')+(rankIdx(n)>=7?' gold':'')+'" viewBox="0 -4 40 32" aria-hidden="true">'+p+'</svg>';
+}
+
+/* embers rising off a finished session: pure CSS, a dozen specks, gone under reduced motion */
+function sparksHTML(n){
+  let h='';
+  for(let i=0;i<(n||14);i++){
+    const x=(i*37+11)%100,d=(2.6+((i*53)%17)/10).toFixed(1),dl=(((i*29)%23)/10).toFixed(1),s=3+((i*7)%4),dx=(i%2?'-':'')+(6+(i%5)*5)+'px';
+    h+='<i style="left:'+x+'%;--d:'+d+'s;--dl:'+dl+'s;--s:'+s+'px;--dx:'+dx+'"></i>';
+  }
+  return '<div class="sparks" aria-hidden="true">'+h+'</div>';
+}
+
+/* one line from the corner, steady for the day so it does not flicker between visits */
+const CORNERLINES={
+ mon:['Kicks are loud. Land every one balanced and quiet.','Turn the hip over and the leg takes care of itself.','The base foot decides everything. Plant it, then throw.'],
+ tue:['A combo is a sentence. Finish it somewhere new.','Hands lead, legs carry. Stay long and loose.','Chain it. Do not stop between punches to think.'],
+ wed:['Boxing is angles. Hit, then be gone.','Light feet tonight. The heavy work is already done.','Retract faster than you throw.'],
+ thu:['The hard one. Breathe through the nose whenever you can.','Pace is a skill. Earn it round by round.','Slow down before you get ugly.'],
+ fri:['Defense is a counter in disguise.','Small slips. A big lean is just a slow miss.','Make them miss, then make them pay.'],
+ sat:['Hands only. Chin down, elbows in, breathe out.','Day six. Show up honest and finish clean.','The last round should look like the first.'],
+ sun:['Restore day. Slow is the whole job.','Film it, watch it, say one thing out loud.','Mobility is what keeps next week possible.']
+};
+function cornerOfDay(){
+  const a=CORNERLINES[DK[dIdx]]||CORNERLINES.mon;
+  return a[Math.floor(noonToday().getTime()/86400000)%a.length];
+}
+
+/* tale of the tape: this week against last, fight-promo style */
+function taleHTML(){
+  const slot=todaySlot();
+  if(!slot||ONBOARD)return '';
+  const a=slot.w,b=slot.w-1;
+  const A={s:weekCount(a),r:weekRounds(a)},B=b>=0?{s:weekCount(b),r:weekRounds(b)}:null;
+  if(!A.s&&!(B&&B.s))return '';
+  const tape=w=>{const c=CHECKS[w];return c?c.filter(Boolean).length:null;};
+  const row=(label,x,y,f)=>{
+    const xs=x==null?'&middot;':(f?f(x):x),ys=y==null?'&middot;':(f?f(y):y);
+    const both=x!=null&&y!=null;
+    return '<div class="tt"><div class="tl'+(both&&x>y?' win':'')+'">'+xs+'</div><div class="tm">'+label+'</div><div class="tr'+(both&&y>x?' win':'')+'">'+ys+'</div></div>';
+  };
+  return '<div class="card tale"><div class="cardhead"><span class="cardtitle">Tale of the tape</span><span class="cardtag">WEEK '+(a+1)+(b>=0?' VS WEEK '+(b+1):'')+'</span></div>'+
+    '<div class="tt tth"><div class="tl">THIS WEEK</div><div class="tm"></div><div class="tr">LAST WEEK</div></div>'+
+    row('SESSIONS',A.s,B?B.s:null)+row('ROUNDS',A.r,B?B.r:null)+row('TAPE',tape(a),b>=0?tape(b):null,v=>v+'/5')+'</div>';
+}
+
+/* the Combine: three tests you can repeat, so progress is a number and not a feeling */
+let BENCH=[];
+const BTESTS=[['punch','Punch-out 30s'],['teep','Clean teeps 60s'],['plank','Plank hold']];
+const BUNIT={punch:'punches',teep:'teeps',plank:'seconds'};
+const CB={t:'punch',v:''};
+function benchRows(t){return BENCH.filter(x=>x.t===t).sort((x,y)=>x.d<y.d?-1:(x.d>y.d?1:0));}
+function benchSpark(rows){
+  if(rows.length<2)return '';
+  const pts=rows.slice(-12),WW=300,HH=60,pad=6;
+  const vs=pts.map(p=>p.v),mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);
+  const X=i=>pad+(WW-2*pad)*i/(pts.length-1),Y=v=>HH-pad-(HH-2*pad)*(v-mn)/((mx-mn)||1);
+  let line='';pts.forEach((p,i)=>{line+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1);});
+  const dots=pts.map((p,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="2.2" class="bwdot"></circle>').join('');
+  return '<svg class="bwchart cbspark" viewBox="0 0 '+WW+' '+HH+'" preserveAspectRatio="none" aria-hidden="true"><path d="'+line+'" class="bwpath"></path>'+dots+'</svg>';
+}
+function benchHTML(){
+  const rows=benchRows(CB.t);
+  const best=rows.reduce((m,x)=>Math.max(m,x.v),0);
+  const last=rows.length?rows[rows.length-1].v:null,first=rows.length?rows[0].v:null;
+  const delta=(last!=null&&rows.length>1)?Math.round((last-first)*10)/10:null;
+  const recent=rows.slice(-4).reverse().map(x=>'<button class="bwchip" data-act="benchdel" data-id="'+BENCH.indexOf(x)+'" type="button">'+shortDate(x.d)+' <b>'+x.v+'</b></button>').join('');
+  return '<div class="card" id="benchcard"><div class="cardhead"><span class="cardtitle">The Combine</span><span class="cardtag">'+rows.length+' logged</span></div>'+
+    '<div class="bwnote">Three tests you can repeat. Run them in weeks 1, 5 and 10, same time of day, and watch the number climb.</div>'+
+    '<div class="bwchips">'+BTESTS.map(t=>'<button class="sw obchip'+(CB.t===t[0]?' on':'')+'" data-act="benchtype" data-t="'+t[0]+'" type="button">'+t[1]+'</button>').join('')+'</div>'+
+    (last!=null?'<div class="bwrow"><div class="bwbig">'+last+'<span class="bwunit">'+BUNIT[CB.t]+' last</span></div><div class="bwside"><div class="bwline">Best <b>'+best+'</b></div>'+(delta!=null?'<div class="bwline">Since the first <b style="color:var('+(delta>=0?'--restore':'--ember')+')">'+(delta>0?'+':'')+delta+'</b></div>':'')+'</div></div>':'')+
+    benchSpark(rows)+
+    '<div class="bwform"><input class="srch bwinput" id="cbval" type="number" inputmode="numeric" placeholder="'+BUNIT[CB.t]+'"><button class="sw pri" data-act="benchlog" type="button">Log it</button></div>'+
+    (recent?'<div class="bwnote">Latest, tap one to remove it:</div><div class="bwchips">'+recent+'</div>':'')+'</div>';
+}
+function saveBench(){return saveKey('forge:bench',JSON.stringify(BENCH));}
+
+/* the fight card: a poster of your camp, drawn on a canvas, shared as a picture */
+const PHEX=['#6FA8C7','#6FA8C7','#8B9DC9','#8B9DC9','#9B8AC4','#9B8AC4','#EA8C3A','#EA8C3A','#D9A441','#D9A441'];
+function cardStats(){
+  const tot=totDone(),bws=bwSorted();
+  const wd=bws.length>1?(bwAvg(bws[bws.length-1].d,7)-bws[0].w):null;
+  const cells=[];
+  for(let w=0;w<10;w++)for(let d=0;d<7;d++)cells.push(isDone(w,d)?1:0);
+  const weeks=Array.from({length:10},(_,w)=>weekCount(w)>0?1:0).reduce((a,b)=>a+b,0);
+  return {name:WHO||'Jackson',tot:tot,rank:rankOf(tot),rankIdx:rankIdx(tot),rounds:lifetimeRounds(),streak:streak(),
+    day:Math.min(70,Math.max(0,campDayCount())),phase:campPhase(),cells:cells,wd:wd,weeks:weeks,camp:CAMPS.length+1,date:todayISO()};
+}
+function fitText(ctx,txt,maxW,start,fontFn){let s=start;ctx.font=fontFn(s);while(ctx.measureText(txt).width>maxW&&s>40){s-=6;ctx.font=fontFn(s);}return s;}
+function spaced(ctx,txt,x,y,sp,align){
+  const ch=String(txt).split('');let w=0;
+  ch.forEach(c=>{w+=ctx.measureText(c).width+sp;});w-=sp;
+  let cx=align==='center'?x-w/2:(align==='right'?x-w:x);
+  ch.forEach(c=>{ctx.fillText(c,cx,y);cx+=ctx.measureText(c).width+sp;});
+}
+function drawFightCard(cv,s){
+  const ctx=cv&&cv.getContext?cv.getContext('2d'):null;
+  if(!ctx)return false;
+  const Wd=1080,Ht=1920;
+  cv.width=Wd;cv.height=Ht;
+  const OSW=px=>'700 '+px+'px Oswald, Impact, sans-serif',MONO=px=>'500 '+px+'px "JetBrains Mono", Menlo, monospace';
+  let g=ctx.createLinearGradient(0,0,0,Ht);g.addColorStop(0,'#0F1319');g.addColorStop(1,'#1d140b');ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Ht);
+  g=ctx.createRadialGradient(920,220,10,920,220,780);g.addColorStop(0,'rgba(234,140,58,0.38)');g.addColorStop(1,'rgba(234,140,58,0)');ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Ht);
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=2;
+  for(let x=-Ht;x<Wd;x+=52){ctx.beginPath();ctx.moveTo(x,Ht);ctx.lineTo(x+Ht,0);ctx.stroke();}
+  ctx.strokeStyle='rgba(234,140,58,0.6)';ctx.lineWidth=4;ctx.strokeRect(40,40,Wd-80,Ht-80);
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  ctx.fillStyle='#EA8C3A';ctx.font=MONO(32);spaced(ctx,'THE FORGE  /  FIGHT CARD'+(s.camp>1?'  /  CAMP '+s.camp:''),90,150,9,'left');
+  const nm=String(s.name).toUpperCase();
+  const sz=fitText(ctx,nm,Wd-180,200,OSW);
+  ctx.fillStyle='#ECE6DA';ctx.fillText(nm,90,150+sz+14);
+  const rule=150+sz+54;
+  ctx.fillStyle='#EA8C3A';ctx.fillRect(90,rule,220,8);
+  ctx.fillStyle='#8A94A3';ctx.font=MONO(34);spaced(ctx,'RECORD',90,rule+110,12,'left');
+  const rec=s.tot+'-0';
+  const rs=fitText(ctx,rec,Wd-180,360,OSW);
+  ctx.fillStyle='#ECE6DA';ctx.fillText(rec,86,rule+110+rs);
+  const ry=rule+110+rs+110;
+  ctx.fillStyle='#EA8C3A';ctx.font=OSW(84);
+  const rn=s.rank.toUpperCase();
+  const ex=90;
+  let off=0;
+  if(s.rankIdx>0){
+    ctx.strokeStyle=s.rankIdx>=7?'#D9A441':'#EA8C3A';ctx.lineWidth=9;ctx.lineCap='round';ctx.lineJoin='round';
+    for(let i=0;i<Math.min(s.rankIdx,6);i++){const y=ry-18-i*18;ctx.beginPath();ctx.moveTo(ex+4,y);ctx.lineTo(ex+44,y-26);ctx.lineTo(ex+84,y);ctx.stroke();}
+    off=120;
+  }
+  ctx.fillStyle='#EA8C3A';ctx.font=OSW(84);ctx.fillText(rn,ex+off,ry);
+  ctx.fillStyle='#8A94A3';ctx.font=MONO(32);
+  const status=s.phase==='live'?'CAMP DAY '+s.day+' OF 70':(s.phase==='over'?(s.tot>=70?'CAMP COMPLETE':'CAMP ENDED'):(s.phase==='pre'?'CAMP STARTS '+shortDate(START).toUpperCase():'NEW CAMP'));
+  spaced(ctx,status,90,ry+64,8,'left');
+  // four numbers
+  const sy=ry+190;
+  const wdTxt=s.wd==null?s.weeks+'/10':((s.wd>0?'+':'')+s.wd.toFixed(1));
+  const stats=[[String(s.rounds),'ROUNDS'],[String(s.streak),'STREAK'],[String(s.tot),'SESSIONS'],[wdTxt,s.wd==null?'WEEKS':'LB']];
+  const colW=(Wd-180)/4;
+  stats.forEach((st,i)=>{
+    const cx=90+colW*i+colW/2;
+    ctx.textAlign='center';ctx.fillStyle='#ECE6DA';ctx.font=OSW(86);ctx.fillText(st[0],cx,sy);
+    ctx.fillStyle='#8A94A3';ctx.font=MONO(26);spaced(ctx,st[1],cx,sy+48,8,'center');
+  });
+  ctx.textAlign='left';
+  // the camp itself: ten weeks across, seven days down, in phase colour
+  const cell=46,gap=8,gw=10*cell+9*gap,gx=(Wd-gw)/2,gy=sy+120;
+  for(let w=0;w<10;w++)for(let d=0;d<7;d++){
+    ctx.fillStyle=s.cells[w*7+d]?PHEX[w]:'#2A323D';
+    ctx.fillRect(gx+w*(cell+gap),gy+d*(cell+gap),cell,cell);
+  }
+  ctx.fillStyle='#8A94A3';ctx.font=MONO(26);spaced(ctx,'TEN WEEKS, SEVEN DAYS EACH',Wd/2,gy+7*(cell+gap)+30,6,'center');
+  ctx.fillStyle='#8A94A3';ctx.font=MONO(28);ctx.textAlign='left';ctx.fillText(s.date,90,Ht-96);
+  ctx.textAlign='right';ctx.fillText('jacksonvarela1.github.io/forge',Wd-90,Ht-96);
+  ctx.textAlign='left';
+  return true;
+}
+let CARDURL='';
+async function openFightCard(){
+  if(!cardviewEl)return false;
+  const cv=document.createElement('canvas');
+  try{await document.fonts.load('700 100px Oswald');await document.fonts.load('500 30px "JetBrains Mono"');}catch(e){}
+  if(!drawFightCard(cv,cardStats()))return false;
+  let url='';
+  try{url=cv.toDataURL('image/png');}catch(e){return false;}
+  CARDURL=url;
+  cardviewEl.innerHTML='<div class="cv-in"><img class="cv-img" src="'+url+'" alt="Your Forge fight card"><div class="bwform cv-btns">'+abtn('cardshare','Share','pri')+abtn('cardclose','Close')+'</div><div class="bwnote">Or press and hold the picture to save it.</div></div>';
+  cardviewEl.classList.add('on');
+  return true;
+}
+function closeFightCard(){if(cardviewEl){cardviewEl.classList.remove('on');cardviewEl.innerHTML='';}CARDURL='';}
+async function shareFightCard(){
+  if(!CARDURL)return false;
+  try{
+    const blob=await (await fetch(CARDURL)).blob();
+    const file=new File([blob],'forge-fight-card.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'My Forge fight card'});return true;}
+    /* an installed iPhone web app must never navigate away to a download */
+    if(navigator.standalone){const n=cardviewEl&&cardviewEl.querySelector?cardviewEl.querySelector('.bwnote'):null;if(n)n.textContent='Sharing is not available here. Press and hold the picture to save it.';return false;}
+    const a=document.createElement('a');a.href=CARDURL;a.download='forge-fight-card.png';document.body.appendChild(a);a.click();a.remove();
+    return true;
+  }catch(e){
+    if(e&&e.name!=='AbortError'){const n=cardviewEl&&cardviewEl.querySelector?cardviewEl.querySelector('.bwnote'):null;if(n)n.textContent='Could not open the share sheet. Press and hold the picture to save it.';}
+    return false;
+  }
+}
 
 /* ---- backup ----
    There is no account and no server. Months of training live in one browser
@@ -853,8 +1106,8 @@ function paintTools(){
     <div class="bwnote">Gear on hand. The program adapts around whatever is tapped on. Real bell swaps the round beeps for a struck bell and a wood clack.</div>
     <div class="bwchips">${eqChip('gl','Gloves',GLOVES_ON)}${eqChip('wr','Wraps',WRAPS_ON)}${eqChip('bag','Bag',BAG_ON)}${eqChip('p','Partner',PARTNER_ON)}${eqChip('snd','Real bell',SND==='bell')}</div>
     ${others.length?`<div class="bwnote">Also training on this phone:</div><div class="bwchips">${others.map(n=>`<button class="bwchip" data-who="${esc(n)}" type="button">${esc(n)}</button>`).join('')}</div>`:''}
-    <div class="bwform"><button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
-  logToolsEl.innerHTML=extraHTML()+fighter+`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
+    <div class="bwform">${abtn('fightcard','Make my fight card','pri')}<button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
+  logToolsEl.innerHTML=benchHTML()+extraHTML()+fighter+`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
     <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
     <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
     <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones. Last backup: ${BK?shortDate(BK):'never'}.</div>
@@ -864,6 +1117,8 @@ function paintTools(){
     <div class="bwform"><button class="sw" id="updchk" type="button">Check for update</button><button class="sw" id="repairbtn" type="button">Repair app</button></div>
     <div class="bwnote" id="updmsg">Build ${BUILD}. Repair reloads the app fresh and never touches your log.</div></div>`;
   const msg=t=>{const e=document.getElementById('iomsg');if(e)e.textContent=t;};
+  const cvi=document.getElementById('cbval');
+  if(cvi){cvi.value=CB.v;cvi.addEventListener('input',()=>{CB.v=cvi.value;});}
   const um=t=>{const e=document.getElementById('updmsg');if(e)e.textContent=t;};
   const uc=document.getElementById('updchk');
   if(uc)uc.addEventListener('click',async()=>{
@@ -873,7 +1128,7 @@ function paintTools(){
   });
   const rp=document.getElementById('repairbtn');
   if(rp)rp.addEventListener('click',()=>{
-    if(typeof confirm==='function'&&!confirm('Reload the app from scratch? Your log and settings are not touched.'))return;
+    if(typeof confirm==='function'&&!confirm('Reload the app from scratch? It needs internet. Your log and settings are not touched.'))return;
     repairApp();
   });
   /* fighter card wiring: gear toggles write straight to opts, name chips
@@ -887,17 +1142,13 @@ function paintTools(){
     if(id==='snd')SND=SND==='bell'?'classic':'bell';
     saveOpts();render();buildGrid();
   }));
-  logToolsEl.querySelectorAll('.bwchip[data-who]').forEach(c=>c.addEventListener('click',async()=>{
-    if(sessionRunning()){
-      if(typeof confirm==='function'&&!confirm('A session is running. End it and switch fighters?'))return;
-      stopTick();callerStop();vstop();mediaOff();
-    }
-    WHO=c.dataset.who;
-    await saveWho();
-    boot();
-  }));
+  logToolsEl.querySelectorAll('.bwchip[data-who]').forEach(c=>c.addEventListener('click',()=>switchFighter(c.dataset.who)));
   const af=document.getElementById('addfighter');
   if(af)af.addEventListener('click',()=>{
+    if(sessionRunning()){
+      if(typeof confirm==='function'&&!confirm('A session is running. End it and add a fighter?'))return;
+      endLiveSession();
+    }
     ONBOARD=true;
     OB_STATE.name='';
     paintOnboard();setView('week');
@@ -908,12 +1159,14 @@ function paintTools(){
     const v=document.getElementById('startval');
     const d=parseISO(v&&v.value);
     if(!d)return msg('That date did not read right.');
-    START=isoOf(mondayOf(d));saveStart();recomputeBagWeek();paintToday();paintTools();buildGrid();
+    START=isoOf(mondayOf(d));saveStart();recomputeBagWeek();
+    {const ns=todaySlot();if(ns){wIdx=ns.w;dIdx=ns.d;}}
+    selectWeek(wIdx);selectDay(dIdx);paintDone();buildGrid();
     msg('Camp week 1 now starts '+START+'.');
   });
   const ex=document.getElementById('expbtn');
   if(ex)ex.addEventListener('click',async()=>{
-    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx,skip:SKIP,extra:EXTRA,camps:CAMPS,finish:FINISH});
+    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx,skip:SKIP,extra:EXTRA,camps:CAMPS,finish:FINISH,bench:BENCH,opts:{v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND}});
     try{await navigator.clipboard.writeText(dump);BK=todayISO();saveBk();paintToday();msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
     catch(e){
       const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.value=dump;
@@ -924,9 +1177,9 @@ function paintTools(){
   if(un)un.addEventListener('click',()=>{
     if(!PRERESTORE)return;
     DONE=PRERESTORE.done;BW=PRERESTORE.bw;NOTES=PRERESTORE.notes;CHECKS=PRERESTORE.check||{};START=PRERESTORE.start;IQ=PRERESTORE.iq;
-    SKIP=PRERESTORE.skip||{};EXTRA=PRERESTORE.extra||[];CAMPS=PRERESTORE.camps||[];FINISH=PRERESTORE.finish||null;
+    SKIP=PRERESTORE.skip||{};EXTRA=PRERESTORE.extra||[];CAMPS=PRERESTORE.camps||[];FINISH=PRERESTORE.finish||null;BENCH=PRERESTORE.bench||[];RESUME=PRERESTORE.resume||null;
     PRERESTORE=null;
-    saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();
+    saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();
     paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
     const e=document.getElementById('iomsg');if(e)e.textContent='Put back the way it was before the restore.';
   });
@@ -941,7 +1194,8 @@ function paintTools(){
       if(!o||typeof o!=='object')throw 0;
       /* snapshot first: restoring an older backup over a newer log is the one
          way this screen can destroy training history */
-      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),check:JSON.parse(JSON.stringify(CHECKS)),start:START,iq:JSON.parse(JSON.stringify(IQ)),skip:JSON.parse(JSON.stringify(SKIP)),extra:EXTRA.slice(),camps:JSON.parse(JSON.stringify(CAMPS)),finish:FINISH};
+      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),check:JSON.parse(JSON.stringify(CHECKS)),start:START,iq:JSON.parse(JSON.stringify(IQ)),skip:JSON.parse(JSON.stringify(SKIP)),extra:EXTRA.slice(),camps:JSON.parse(JSON.stringify(CAMPS)),finish:FINISH,bench:BENCH.slice(),resume:RESUME?JSON.parse(JSON.stringify(RESUME)):null};
+      const startB4=START,skipB4=JSON.stringify(SKIP);
       if(o.done&&typeof o.done==='object')DONE=o.done;
       if(Array.isArray(o.bw))BW=o.bw.filter(x=>x&&x.d&&isFinite(x.w));
       if(o.notes&&typeof o.notes==='object')NOTES=o.notes;
@@ -951,9 +1205,12 @@ function paintTools(){
       if(o.skip&&typeof o.skip==='object'&&!Array.isArray(o.skip))SKIP=o.skip;
       if(Array.isArray(o.extra))EXTRA=o.extra.filter(y=>y&&y.d&&isFinite(y.m));
       if(Array.isArray(o.camps))CAMPS=o.camps.filter(y=>y&&typeof y==='object');
-      if(o.finish&&typeof o.finish==='object')FINISH=o.finish;
+      if(o.done&&typeof o.done==='object')FINISH=(o.finish&&typeof o.finish==='object')?o.finish:null;
+      if(Array.isArray(o.bench))BENCH=o.bench.filter(y=>y&&y.d&&y.t&&isFinite(y.v));
+      if(o.opts&&typeof o.opts==='object'){const p=o.opts;VOICE_ON=p.v!==false;CALLER_ON=p.c!==false;BAG_ON=p.bag!==false;PARTNER_ON=p.p===true;GLOVES_ON=p.gl!==false;WRAPS_ON=p.wr!==false;if(typeof p.goals==='string')GOALS=p.goals;SND=p.snd==='classic'?'classic':'bell';saveOpts();}
+      if(START!==startB4||JSON.stringify(SKIP)!==skipB4)RESUME=null;
       recomputeBagWeek();
-      saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();
+      saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();
       existing.remove();
       paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
       msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back. What was here before this restore is saved under Undo below, until you close the app.');
@@ -965,6 +1222,7 @@ function buildGrid(){
   const slot=todaySlot();
   let h=`<div class="ghead"><span class="gwn"></span>${DK.map(k=>`<span class="ghd">${DAYMETA[k].abbr[0]}</span>`).join('')}</div>`;
   W.forEach((w,i)=>{
+    if(i===0||W[i-1].phase!==w.phase)h+=`<div class="gphl" style="color:var(${PCOL[i]})">${esc(String(w.phase).toUpperCase())}</div>`;
     h+=`<div class="grow"><span class="gwn">W${w.n}</span>`;
     for(let d=0;d<7;d++){
       const on=isDone(i,d)?' on':'';
@@ -973,7 +1231,7 @@ function buildGrid(){
       const past=slot&&(i<slot.w||(i===slot.w&&d<slot.d));
       const cls=isToday?' today':(on?'':(isSkipped(i,d)?' skip':(past?' owed':'')));
       const note=NOTES[dkey(i,d)]?' noted':'';
-      h+=`<button class="gcell${on}${cls}${note}" data-w="${i}" data-d="${d}" aria-label="Week ${w.n} ${DAYMETA[DK[d]].abbr}"></button>`;
+      h+=`<button class="gcell${on}${cls}${note}" data-w="${i}" data-d="${d}" aria-label="Week ${w.n} ${DAYMETA[DK[d]].abbr}, ${on?'done':(cls.indexOf('skip')>=0?'let go':(cls.indexOf('owed')>=0?'owed':'not done'))}"></button>`;
     }
     h+='</div>';
   });
@@ -987,7 +1245,8 @@ function buildGrid(){
   const over=campPhase()==='over';
   statsEl.innerHTML=`<div class="stat"><div class="sv">${tot}-0</div><div class="sl">record</div></div>
    <div class="stat"><div class="sv">${slot?wkDone+'/'+wkOf:(over?tot+'/70':streak())}</div><div class="sl">${slot?'this week':(over?'camp':'day streak')}</div></div>
-   <div class="stat"><div class="sv" style="font-size:.95rem;padding:6px 0 5px">${rankOf(tot)}</div><div class="sl">rank</div></div>`;
+   <div class="stat"><div class="sv rk">${rankEmblem(tot)}${rankOf(tot)}</div><div class="sl">rank</div></div>
+   <div class="stat"><div class="sv">${lifetimeRounds()}</div><div class="sl">rounds</div></div>`;
   /* rank as a ladder you can see yourself climbing, not a static word */
   const next=RANKS.find(r=>r[0]>tot);
   const prev=RANKS.filter(r=>r[0]<=tot).slice(-1)[0]||RANKS[0];
@@ -1055,14 +1314,18 @@ const srch=document.getElementById('srch');
 if(srch)srch.placeholder='Search '+FLAT.length+' moves. Try check hook, teep, wrap...';
 if(srch)srch.addEventListener('input',()=>{
   const q=srch.value.trim().toLowerCase();
+  let anyHit=0;
   document.querySelectorAll('#moves .msection').forEach(sec=>{
     let vis=0;
     sec.querySelectorAll('.move').forEach(mv=>{
       const hit=!q||mv.textContent.toLowerCase().includes(q);
       mv.classList.toggle('hide',!hit);if(hit)vis++;
     });
+    anyHit+=vis;
     sec.classList.toggle('hide',q&&!vis);
   });
+  const nm=document.getElementById('nomoves');
+  if(nm)nm.style.display=(q&&!anyHit)?'':'none';
 });
 
 /* ---- voice engine ---- */
@@ -1249,7 +1512,7 @@ function fromPool(pool,filter,key){
   let p=pool;
   if(filter){
     let m=FPC.get(pool);if(!m){m=new Map();FPC.set(pool,m);}
-    const ck=String(key||'')+'|'+((DAYMETA[DK[dIdx]]||{}).weapons||'');
+    const ck=String(key||'')+'|'+((DAYMETA[DK[dIdx]]||{}).weapons||'')+'|'+(bagLive()?1:0);
     p=m.get(ck);
     if(!p){p=pool.filter(filter);m.set(ck,p);}
   }
@@ -1519,7 +1782,7 @@ function calRefresh(){
     paintDone();buildGrid();
   }catch(e){}
 }
-function onWake(){resync();calRefresh();try{checkUpdate(false);}catch(e){}}
+function onWake(){resync();calRefresh();try{paintUpdate();checkUpdate(false);}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')onWake();});
 window.addEventListener('focus',onWake);
 window.addEventListener('pageshow',onWake);
@@ -1594,7 +1857,7 @@ function loadTimer(k,day){
   T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready',wk:wIdx,dk:k};
   elGo.textContent='Start';showSeg();
 }
-function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
+function finish(){T.state='done';try{paintUpdate();}catch(e){}stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
   if(FOCUS&&fEl){
     fEl.classList.remove('fwork','frest','fprep');fEl.classList.add('fdone');
     const before=totDone(),after=before+(isDone(wIdx,dIdx)?0:1);
@@ -1607,6 +1870,7 @@ function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(
     if(fRing){fRing.style.strokeDashoffset='0';fRing.style.stroke=css('--restore');}
     fNext.textContent=isDone(wIdx,dIdx)?'LOGGED':(md.cool?'COOLDOWN NEXT, THEN LOG IT':'');
     if(fGo)fGo.textContent=isDone(wIdx,dIdx)?'Close':'Log it and close';
+    if(fSparks)fSparks.innerHTML=sparksHTML();
   }}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
@@ -1698,7 +1962,7 @@ elGo.addEventListener('click',()=>{
   vinit();
   if(!T||!T.segs||T.state==='done')return;
   const fresh=T.state==='ready';
-  if(fresh){T.state='run';bell('work');T.warned={};}
+  if(fresh){T.state='run';bell('work');T.warned={};try{paintUpdate();}catch(e){}}
   if(T.running){
     T.left=Math.max(0,Math.ceil((T.endAt-Date.now())/1000));
     stopTick();callerStop();vstop();mediaOff();elGo.textContent='Start';
@@ -1726,6 +1990,7 @@ elReset.addEventListener('click',()=>{
   if(RESET_ARM){clearTimeout(RESET_ARM);RESET_ARM=0;}
   paintResetLabel(false);
   callerStop();vstop();mediaOff();loadTimer(DK[dIdx],W[wIdx].d[DK[dIdx]]);
+  try{paintUpdate();}catch(e){}
 });
 
 /* ---- focus mode ---- */
@@ -1734,7 +1999,7 @@ const fEl=document.getElementById('focus'),fName=document.getElementById('fname'
       fCue=document.getElementById('fcue'),fRing=document.getElementById('rfg'),fGo=document.getElementById('fgo');
 const RC=2*Math.PI*92;
 /* one pip per round, so how far through the session you are never needs reading */
-const fPips=document.getElementById('fpips');let PIPKEY='';
+const fPips=document.getElementById('fpips'),fSparks=document.getElementById('fsparks');let PIPKEY='';
 function paintPips(sg){
   if(!fPips||!T||!T.segs)return;
   const key=T.rounds+'|'+sg.round;
@@ -1762,7 +2027,7 @@ function paintFocus(){
   fPhase.textContent=T.state==='ready'?'Ready':(PHTXT[sg.type]||'Work');
   fPhase.style.color=col;
   fRound.textContent='Week '+W[wIdx].n+' · '+DAYMETA[DK[dIdx]].title+' · R'+sg.round+'/'+T.rounds;
-  fCue.textContent=sg.cue||(sg.type==='work'&&sg.detail?sg.detail:'');
+  fCue.textContent=sg.cue||(sg.type==='work'&&sg.detail?sg.detail:(sg.type==='prep'&&T.state!=='ready'?(WHO||'Jackson').toUpperCase()+' · '+rankOf(totDone()).toUpperCase():''));
   paintPips(sg);
   fNext.textContent=sg.next?('NEXT  '+sg.next.toUpperCase()):'';
   fRing.style.stroke=col;
@@ -1773,7 +2038,7 @@ function setFocus(on){
   FOCUS=on;
   if(!fEl)return;
   fEl.classList.toggle('on',on);
-  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep','fdone');}
+  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep','fdone');if(fSparks)fSparks.innerHTML='';}
 }
 const tfocus=document.getElementById('tfocus');
 if(tfocus)tfocus.addEventListener('click',()=>setFocus(true));
@@ -1785,14 +2050,18 @@ function focusBtn(i){
   const t=[elGo,elSkip,elReset][i];if(t)t.click();paintFocus();
 }
 ['fgo','fskip','freset'].forEach((id,i)=>{const b=document.getElementById(id);if(b)b.addEventListener('click',()=>focusBtn(i));});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&FOCUS)setFocus(false);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(cardviewEl&&cardviewEl.classList&&cardviewEl.classList.contains('on'))closeFightCard();else if(FOCUS)setFocus(false);}});
 
 /* ---- views ---- */
 const weekView=document.getElementById('weekView'),movesView=document.getElementById('movesView'),gearView=document.getElementById('gearView'),logView=document.getElementById('logView'),iqView=document.getElementById('iqView'),timerbar=document.getElementById('timerbar'),vWeek=document.getElementById('vWeek'),vMoves=document.getElementById('vMoves'),vGear=document.getElementById('vGear'),vLog=document.getElementById('vLog'),vIQ=document.getElementById('vIQ');
 function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.display=v==='moves'?'':'none';gearView.style.display=v==='gear'?'':'none';logView.style.display=v==='log'?'':'none';iqView.style.display=v==='iq'?'':'none';
  /* the timer bar follows you off the Week tab while a session is live, so
     checking a move or logging a weigh-in mid-round does not hide your clock */
- timerbar.style.display=(v==='week'||(T&&T.segs&&T.state==='run'))?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'&&!(T&&T.running)){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
+ timerbar.style.display=(v==='week'||(T&&T.segs&&T.state==='run'))?'':'none';vWeek.classList.toggle('active',v==='week');vMoves.classList.toggle('active',v==='moves');vGear.classList.toggle('active',v==='gear');vLog.classList.toggle('active',v==='log');vIQ.classList.toggle('active',v==='iq');try{
+  document.body.classList.toggle('nobar',timerbar.style.display==='none');
+  [vWeek,vMoves,vGear,vLog,vIQ].forEach(b=>b.setAttribute('aria-selected',String(b.classList.contains('active'))));
+ }catch(e){}
+ if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'&&!(T&&T.running)){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
 vWeek.addEventListener('click',()=>setView('week'));
 vMoves.addEventListener('click',()=>setView('moves'));
 vGear.addEventListener('click',()=>setView('gear'));
@@ -1816,7 +2085,7 @@ function saveBk(){return saveKey('forge:bk',BK);}
 function saveFinish(){return saveKey('forge:finish',JSON.stringify(FINISH));}
 async function saveChecks(){try{await storage.set('forge:check',JSON.stringify(CHECKS));SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 let NAMES=[],ONBOARD=false;
-const heroEl=document.getElementById('hero'),onboardEl=document.getElementById('onboard'),campbarEl=document.getElementById('campbar'),finaleEl=document.getElementById('finale');
+const cardviewEl=document.getElementById('cardview'),heroEl=document.getElementById('hero'),onboardEl=document.getElementById('onboard'),campbarEl=document.getElementById('campbar'),finaleEl=document.getElementById('finale');
 /* First open on a fresh phone: who are you, what do you have, why are you
    here. Three questions, then the camp is theirs. */
 function paintOnboard(){
@@ -1874,10 +2143,10 @@ function paintHero(){
   const slot=todaySlot();
   if(ONBOARD||campPhase()!=='live'||!slot||lapsed()||wIdx!==slot.w||dIdx!==slot.d){heroEl.innerHTML='';return;}
   const w=W[slot.w],k=DK[slot.d],md=DAYMETA[k],day=w.d[k];
-  const doneToday=DONE[dkey(slot.w,slot.d)]===todayISO();
+  const stamp=DONE[dkey(slot.w,slot.d)],doneToday=stamp===todayISO(),earlier=!!stamp&&!doneToday;
   const dn=Math.min(70,Math.max(1,campDayCount()));
-  heroEl.innerHTML='<div class="hero" style="--ph:var('+(PCOL[slot.w]||'--ember')+')"><div class="hk">TODAY &middot; WEEK '+w.n+' &middot; DAY '+dn+' OF 70</div><div class="ht">'+md.title+'</div><div class="hm">'+LASTTOT+' MIN &middot; '+typeText[md.type].toUpperCase()+' &middot; INTENSITY '+md.intensity+'/5</div>'+
-    (doneToday?'<div class="hdone">Logged. That is the day.</div>':'<div class="hbtns">'+(day.tm?'<button class="hgo" data-act="herostart" type="button">Start</button>':'')+'<button class="hmark" data-act="marktoday" type="button">Mark done</button></div>')+'</div>';
+  heroEl.innerHTML='<div class="hero" style="--ph:var('+(PCOL[slot.w]||'--ember')+')"><div class="hk">TODAY &middot; WEEK '+w.n+' &middot; DAY '+dn+' OF 70</div><div class="ht">'+md.title+'</div><div class="hm">'+LASTTOT+' MIN &middot; '+typeText[md.type].toUpperCase()+' &middot; INTENSITY '+md.intensity+'/5</div><div class="hq">CORNER &middot; '+esc(cornerOfDay())+'</div>'+
+    (doneToday?'<div class="hdone">Logged. That is the day.</div>':(earlier?'<div class="hdone">Logged '+esc(shortDate(stamp))+', not today.</div>':'')+'<div class="hbtns">'+(day.tm?'<button class="hgo" data-act="herostart" type="button">Start</button>':'')+'<button class="hmark" data-act="'+(earlier?'trainnow':'marktoday')+'" type="button">'+(earlier?'Train today':'Mark done')+'</button></div>')+'</div>';
 }
 function paintCampBar(){
   if(!campbarEl)return;
@@ -1923,7 +2192,7 @@ async function boot(){
        Writing forge:start here would make the legacy check claim the next
        boot as the original fighter, so a buddy who opens the app and closes
        it before answering would wake up as someone else. */
-    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';
+    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];
     VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
     START=forwardMonday();
     recomputeBagWeek();
@@ -1933,7 +2202,7 @@ async function boot(){
     return;
   }
   /* reset per-profile state so switching fighters never leaks a log across */
-  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';
+  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];
   PRERESTORE=null;MAKEUP=null;qcur=null;SAVEFAIL='';CUT=0;RB.open=false;
   VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
@@ -1946,6 +2215,7 @@ async function boot(){
   try{const r=await storage.get('forge:extra');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))EXTRA=x.filter(y=>y&&y.d&&isFinite(y.m));}}catch(e){}
   try{const r=await storage.get('forge:camps');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))CAMPS=x.filter(y=>y&&typeof y==='object');}}catch(e){}
   try{const r=await storage.get('forge:finish');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object')FINISH=x;}}catch(e){}
+  try{const r=await storage.get('forge:bench');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))BENCH=x.filter(y=>y&&y.d&&y.t&&isFinite(y.v));}}catch(e){}
   try{const r=await storage.get('forge:bk');if(r&&r.value&&parseISO(r.value))BK=r.value;}catch(e){}
   try{const r=await storage.get('forge:resume');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object'&&x.start&&Array.isArray(x.added))RESUME=x;}}catch(e){}
   try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
@@ -1999,7 +2269,12 @@ boot();
 let SWREG=null,WANT_RELOAD=false,RELOADING=false,SWAPPED=false,LASTCHECK=0;
 const updbar=document.getElementById('updbar');
 function updateReady(){return !!(SWAPPED||(SWREG&&SWREG.waiting&&navigator.serviceWorker&&navigator.serviceWorker.controller));}
-function paintUpdate(){if(updbar)updbar.style.display=(updateReady()&&!sessionRunning())?'':'none';}
+function paintUpdate(){
+  if(!updbar)return;
+  const on=updateReady()&&!sessionRunning();
+  updbar.style.display=on?'':'none';
+  try{document.body.classList.toggle('hasupd',on);}catch(e){}
+}
 function applyUpdate(){
   if(sessionRunning())return;
   WANT_RELOAD=true;
@@ -2013,10 +2288,17 @@ function checkUpdate(force){
   LASTCHECK=n;
   return SWREG.update().then(paintUpdate).catch(()=>{});
 }
+/* the probe asks for a URL the service worker cannot answer from cache, so a
+   phone with no connection is told so BEFORE anything is deleted */
 async function repairApp(){
-  try{const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();}catch(e){}
+  const um=t=>{const e=document.getElementById('updmsg');if(e)e.textContent=t;};
+  let ok=false;
+  try{const r=await fetch('./index.html?repair='+Date.now(),{cache:'no-store'});ok=r.ok&&/forge/i.test(await r.text());}catch(e){}
+  if(!ok){um('Repair needs internet. You are offline, so nothing was changed.');return false;}
+  try{const rg=await navigator.serviceWorker.getRegistrations();for(const r of rg)await r.unregister();}catch(e){}
   try{const ks=await caches.keys();for(const k of ks)if(/^forge-v/.test(k))await caches.delete(k);}catch(e){}
   location.reload();
+  return true;
 }
 const ugo=document.getElementById('updgo');
 if(ugo)ugo.addEventListener('click',applyUpdate);
