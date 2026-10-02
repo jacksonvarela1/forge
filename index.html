@@ -18,9 +18,9 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="kicker">10 Week Solo Camp · Bag From Week 5</div>
+    <div class="kicker">10 Week Solo Camp · Bag From Week 5<span class="buildchip" id="buildchip"></span></div>
     <h1>The <span class="em">Forge</span></h1>
-    <p class="sub">Foundation to fight-ready. The coach calls your stations and your combos out loud. Put the phone down and work.</p>
+    <p class="sub">Ten weeks from your first jab to your first real class. The coach calls your stations and your combos out loud. Put the phone down and work.</p>
     <div class="viewtoggle" role="tablist">
       <button class="vbtn active" id="vWeek" role="tab">Week</button>
       <button class="vbtn" id="vMoves" role="tab">Moves</button>
@@ -47,14 +47,14 @@
         <div class="note"><div class="n">01</div><div class="t"><b>The skeleton never moves.</b> <span>Mon kicks, Tue combos, Wed boxing, Thu output, Fri counters, Sat hands, Sun restore. Built around your lifts on Mon, Wed, Fri and Sat. Only the content changes week to week.</span></div></div>
         <div class="note"><div class="n">02</div><div class="t"><b>Volume is capped, density is not.</b> <span>7 MMA days on 4 lifts is your ceiling. Weeks get harder, never longer. Same 40 min, more packed in, and nothing goes past an hour.</span></div></div>
         <div class="note"><div class="n">03</div><div class="t"><b>Tap any drill.</b> <span>The how-to now lives under it: steps, the one fix, and the exact video search. Moves tab keeps the full library.</span></div></div>
-        <div class="note"><div class="n">04</div><div class="t"><b>Gear is trimmed to essentials.</b> <span>Gloves and mirror: owned. Wraps now, bag lands Friday of week 5. Nonessentials are labeled exactly that.</span></div></div>
+        <div class="note"><div class="n">04</div><div class="t"><b>Gear is trimmed to essentials.</b> <span>Gloves and mirror: owned. Wraps now, the bag comes in week 5. Nonessentials are labeled exactly that.</span></div></div>
         <div class="note"><div class="n">05</div><div class="t"><b>Grass, not concrete.</b> <span>July pavement runs 140F+. It is a burn and a blister, and it grabs your foot mid-pivot and torques the knee.</span></div></div>
         <div class="note"><div class="n">06</div><div class="t"><b>The timer runs the session.</b> <span>It calls every 30 second station on conditioning days, names each round on skill days, and shows what is next. The double arrow skips ahead.</span></div></div>
         <div class="note"><div class="n">07</div><div class="t"><b>Autoregulate, do not white-knuckle.</b> <span>The lifting block deloads in week 6, the first full week with the bag and partner, so total load stays flat while the new impact arrives. This camp has none: the striking never lets up on paper, so you take it on trigger instead. If your squat drops two sessions running, or you wake up stiff three days straight, or you sleep under 7 hours three nights in a week, cut Thu and Sat to 3 rounds and drop Tue to technique only. Skill days stay. Taking it is not falling behind.</span></div></div>
         <div class="note"><div class="n">08</div><div class="t"><b>Screen and speaker.</b> <span>The screen stays awake while the timer runs. Connect your Bluetooth speaker first, then hit Start, and the coach follows it. If you cannot hear the coach, check the ring silent switch. If the phone does lock anyway, unlocking snaps the timer to exactly where you should be and the coach tells you.</span></div></div>
         <div class="note"><div class="n">09</div><div class="t"><b>On kicking volume.</b> <span>Capped before the bag on purpose. Monday is your only leg-skill day now and it sits two days after the squat, so ladder into it: low kicks, then body, then head. From week 6 the bag pulls kicking toward half the work.</span></div></div>
       </section>
-      <footer>Opens on today once your camp start date is set in the Log tab.<br>Tap any drill for the how-to and a video search.</footer>
+      <footer>Tap any drill for the how-to and a video search.</footer>
     </main>
   </div>
 </div>
@@ -136,8 +136,11 @@
   </div>
 </div>
 
+<div class="finale" id="finale"></div>
+
 <video id="wakevid" playsinline webkit-playsinline muted loop preload="auto" src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMRbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAjt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAIAAAACAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAAAGzbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAQABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABXm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAR5zdGJsAAAAunN0c2QAAAAAAAAAAQAAAKphdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAIAAgBIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMGF2Y0MBQsAK/+EAGGdCwArZH4iIwEQAAAMABAAAAwAIPEiZIAEABWjLg8sgAAAAEHBhc3AAAAABAAAAAQAAABRidHJ0AAAAAAAAFDAAABQwAAAAGHN0dHMAAAAAAAAAAQAAAAEAAEAAAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAQAAABRzdHN6AAAAAAAAAoYAAAABAAAAFHN0Y28AAAAAAAAAAQAAA0EAAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAACjm1kYXQAAAJwBgX//2zcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MCByZWY9MyBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAADmWIhAV///8PRQABQt+A" style="position:fixed;left:-20px;top:-20px;width:2px;height:2px;opacity:0;pointer-events:none"></video>
 <audio id="keep" loop preload="auto" style="display:none"></audio>
+<div class="updbar" id="updbar" style="display:none"><span>New build ready</span><button id="updgo" type="button">Update</button></div>
 <div class="timerbar" id="timerbar">
   <div class="tprog" id="tprog"></div>
   <div class="tinner">

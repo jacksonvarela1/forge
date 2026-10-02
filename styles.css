@@ -1,4 +1,4 @@
-  :root{--bg:#0F1319;--surface:#171C24;--surface-2:#1F262F;--line:#2A323D;--bone:#ECE6DA;--muted:#8A94A3;--ember:#EA8C3A;--steel:#6FA8C7;--restore:#7E9B8A;--violet:#9B8AC4;--p1:#6FA8C7;--p2:#8B9DC9;--p3:#9B8AC4;--p4:#EA8C3A;--p5:#D9A441;--barh:78px;}
+  :root{--bg:#0F1319;--surface:#171C24;--surface-2:#1F262F;--line:#2A323D;--bone:#ECE6DA;--muted:#8A94A3;--ember:#EA8C3A;--steel:#6FA8C7;--restore:#7E9B8A;--violet:#9B8AC4;--p1:#6FA8C7;--p2:#8B9DC9;--p3:#9B8AC4;--p4:#EA8C3A;--p5:#D9A441;--barh:94px;}
   *{box-sizing:border-box;margin:0;padding:0;}
   html{-webkit-text-size-adjust:100%;}
   body{background:var(--bg);color:var(--bone);font-family:'Inter',system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--barh) + env(safe-area-inset-bottom));}
@@ -72,7 +72,7 @@
   .catchip.active{color:var(--bone);border-bottom-color:var(--ember);}
   .catchip:focus-visible{outline:2px solid var(--steel);outline-offset:-2px;}
   .mintro{color:var(--muted);font-size:.87rem;padding:18px 0 2px;}
-  .msection{padding:18px 0 2px;scroll-margin-top:50px;}
+  .msection{padding:18px 0 2px;scroll-margin-top:calc(50px + env(safe-area-inset-top));}
   .mshead{font-family:'Oswald',sans-serif;font-weight:600;font-size:1.4rem;text-transform:uppercase;color:var(--ember);}
   .numbox{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ember);border-radius:3px;padding:11px 13px;margin:11px 0 2px;font-size:.87rem;line-height:1.6;}
   .numbox b{color:var(--ember);font-weight:600;}
@@ -149,7 +149,6 @@
   .tround{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
   .tprog{position:absolute;left:0;top:0;height:2px;background:var(--ember);width:100%;transition:width .95s linear;}
-  .timerbar{position:relative;}
   .dbtnwrap{margin-top:18px;}
   .dbtn{width:100%;font-family:'Oswald',sans-serif;font-weight:600;font-size:.86rem;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:4px;padding:13px;cursor:pointer;}
   .dbtn.on{background:var(--restore);border-color:var(--restore);color:#0f1319;}
@@ -283,7 +282,8 @@
   /* ================= MOBILE ================= */
   /* The page must never scroll sideways. Anything genuinely wide (the week
      strip, day tabs, category bar, log rows) scrolls inside its own box. */
-  html,body{max-width:100%;overflow-x:hidden;}
+  /* clip, not hidden: hidden turns body into a scroll container and kills sticky */
+  html,body{max-width:100%;overflow-x:hidden;overflow-x:clip;}
   /* iOS Safari zooms the whole page when you focus an input under 16px, which
      is why typing a weight used to throw the layout. 16px exactly stops it. */
   .srch,.notebox,input[type="date"],input[type="number"],input[type="search"],textarea{font-size:16px;}
@@ -378,3 +378,30 @@
   .dbtn.on{box-shadow:0 0 18px rgba(126,155,138,.25);}
   .card{transition:border-color .25s ease;}
   .gcell{transition:background .2s ease,border-color .2s ease;}
+
+  /* ================= v21: a docked timer, a camp that ends, a way back in ================= */
+  body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--bg);z-index:70;pointer-events:none;}
+  .sw.pri{background:var(--ember);border-color:var(--ember);color:#1a1206;}
+  .sw.pri:active{opacity:.85;}
+  .wb{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--p5);border-radius:4px;padding:12px 13px;margin-top:12px;}
+  .wbt{font-family:'Oswald',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--p5);margin-bottom:5px;}
+  .buildchip{float:right;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;color:var(--muted);}
+  .updbar{position:fixed;left:12px;right:12px;bottom:calc(var(--barh) + 10px + env(safe-area-inset-bottom));z-index:65;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface-2);border:1px solid var(--ember);border-radius:6px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-family:'Oswald',sans-serif;font-weight:600;font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;}
+  .updbar button{font-family:'Oswald',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;background:var(--ember);border:1px solid var(--ember);color:#1a1206;border-radius:3px;padding:10px 16px;min-height:42px;cursor:pointer;}
+  .gcell.skip{background:transparent;border:1px dotted var(--line);opacity:.5;}
+  .finale{position:fixed;inset:0;z-index:220;display:none;align-items:center;justify-content:center;padding:24px 20px;padding-top:calc(24px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));background:radial-gradient(circle at 50% 38%,#2B1B0B 0%,#12161C 60%,#0F1319 100%);overflow:auto;}
+  .finale.on{display:flex;}
+  .fin-in{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:420px;text-align:center;}
+  .fin-kick{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.28em;color:var(--ember);}
+  .fin-ringwrap{position:relative;width:min(70vw,260px);aspect-ratio:1;}
+  .fin-ring{width:100%;height:100%;display:block;}
+  .fin-fg{fill:none;stroke:var(--ember);stroke-width:7;stroke-linecap:round;stroke-dashoffset:var(--fin-off);animation:finring 1.4s ease-out both;}
+  @keyframes finring{from{stroke-dashoffset:578;}to{stroke-dashoffset:var(--fin-off);}}
+  .fin-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .fin-num b{font-family:'Oswald',sans-serif;font-weight:700;font-size:clamp(3.6rem,20vw,5.4rem);line-height:1;}
+  .fin-num span{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+  .fin-tier{font-family:'Oswald',sans-serif;font-weight:700;font-size:1.7rem;text-transform:uppercase;line-height:1.1;}
+  .fin-rank{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.3em;color:var(--ember);}
+  .fin-btns{width:100%;}
+  .fin-btns .sw{min-height:48px;}
+  @media (prefers-reduced-motion:reduce){.fin-fg{animation:none;}}

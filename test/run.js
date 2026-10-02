@@ -60,6 +60,9 @@ async function main() {
   const store = new Map();
   const m = bootApp(store);
   const g = m.g;
+  /* an unnamed phone persists nothing by design, so every persistence check
+     below runs as the original fighter */
+  g("WHO='Jackson'");
 
   // storage wrapper envelope shape
   const env = JSON.parse(await g(
@@ -374,7 +377,7 @@ async function main() {
     // the milestone nudge fires on its week
     const RealSlot = JSON.parse(g('JSON.stringify(todaySlot())'));
     g(`START=isoOf(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()-7*4-((new Date().getDay()+6)%7)));saveStart();paintToday()`);
-    assert(/Bag and partner land this weekend/.test(g('todayCardEl.innerHTML')), 'week 5 shows the bag milestone');
+    assert(/Bag work starts this week/.test(g('todayCardEl.innerHTML')), 'week 5 shows the bag milestone');
     g(`START='2026-07-13';saveStart();paintToday()`);
     // backup carries the tape grades
     g('CHECKS[3]=[1,1,1,1,1];saveChecks()');
@@ -560,26 +563,25 @@ async function main() {
   const allMeta = g('JSON.stringify(DAYMETA)') + g('JSON.stringify(W)');
   assert(!/squatted today|before your squat|days out from Wednesday|Squat day/i.test(allMeta),
     'no stale squat-schedule references remain');
-  /* The bag and partner arrive 14 to 16 August. With camp week 1 starting
-     Monday 13 July that is the FRIDAY of camp week 5, so week 5 is a partial
-     week and week 6 is the first full one. Derived here from the calendar
-     rather than hardcoded, so the two can never drift apart again. */
+  /* Bag work is week 5 of every camp, whenever it starts and whoever runs it.
+     It used to be derived from a delivery date, which made a resume, a buddy or
+     a second camp announce a bag that was not coming. */
   {
-    const campStart = parseISO2(g('CAMP_START'));
-    const bagArrives = parseISO2('2026-08-14');
-    const bagWeek = Math.floor(Math.round((bagArrives - campStart) / 86400000) / 7);
-    assert(g('BAGWEEK') === bagWeek,
-      `BAGWEEK matches the real delivery week (app ${g('BAGWEEK')}, calendar ${bagWeek} = camp week ${bagWeek + 1})`);
-    assert(bagWeek === 4, 'the bag lands in camp week 5 on this calendar');
+    const bagWeek = 4;
+    assert(g('BAGWEEK') === bagWeek, 'BAGWEEK is camp week 5, always');
     g(`BAG_ON=false;selectWeek(${bagWeek});selectDay(0)`);
-    assert(g('panel.innerHTML').includes('No bag mode'), 'the arrival week supports no-bag mode');
+    assert(g('panel.innerHTML').includes('No bag mode'), 'the bag week supports no-bag mode');
     g(`BAG_ON=true;selectWeek(${bagWeek});selectDay(0)`);
-    assert(g('panel.innerHTML').includes('lands this weekend'), 'the arrival week says the bag lands this weekend, not that it is already here');
+    assert(g('panel.innerHTML').includes('Bag work starts this week'), 'the bag week says bag work starts, without naming a delivery date');
     g(`selectWeek(${bagWeek + 1});selectDay(0)`);
     assert(g('panel.innerHTML').includes('First full week on the bag'), 'the following week is the first full bag week');
     g(`selectWeek(${bagWeek - 1});selectDay(0)`);
-    assert(!/lands Friday|First full week on the bag/.test(g('panel.innerHTML')),
+    assert(!/lands this weekend|lands Friday|First full week on the bag|punching air/.test(g('panel.innerHTML')),
       'the week before says nothing about a bag being here');
+    for (const wk of [0, 2]) {
+      g(`selectWeek(${wk});selectDay(0)`);
+      assert(!/lands this weekend|punching air|arrives with the bag/.test(g('panel.innerHTML')), 'early weeks never announce an arrival (W' + (wk + 1) + ')');
+    }
   }
   // partner block is time-billed so it cannot silently blow the 60 minute cap
   g('PARTNER_ON=true;selectWeek(5);selectDay(1)');
@@ -666,17 +668,10 @@ async function main() {
   assert(m2.g('Object.keys(DONE).length') === 70, 'profiles: switching back restores all 70 of Jackson\'s sessions');
   assert(m2.g('isDone(0,0)') === true, 'profiles: buddy toggling day one never touched Jackson\'s cell');
 
-  // Vacation shift: sliding the start forward a week re-derives the bag week.
-  assert(m2.g('BAGWEEK') === 4, 'vacation: bag week derives to 4 on the original calendar');
-  m2.g('START=isoOf(mondayOf(new Date(parseISO(START).getTime()+7*86400000)));recomputeBagWeek()');
-  assert(m2.g('BAGWEEK') === 3, 'vacation: shifting camp back a week moves the bag to week 4 on the new numbering');
-  m2.g('START=isoOf(mondayOf(new Date(parseISO(START).getTime()-7*86400000)));recomputeBagWeek()');
-  assert(m2.g('BAGWEEK') === 4, 'vacation: shifting back again restores the derived bag week');
-
   // Makeup: the missed day loads trimmed, flagged, and clears when you move on.
   m2.g('goMakeup(2,3)');
   assert(m2.g('wIdx') === 2 && m2.g('dIdx') === 3, 'makeup: navigates to the missed cell');
-  assert(m2.g('CUT') === Math.max(0, m2.g('W[2].d[DK[3]].tm.rounds') - 2), 'makeup: rounds trimmed by two');
+  assert(m2.g('CUT') === Math.max(0, m2.g('W[2].d[DK[3]].tm.rounds') - 3), 'makeup: a hard Thursday runs three rounds');
   assert(m2.g('MAKEUP && MAKEUP.w===2 && MAKEUP.d===3') === true, 'makeup: makeup mode armed');
   m2.g('selectDay(5)');
   assert(m2.g('MAKEUP') === null, 'makeup: navigating away disarms makeup mode');
@@ -695,6 +690,231 @@ async function main() {
   assert(m3.errors.length === 0, 'onboard: fresh boot throws nothing');
 
   assert(m2.errors.length === 0, 'profiles: no errors across profile switches');
+
+  /* ===== v21: phases, welcome back, camp over, run it back, finale, timing ===== */
+  const setDay = (mm, iso) => mm.clock.jumpSilent(parseISO2(iso).getTime() - mm.clock.now());
+  const mkDone = (n, stamp) => { const o = {}; for (let i = 0; i < n; i++) o[Math.floor(i / 7) + '-' + (i % 7)] = stamp; return o; };
+  const lifeMachine = async (done, iso, start, seed) => {
+    const mm = bootApp(new Map());
+    mm.g("WHO='Jackson'");
+    await mm.g('boot()');
+    setDay(mm, iso);
+    mm.g(`DONE=${JSON.stringify(done)};START=${JSON.stringify(start)};recomputeBagWeek();PAINTED_DAY=todayISO();${seed || ''}paintDone();buildGrid();paintCampBar()`);
+    return mm;
+  };
+
+  // ---- the dead end: October 1, camp calendar long over ----
+  {
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13');
+    assert(mm.g('campPhase()') === 'over', 'phase: October 1 is past the end of a July 13 camp');
+    const tc = mm.g('todayCardEl.innerHTML');
+    assert(/Camp ended/.test(tc) && !/Set the date/.test(tc), 'over: the Today card says the camp ended instead of asking for a start date');
+    assert(/Pick up at Week 7/.test(tc), 'over: with 42 logged the way back in is Week 7');
+    const cb = mm.g('campbarEl.innerHTML');
+    assert(/CAMP ENDED/.test(cb) && /42\/70/.test(cb), 'over: the camp bar reads CAMP ENDED with the count');
+    assert(/Pick up at Week 7/.test(cb), 'over: the Week tab landing offers the way back in');
+    assert(/42\/70/.test(mm.g('statsEl.innerHTML')), 'over: the stat tile shows the camp total');
+    assert(!/Day 8\d|Day 7\d/.test(tc + cb), 'over: never says Day 81 of 70');
+
+    // Pick up: re-anchor the calendar, let the unlogged days before today go, edit nothing
+    const doneBefore = mm.g('JSON.stringify(DONE)');
+    mm.g('doResume()');
+    assert(mm.g('START') === '2026-08-17', 'resume: Week 7 lands on this calendar week (start moves to 2026-08-17)');
+    const slot = JSON.parse(mm.g('JSON.stringify(todaySlot())'));
+    assert(slot && slot.w === 6 && slot.d === 3, 'resume: today is Week 7 Thursday');
+    assert(mm.g('JSON.stringify(DONE)') === doneBefore, 'resume: not one logged cell was edited');
+    assert(mm.g('Object.keys(SKIP).length') === 3, 'resume: the three unlogged days before today are let go');
+    assert(mm.g('owedBehind(todaySlot())') === 0, 'resume: nothing is owed after picking up');
+    assert(mm.g('lapsed()') === false, 'resume: you are not still a layoff the moment you pick up');
+    const after = mm.g('todayCardEl.innerHTML');
+    assert(!/Welcome back/.test(after) && /Undo pick up/.test(after), 'resume: welcome card is gone and undo is offered');
+    assert(mm.g('wIdx') === 6 && mm.g('dIdx') === 3, 'resume: lands on today in the new calendar');
+    assert(mm.g("localStorage.getItem('forge:skip')") !== null, 'resume: the let-go days persist');
+    mm.g('undoResume()');
+    assert(mm.g('START') === '2026-07-13' && mm.g('Object.keys(SKIP).length') === 0 && mm.g('RESUME') === null, 'resume: undo puts the calendar back exactly');
+  }
+  {
+    // reopening the app the next morning on a phone that picked up yesterday
+    const st = new Map([['forge:who', 'Jackson'], ['forge:names', JSON.stringify(['Jackson'])], ['forge:done', JSON.stringify(mkDone(42, '2026-09-05'))], ['forge:start', '2026-07-13'], ['forge:startv', '2']]);
+    const mb = bootApp(st);
+    setDay(mb, '2026-10-01');
+    await mb.g('boot()');
+    assert(mb.g('wIdx') === 6 && mb.g('dIdx') === 0, 'over: boot opens on the next unlogged session, not week 1');
+  }
+
+  // ---- a layoff in the middle of camp ----
+  {
+    const mm = await lifeMachine(mkDone(21, '2026-08-02'), '2026-08-20', '2026-07-13');
+    assert(mm.g('campPhase()') === 'live' && mm.g('lapsed()') === true, 'lapse: 18 quiet days mid-camp is a layoff');
+    const tc = mm.g('todayCardEl.innerHTML');
+    assert(/Welcome back/.test(tc) && /Return week/.test(tc), 'lapse: welcome back with return-week guidance');
+    assert(!/Make up/.test(tc), 'lapse: no pile of makeups on top of a layoff');
+    assert(/Welcome back/.test(mm.g('campbarEl.innerHTML')), 'lapse: the Week tab landing says it too');
+    assert(/Pick up at Week 4/.test(tc), 'lapse: three weeks logged means Week 4 is next');
+  }
+  {
+    const mm = await lifeMachine(mkDone(21, '2026-08-17'), '2026-08-20', '2026-07-13');
+    assert(mm.g('lapsed()') === false, 'no lapse: three days quiet is just a missed day');
+    assert(/Make up WED/.test(mm.g('todayCardEl.innerHTML')), 'missed day: the makeup button points at the most recent timed day owed');
+  }
+  {
+    // day one of a camp is never "owed" anything
+    const mm = await lifeMachine({}, '2026-07-13', '2026-07-13');
+    const tc = mm.g('todayCardEl.innerHTML');
+    assert(!/still open behind you|Welcome back|Make up/.test(tc), 'day one: nothing owed, no welcome back, no makeup');
+  }
+
+  // ---- before the camp, and no start date ----
+  {
+    const mm = await lifeMachine({}, '2026-10-01', '2026-10-05');
+    assert(mm.g('campPhase()') === 'pre' && /Camp starts/.test(mm.g('todayCardEl.innerHTML')), 'pre: a future start says when camp starts');
+    assert(/CAMP STARTS/.test(mm.g('campbarEl.innerHTML')), 'pre: the bar says when it starts');
+    mm.g("START='';paintToday()");
+    assert(mm.g('campPhase()') === 'unset' && /Set the date/.test(mm.g('todayCardEl.innerHTML')), 'unset: no start date still asks for one');
+  }
+
+  // ---- the finale ----
+  {
+    const mm = await lifeMachine(mkDone(69, '2026-09-19'), '2026-09-21', '2026-07-13');
+    mm.g('toggleDone(9,6)');
+    assert(mm.g('totDone()') === 70 && mm.g('!!(FINISH&&FINISH.full)') === true, 'finale: logging the 70th session closes the camp out');
+    const html = mm.g('finaleEl.innerHTML');
+    assert(/All 70\. Every one logged\./.test(html) && />70</.test(html), 'finale: shows 70 and the full-camp line');
+    const on1 = mm.g('FINISH.on');
+    mm.clock.jumpSilent(3 * 86400000);
+    mm.g('showFinale()');
+    assert(mm.g('FINISH.on') === on1, 'finale: the record is written once and never overwritten');
+    mm.g('closeFinale()');
+    assert(mm.g("finaleEl.innerHTML") === '', 'finale: close clears the overlay');
+    assert(/Replay finale/.test(mm.g('todayCardEl.innerHTML')), 'finale: the Today card offers a replay once it exists');
+  }
+  {
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13');
+    mm.g("lifeAct('closeout',{})");
+    assert(/That is a real camp\./.test(mm.g('finaleEl.innerHTML')), 'finale: 42 sessions earns the real-camp line');
+    assert(mm.g('lapsed()') === false, 'finale: a camp you closed out stops nagging you to pick up');
+  }
+
+  // ---- run it back ----
+  {
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13', "NOTES={'0-0':'felt good'};CHECKS={0:[1,1,0,0,0]};BW=[{d:'2026-09-01',w:187.2}];");
+    const seed = mm.g('JSON.stringify(DONE)');
+    assert((await mm.g('runItBack()')) === true, 'run it back: succeeds');
+    assert(mm.g('totDone()') === 0 && mm.g('CAMPS.length') === 1, 'run it back: the old camp is archived and the new one starts clean');
+    assert(mm.g('JSON.stringify(CAMPS[0].done)') === seed, 'run it back: the archive holds exactly what was logged');
+    assert(mm.g("CAMPS[0].notes['0-0']") === 'felt good', 'run it back: notes are archived too');
+    assert(mm.g('BW.length') === 1, 'run it back: weight carries over');
+    assert(mm.g('START') === '2026-10-05' && mm.g('campPhase()') === 'pre', 'run it back: the next camp opens the coming Monday');
+    assert(/CAMP 2/.test(mm.g('campbarEl.innerHTML')), 'run it back: the bar says Camp 2');
+    assert(mm.g('lifetimeSessions()') === 42, 'run it back: lifetime keeps the 42');
+    mm.g('undoCamp()');
+    assert(mm.g('JSON.stringify(DONE)') === seed && mm.g('CAMPS.length') === 0 && mm.g('START') === '2026-07-13', 'run it back: undo restores the whole camp');
+  }
+  {
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13');
+    mm.g("localStorage.setItem=function(){throw new Error('quota')}");
+    assert((await mm.g('runItBack()')) === false && mm.g('totDone()') === 42 && mm.g('CAMPS.length') === 0, 'run it back: a failed archive write clears nothing');
+  }
+
+  // ---- sessions outside the 70 ----
+  {
+    const mm = await lifeMachine(mkDone(42, '2026-09-05'), '2026-10-01', '2026-07-13');
+    mm.g("lifeAct('extralog',{dataset:{}});lifeAct('extralog',{dataset:{}})");
+    assert(mm.g('EXTRA.length') === 2 && mm.g('lifetimeSessions()') === 44, 'extra: two logged sessions count toward lifetime, never the 70');
+    assert(mm.g('totDone()') === 42, 'extra: the camp total does not move');
+    assert(/LIFETIME/.test(mm.g('statsEl.innerHTML')), 'extra: lifetime shows in the rank strip');
+    const dump = mm.g("JSON.stringify({extra:EXTRA})");
+    assert(JSON.parse(dump).extra.length === 2, 'extra: persisted shape is an array');
+    mm.g("lifeAct('extradel',{dataset:{i:'0'}})");
+    assert(mm.g('EXTRA.length') === 1, 'extra: tapping one removes it');
+    // an old cell is not erased by a stray tap
+    mm.g("globalThis.confirm=()=>false;toggleDone(0,0)");
+    assert(mm.g('isDone(0,0)') === true, 'confirm: a cell logged weeks ago survives a cancelled un-log');
+    mm.g("globalThis.confirm=()=>true;toggleDone(0,0)");
+    assert(mm.g('isDone(0,0)') === false, 'confirm: and goes when you say so');
+  }
+
+  // ---- calendar truth when the app is reopened on a new day ----
+  {
+    const mm = await lifeMachine(mkDone(63, '2026-09-12'), '2026-09-13', '2026-07-13');
+    assert(/DAY 63 OF 70/.test(mm.g('campbarEl.innerHTML')), 'calendar: Sunday night reads day 63');
+    mm.clock.jumpSilent(19 * 3600000); // noon Sunday to 7am Monday
+    mm.g('calRefresh()');
+    assert(/DAY 64 OF 70/.test(mm.g('campbarEl.innerHTML')), 'calendar: reopening Monday morning reads day 64 without a reload');
+    assert(mm.g('wIdx') === 9 && mm.g('dIdx') === 0, 'calendar: and lands on Monday of week 10');
+  }
+
+  // ---- guards: never lose a live round to a stray tap ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);elGo.click()');
+    assert(mm.g("T.state") === 'run', 'guard: a session is running');
+    mm.g("globalThis.confirm=()=>false");
+    assert(mm.g('guardSwitch(0,2)') === false, 'guard: switching day mid-session needs a yes');
+    assert(mm.g('guardSwitch(0,1)') === true, 'guard: staying on the same day is free');
+    mm.g("globalThis.confirm=()=>true");
+    assert(mm.g('guardSwitch(0,2)') === true, 'guard: and goes through on a yes');
+    // reset arms first, fires second
+    mm.g('elReset.click()');
+    assert(mm.g('T.state') === 'run' && mm.g('elReset.textContent') === 'Tap again', 'guard: first Reset tap only arms it');
+    mm.g('elReset.click()');
+    assert(mm.g('T.state') === 'ready', 'guard: second tap resets');
+  }
+
+  // ---- timing: a throttled tick that beats visibilitychange still lands correctly ----
+  for (const di of [0, 3, 4]) {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g(`selectWeek(0);selectDay(${di});elGo.click()`);
+    const segs = JSON.parse(mm.g('JSON.stringify(T.segs.map(s=>({d:s.d,type:s.type})))'));
+    const t0 = mm.clock.now();
+    mm.clock.advance(35000);
+    const sp = mm.speech.length;
+    mm.clock.jumpSilent(240000);
+    mm.clock.advance(600); // the overdue interval tick fires FIRST, no visibilitychange
+    const exp = expectedAt(segs, t0, mm.clock.now());
+    const tag = 'tick-first ' + DAYS[di];
+    assert(mm.g('T.i') === exp.i, tag + ': lands on the right segment (got ' + mm.g('T.i') + ' want ' + exp.i + ')');
+    assert(Math.abs(mm.g('T.left') - exp.left) <= 1, tag + ': clock is right (got ' + mm.g('T.left') + ' want ' + exp.left + ')');
+    assert(mm.speech.slice(sp).some(s => s.startsWith('Back with you')), tag + ': the coach says where you are');
+  }
+
+  // ---- voice cue timing: halfway is halfway, thirty is thirty, countdown before every start ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(0);elGo.click()');
+    const segs = JSON.parse(mm.g('JSON.stringify(T.segs.map(s=>({d:s.d,type:s.type})))'));
+    const total = segs.reduce((n, s) => n + s.d * 1000, 0);
+    const sp = mm.speech.length;
+    mm.clock.advance(total + 30000);
+    const said = mm.speech.slice(sp);
+    const longWork = segs.filter(s => s.type === 'work' && s.d >= 120).length;
+    const lateRest = segs.filter(s => s.type === 'rest' && s.d >= 30).length;
+    assert(said.filter(s => /^Halfway/.test(s)).length === longWork, 'voice: exactly one Halfway per long round (' + said.filter(s => /^Halfway/.test(s)).length + '/' + longWork + ')');
+    assert(said.filter(s => /^Thirty/.test(s)).length === longWork, 'voice: exactly one Thirty per long round');
+    assert(said.filter(s => s === 'Three. Two. One.').length === 1 + lateRest, 'voice: a countdown before the first bell and every round after rest');
+    const poolsOk = mm.g('VP.mid.every(s=>/^Halfway/.test(s))&&VP.thirty.every(s=>/^Thirty/.test(s))');
+    assert(poolsOk === true, 'voice: the halfway and thirty pools say what they mean');
+  }
+
+  // ---- update flow and offline shell stay in step ----
+  {
+    const swSrc = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+    const swVer = /const CACHE = 'forge-v(\d+)'/.exec(swSrc);
+    const appVer = /const BUILD='v(\d+)'/.exec(appSrc);
+    assert(swVer && appVer && swVer[1] === appVer[1], 'release: sw.js cache version equals the app BUILD (' + (swVer && swVer[1]) + ' vs ' + (appVer && appVer[1]) + ')');
+    const assets = Array.from(/const ASSETS = \[([\s\S]*?)\];/.exec(swSrc)[1].matchAll(/'\.\/([^']*)'/g), x => x[1] || 'index.html');
+    assert(assets.every(f => fs.existsSync(path.join(root, f))), 'release: every precached asset exists on disk');
+    const locals = Array.from(indexSrc.matchAll(/\b(?:src|href)="([^"#:]+)"/g), x => x[1]).filter(x => !/^https?:/.test(x));
+    const missing = locals.filter(x => !assets.includes(x) && x !== 'audio/manifest.js');
+    assert(missing.length === 0, 'release: every local file index.html loads is precached (' + missing.join(', ') + ')');
+    const manifest = fs.readFileSync(path.join(root, 'audio', 'manifest.js'), 'utf8');
+    const files = Array.from(manifest.matchAll(/"([0-9a-f]{12}\.mp3)"/g), x => x[1]);
+    assert(files.length > 500 && files.every(f => fs.existsSync(path.join(root, 'audio', f))), 'release: every voice clip in the manifest exists on disk (' + files.length + ')');
+    assert(/Update/.test(indexSrc) && /id="updbar"/.test(indexSrc) && /id="updgo"/.test(indexSrc), 'release: the update bar exists');
+    const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+    assert(!/\.timerbar\{position:relative;?\}/.test(css), 'layout: the timer bar is never forced back into the page flow');
+    assert(/html,body\{[^}]*overflow-x:clip/.test(css), 'layout: sticky navigation survives the no-sideways-scroll rule');
+  }
 
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');
   process.exit(failures ? 1 : 0);

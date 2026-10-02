@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v20';
+const CACHE = 'forge-v21';
 /* Voice clips live in their own cache that survives version bumps. They are
    content-addressed by hash, so a clip never changes under a given name and
    there is nothing to invalidate. Keeping them out of the versioned cache is
@@ -58,15 +58,23 @@ self.addEventListener('install', e => {
         ));
       }
     } catch (err) {}
+    /* v21 only: installs that predate the in-app update bar cannot ask for an
+       update, so this one build activates itself. The next build removes this
+       line and waits for the Update tap instead. */
     await self.skipWaiting();
   })());
+});
+
+/* the page asks for the swap once nothing is running */
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      /* drop old app-shell versions, never the audio cache */
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== AUDIO_CACHE).map(k => caches.delete(k))))
+      /* drop old app-shell versions only: never the audio cache, never anything else */
+      .then(keys => Promise.all(keys.filter(k => /^forge-v/.test(k) && k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
