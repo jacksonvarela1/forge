@@ -1,4 +1,4 @@
-const BUILD='v22';
+const BUILD='v23';
 /* ---- storage: same call shape as the artifact API, backed by localStorage outside artifacts ---- */
 const rawstorage = window.storage ?? {
   get: async k => { const v = localStorage.getItem(k); return v == null ? null : { value: v }; },
@@ -14,7 +14,7 @@ let WHO='';
 const SHARED_KEYS={'forge:who':1,'forge:names':1};
 /* every key a fighter owns, so backup, restore and profile switches loop one
    list instead of each remembering its own */
-const STORE_KEYS=['forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
+const STORE_KEYS=['forge:bk','forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
 function slugOf(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function nsKey(k){
   if(SHARED_KEYS[k])return k;
@@ -193,6 +193,7 @@ let wIdx=0,dIdx=0;
 /* Rounds trimmed off today's session before it starts: the short-day valve
    corner note 07 prescribes. Resets whenever the day changes, never persisted. */
 let CUT=0;
+let LASTTOT=0;
 let DONE={};
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function dkey(w,d){return w+'-'+d;}
@@ -222,7 +223,7 @@ function paintDone(){
    chip and is green; this marker sits at the top and is ember, so browsing
    ahead never makes you lose your place. */
 function paintNow(){
-  paintCampBar();
+  paintCampBar();paintHero();
   const slot=todaySlot();
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('now',!!slot&&x===slot.w));
   document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('now',!!slot&&x===slot.d&&wIdx===slot.w));
@@ -242,7 +243,7 @@ let START=null,BW=[],NOTES={},CHECKS={},PRERESTORE=null,SAVEFAIL='';
    EXTRA: sessions outside the 70. CAMPS: finished camps archived by Run it back.
    FINISH: the one-time record of closing a camp out. RESUME: what the last
    Pick up changed, so it can be undone. */
-let SKIP={},EXTRA=[],CAMPS=[],FINISH=null,RESUME=null,PRECAMP=null;
+let SKIP={},EXTRA=[],CAMPS=[],FINISH=null,RESUME=null,PRECAMP=null,BK='';
 function isoOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 /* Anchored at noon, not midnight: subtracting two midnights across a daylight
    saving boundary gives 23 or 25 hours and rounds to the wrong day. */
@@ -325,12 +326,15 @@ function owedBehind(slot){
 }
 const RANKS=[[0,'Walk-on'],[1,'Debut'],[7,'Novice'],[14,'Amateur'],[28,'Prospect'],[42,'Contender'],[56,'Main Card'],[70,'Camp Done']];
 function rankOf(n){let r=RANKS[0][1];RANKS.forEach(x=>{if(n>=x[0])r=x[1];});return r;}
+/* consecutive training days, forgiving exactly one missing day in a row: rest
+   days are part of the plan, a week off is not */
 function streak(){
-  const days=new Set(Object.values(DONE));
-  let n=0;const d=new Date();
+  const days=new Set(Object.keys(DONE).map(k=>DONE[k]).filter(v=>typeof v==='string'));
+  let n=0,gap=0;const d=new Date();
   for(let i=0;i<400;i++){
     const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    if(days.has(iso)){n++;}else if(i>0){break;}
+    if(days.has(iso)){n++;gap=0;}
+    else if(i>0){gap++;if(gap>=2)break;}
     d.setDate(d.getDate()-1);
   }
   return n;
@@ -382,6 +386,7 @@ function render(){
   if(m.cool)B.push({n:'Cooldown',s:'Cool',du:'5 min',it:COOL[m.cool]});
   let tot=0,flow='';
   B.forEach(b=>{const mn=(b.step&&day.tm)?Math.round(effRounds*day.tm.work/60+(effRounds-1)*day.tm.rest/60):durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
+  LASTTOT=tot;
   const flowbar=`<div class="flow">${flow}<div class="ftot">&#8776; ${tot} min</div></div>`;
   const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}${b.step?stepper:''}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
   panel.innerHTML=`
@@ -426,6 +431,7 @@ function render(){
   if(ck)ck.addEventListener('click',e=>{
     const b=e.target.closest('.ckchip');
     if(!b)return;
+    if(b.dataset.ck==='none'){CHECKS[wIdx]=[0,0,0,0,0];saveChecks();render();return;}
     const i=+b.dataset.ck;
     const cur=CHECKS[wIdx]||[0,0,0,0,0];
     cur[i]=cur[i]?0:1;
@@ -441,6 +447,7 @@ function render(){
 }
 function selectWeek(i){
   wIdx=i;CUT=0;MAKEUP=null;
+  try{document.documentElement.style.setProperty('--ph','var('+(PCOL[i]||'--ember')+')');}catch(e){}
   document.querySelectorAll('.wchip').forEach((c,x)=>{
     const on=x===i;
     c.classList.toggle('active',on);
@@ -480,6 +487,23 @@ function bwTrend(){
   if(now==null||then==null)return null;
   return {now:now,delta:now-then,first:s[0],last:s[s.length-1]};
 }
+/* the 7 day average over the last 90 days, raw weigh-ins as dots, broken across long gaps */
+function bwChart(s){
+  if(s.length<2)return '';
+  const last=parseISO(s[s.length-1].d);
+  const first=new Date(last.getFullYear(),last.getMonth(),last.getDate()-89,12,0,0);
+  const pts=s.filter(x=>{const d=parseISO(x.d);return d&&d>=first;});
+  if(pts.length<2)return '';
+  const av=pts.map(x=>({d:parseISO(x.d),a:bwAvg(x.d,7),w:x.w}));
+  const WW=300,HH=84,pad=7,t0=av[0].d.getTime(),t1=av[av.length-1].d.getTime();
+  const ys=[];av.forEach(p=>{ys.push(p.a);ys.push(p.w);});
+  const mn=Math.min.apply(null,ys)-1,mx=Math.max.apply(null,ys)+1;
+  const X=d=>pad+(WW-2*pad)*(d.getTime()-t0)/((t1-t0)||1),Y=v=>HH-pad-(HH-2*pad)*(v-mn)/((mx-mn)||1);
+  let line='';
+  av.forEach((p,i)=>{line+=((i&&(p.d-av[i-1].d)<=10*86400000)?'L':'M')+X(p.d).toFixed(1)+' '+Y(p.a).toFixed(1);});
+  const dots=av.map(p=>'<circle cx="'+X(p.d).toFixed(1)+'" cy="'+Y(p.w).toFixed(1)+'" r="1.8" class="bwdot"></circle>').join('');
+  return '<svg class="bwchart" viewBox="0 0 '+WW+' '+HH+'" preserveAspectRatio="none" aria-hidden="true"><path d="'+line+'" class="bwpath"></path>'+dots+'</svg>';
+}
 function paintWeight(){
   if(!weightCardEl)return;
   const s=bwSorted(),t=bwTrend();
@@ -490,17 +514,20 @@ function paintWeight(){
     body='<div class="bwnote">Log it most mornings, first thing, after the bathroom. Single days are noise, the 7 day average is the signal.</div>';
   }else{
     const total=s.length>1?(s[s.length-1].w-s[0].w):0;
+    const lp=parseISO(latest.d);
+    const age=lp?Math.round((noonToday()-lp)/86400000):0;
     const wk=t?t.delta:null;
     const col=wk==null?'--muted':(wk<-1.2?'--ember':(wk<=0?'--restore':'--steel'));
     body=`<div class="bwrow">
         <div class="bwbig">${avg!=null?avg.toFixed(1):latest.w.toFixed(1)}<span class="bwunit">lb avg</span></div>
         <div class="bwside">
           <div class="bwline">Last entry <b>${latest.w.toFixed(1)}</b> on ${latest.d.slice(5)}</div>
-          <div class="bwline">This week <b style="color:var(${col})">${wk==null?'not enough data':(wk>0?'+':'')+wk.toFixed(1)+' lb'}</b></div>
+          ${age>7?`<div class="bwline">7 day average as of <b>${shortDate(latest.d)}</b>, ${age} days ago</div>`:`<div class="bwline">This week <b style="color:var(${col})">${wk==null?'not enough data':(wk>0?'+':'')+wk.toFixed(1)+' lb'}</b></div>`}
           <div class="bwline">Since you started <b>${total>0?'+':''}${total.toFixed(1)} lb</b> over ${s.length} entries</div>
         </div>
       </div>
-      ${wk!=null&&wk<-1.2?'<div class="bwnote">You are down more than 1.2 lb this week. If next week looks the same, eat more, not less: past that rate the loss starts coming out of muscle instead of fat.</div>':''}`;
+      ${bwChart(s)}
+      ${wk!=null&&wk<-1.2&&age<=7?'<div class="bwnote">You are down more than 1.2 lb this week. If next week looks the same, eat more, not less: past that rate the loss starts coming out of muscle instead of fat.</div>':''}`;
   }
   /* The last fortnight, so a missed morning is visible instead of silently
      dragging the average around. Tap an entry to delete it. */
@@ -560,6 +587,14 @@ function welcomeHTML(){
   return `<div class="wb"><div class="wbt">Welcome back</div>
     <div class="bwline">${gap}${where} Nothing you logged gets touched and there is no catch-up. The calendar moves to you.</div>${ret}
     <div class="bwform">${abtn('resume','Pick up at Week '+(wk+1),'pri')}</div></div>`;
+}
+/* the log lives in one browser and nothing else; say so before it matters */
+function backupNudge(){
+  if(totDone()<5)return '';
+  const bd=BK?parseISO(BK):null;
+  const age=bd?Math.round((noonToday()-bd)/86400000):999;
+  if(age<14)return '';
+  return '<div class="bwnote" style="color:var(--ember)">'+(bd?'Last backup '+age+' days ago.':'No backup yet.')+' Your log lives only in this browser. <button class="bwchip" data-act="backupnow" type="button">Copy backup now</button></div>';
 }
 function undoResumeHTML(){
   return (RESUME&&RESUME.on===todayISO())?`<div class="bwform">${abtn('undoresume','Undo pick up')}</div>`:'';
@@ -621,7 +656,7 @@ function liveHTML(slot){
       ${MILESTONES[slot.w]?`<div class="bwnote" style="color:var(--ember)">${MILESTONES[slot.w]}</div>`:''}
       <div class="bwform">${abtn('gotoday','Open today','pri')}${(stamp&&!doneToday)?abtn('trainnow','Train today'):`<button class="sw${doneToday?' on':''}" data-act="marktoday" type="button">${doneToday?'&#10003; Done':'Mark done'}</button>`}</div>
       ${mk?`<div class="bwform">${abtn('makeup','Make up '+DAYMETA[DK[mk.d]].abbr+' &middot; short version','',` data-w="${mk.w}" data-d="${mk.d}"`)}</div>`:''}
-      ${lap?welcomeHTML():''}${undoResumeHTML()}</div>`;
+      ${backupNudge()}${lap?welcomeHTML():''}${undoResumeHTML()}</div>`;
 }
 
 /* the 10 weeks are over. This used to be a dead end that told you to set a
@@ -640,7 +675,7 @@ function overHTML(){
   return `<div class="card${full?' cardon':''}"><div class="cardhead"><span class="cardtitle">${full?'Camp complete':'Camp ended'}</span><span class="cardtag">${tot} / 70</span></div>
       <div class="todaytitle">${full?'All 70 sessions':endTxt}</div>
       <div class="bwline">${full?endTxt+'. ':''}<b>${tot} of 70</b> sessions logged${CAMPS.length?` &middot; Camp ${CAMPS.length+1}`:''}.</div>
-      ${lapsed()?welcomeHTML():''}${undoResumeHTML()}
+      ${backupNudge()}${lapsed()?welcomeHTML():''}${undoResumeHTML()}
       <div class="bwform">${FINISH?abtn('replay','Replay finale'):abtn('closeout',full?'See your finale':'Close out camp',lapsed()?'':'pri')}${abtn('runback','Run it back',(FINISH||full)?'pri':'')}</div>
       ${rbHTML()}${PRECAMP?`<div class="bwform">${abtn('undocamp','Undo run it back')}</div>`:''}
       <div class="bwnote">Keep going between camps: four sessions a week from the camp's own days. Tue, Sat and Sun stay open so lifting and rest still land.</div>
@@ -791,6 +826,12 @@ function lifeAct(a,b){
     case 'marktoday':{const s=todaySlot();if(s)toggleDone(s.w,s.d);break;}
     case 'trainnow':{const s=todaySlot();if(s){DONE[dkey(s.w,s.d)]=todayISO();saveDone();paintDone();render();buildGrid();}break;}
     case 'gologtab':setView('log');break;
+    case 'herostart':{
+      if(T&&T.state==='done')elReset.click();
+      if(!(T&&T.segs&&T.running))elGo.click();
+      setFocus(true);break;
+    }
+    case 'backupnow':{const e=document.getElementById('expbtn');if(e)e.click();break;}
   }
 }
 document.addEventListener('click',e=>{
@@ -809,14 +850,14 @@ function paintTools(){
   const others=NAMES.filter(n=>slugOf(n)!==slugOf(WHO||'jackson'));
   const fighter=`<div class="card"><div class="cardhead"><span class="cardtitle">Fighter</span><span class="cardtag">${esc((WHO||'Jackson').toUpperCase())}</span></div>
     ${GOALS?`<div class="bwline">Here to <b>${esc(GOALS)}</b>.</div>`:''}
-    <div class="bwnote">Gear on hand. The program adapts around whatever is tapped on.</div>
-    <div class="bwchips">${eqChip('gl','Gloves',GLOVES_ON)}${eqChip('wr','Wraps',WRAPS_ON)}${eqChip('bag','Bag',BAG_ON)}${eqChip('p','Partner',PARTNER_ON)}</div>
+    <div class="bwnote">Gear on hand. The program adapts around whatever is tapped on. Real bell swaps the round beeps for a struck bell and a wood clack.</div>
+    <div class="bwchips">${eqChip('gl','Gloves',GLOVES_ON)}${eqChip('wr','Wraps',WRAPS_ON)}${eqChip('bag','Bag',BAG_ON)}${eqChip('p','Partner',PARTNER_ON)}${eqChip('snd','Real bell',SND==='bell')}</div>
     ${others.length?`<div class="bwnote">Also training on this phone:</div><div class="bwchips">${others.map(n=>`<button class="bwchip" data-who="${esc(n)}" type="button">${esc(n)}</button>`).join('')}</div>`:''}
     <div class="bwform"><button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
   logToolsEl.innerHTML=extraHTML()+fighter+`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
     <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
     <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
-    <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones.</div>
+    <div class="bwnote">Your log lives only in this browser. Back it up now and again, and before you ever clear your history or switch phones. Last backup: ${BK?shortDate(BK):'never'}.</div>
     <div class="bwform"><button class="sw" id="expbtn" type="button">Copy backup</button><button class="sw" id="impbtn" type="button">Restore</button>${PRERESTORE?'<button class="sw" id="undobtn" type="button">Undo restore</button>':''}</div>
     ${SAVEFAIL?`<div class="bwnote" style="color:var(--ember)">${SAVEFAIL}</div>`:''}
     <div id="iomsg" class="bwnote"></div>
@@ -843,6 +884,7 @@ function paintTools(){
     if(id==='wr')WRAPS_ON=!WRAPS_ON;
     if(id==='bag')BAG_ON=!BAG_ON;
     if(id==='p')PARTNER_ON=!PARTNER_ON;
+    if(id==='snd')SND=SND==='bell'?'classic':'bell';
     saveOpts();render();buildGrid();
   }));
   logToolsEl.querySelectorAll('.bwchip[data-who]').forEach(c=>c.addEventListener('click',async()=>{
@@ -872,7 +914,7 @@ function paintTools(){
   const ex=document.getElementById('expbtn');
   if(ex)ex.addEventListener('click',async()=>{
     const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx,skip:SKIP,extra:EXTRA,camps:CAMPS,finish:FINISH});
-    try{await navigator.clipboard.writeText(dump);msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
+    try{await navigator.clipboard.writeText(dump);BK=todayISO();saveBk();paintToday();msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
     catch(e){
       const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.value=dump;
       logToolsEl.appendChild(ta);ta.select();msg('Could not reach the clipboard. Select the text above and copy it by hand.');
@@ -1046,13 +1088,16 @@ const VP={
 const VHIST=new WeakMap();
 function vrand(a){
   if(!a||!a.length)return '';
-  if(a.length<3)return a[Math.floor(Math.random()*a.length)];
+  /* the combo pool lists this week's calls twice to weight them, so memory is
+     sized by DISTINCT calls or it outgrows the pool and allows an instant repeat */
+  const distinct=new Set(a).size;
+  if(distinct<3)return a[Math.floor(Math.random()*a.length)];
   let h=VHIST.get(a)||[];
   const fresh=a.filter(x=>h.indexOf(x)<0);
   const pool=fresh.length?fresh:a;
   const pick=pool[Math.floor(Math.random()*pool.length)];
   h.push(pick);
-  const cap=Math.ceil(a.length/2);
+  const cap=Math.ceil(distinct/2);
   if(h.length>cap)h=h.slice(h.length-cap);
   VHIST.set(a,h);
   return pick;
@@ -1282,7 +1327,7 @@ function cornerCue(){const a=CORNER[DK[dIdx]]||[];return a.length?a[Math.floor(M
    focus, and by week 10 the checkpoint is a formality instead of a surprise. */
 function checkCard(){
   const cur=CHECKS[wIdx]||[0,0,0,0,0];
-  const chips=CHECK5.map((c,i)=>`<button class="ckchip${cur[i]?' on':''}" data-ck="${i}" type="button">${c[0]}</button>`).join('');
+  const chips=CHECK5.map((c,i)=>`<button class="ckchip${cur[i]?' on':''}" data-ck="${i}" type="button">${c[0]}</button>`).join('')+'<button class="ckchip" data-ck="none" type="button">Nothing held</button>';
   const held=cur.filter(Boolean).length;
   /* which checkpoint fails most across every graded week */
   let worst='',worstMiss=0;
@@ -1294,7 +1339,7 @@ function checkCard(){
     });
   }
   const legend=CHECK5.map(c=>`<div class="bwline"><b>${c[0]}:</b> ${c[1]}</div>`).join('');
-  return `<div class="card"><div class="cardhead"><span class="cardtitle">The weekly tape</span><span class="cardtag">${graded.length?held+'/5 this week':'not graded yet'}</span></div>
+  return `<div class="card"><div class="cardhead"><span class="cardtitle">The weekly tape</span><span class="cardtag">${CHECKS[wIdx]?held+'/5 this week':'not graded yet'}</span></div>
     <div class="bwnote">Film one round of shadow at half speed, watch it back once, and tap what held up. Grade it like a coach who does not like you.</div>
     <div class="bwchips" id="ckrow">${chips}</div>
     ${legend}
@@ -1413,11 +1458,14 @@ function buildSegs(k,day){
       if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:st[0],round:r,cue:nextCue()});
     }
   }else{
-    const labels=adaptItems(day.r||[]).map(x=>x.length>1&&x[0].length<=4?(x[0]+' · '+x[1]):x[0]);
+    /* an id-only round (R1) carries its rule in the label; a titled round keeps
+       the title as the label and the rule as its own spoken line */
+    const items=adaptItems(day.r||[]).map(x=>(x.length>1&&x[0].length<=4)?{L:x[0]+' · '+x[1],det:''}:{L:x[0],det:x.length>1?String(x[1]):''});
     for(let r=1;r<=R;r++){
-      const L=labels[r-1]||('Round '+r);
-      segs.push({d:wk2,type:'work',label:L,next:r<R?'rest '+fmt(rs):'',round:r,call:roundCall(L,k)});
-      if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:labels[r]||('Round '+(r+1)),round:r,cue:nextCue()});
+      const it=items[r-1]||{L:'Round '+r,det:''};
+      const L=it.L;
+      segs.push({d:wk2,type:'work',label:L,detail:it.det,next:r<R?'rest '+fmt(rs):'',round:r,call:roundCall(L,k)});
+      if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:items[r]?items[r].L:('Round '+(r+1)),round:r,cue:nextCue()});
     }
   }
   if(segs.length)segs.unshift({d:10,type:'prep',label:'Get set',next:segs[0].label,round:1});
@@ -1476,7 +1524,39 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('focus',onWake);
 window.addEventListener('pageshow',onWake);
 function beep(f,d){if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;o.connect(g);g.connect(ac.destination);const t=ac.currentTime;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.start(t);o.stop(t+d);}
-function bell(k2){if(k2==='work'){beep(880,.14);setTimeout(()=>beep(880,.14),160);}else if(k2==='tick'){beep(720,.12);}else if(k2==='rest'){beep(440,.22);}else{beep(660,.15);setTimeout(()=>beep(830,.15),180);setTimeout(()=>beep(990,.28),360);}}
+let SND='bell';
+/* a struck bell is a few inharmonic partials with different decays, no files */
+function bellStrike(base,decay,vol){
+  if(!ac)return;
+  const t=ac.currentTime;
+  [[1,1],[2.76,.55],[5.4,.3],[8.93,.16]].forEach((p,i)=>{
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sine';o.frequency.value=base*p[0];o.connect(g);g.connect(ac.destination);
+    const peak=.3*p[1]*(vol||1),life=decay/(1+i*.7);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+life);
+    o.start(t);o.stop(t+life+.05);
+  });
+}
+/* two wood sticks: the ten second warning boxers actually hear */
+function clack(){
+  if(!ac||SND==='classic')return;
+  [0,.11].forEach((dt,i)=>{
+    const t=ac.currentTime+dt,o=ac.createOscillator(),g=ac.createGain();
+    o.type='square';o.frequency.value=i?760:980;o.connect(g);g.connect(ac.destination);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.002);g.gain.exponentialRampToValueAtTime(.0001,t+.045);
+    o.start(t);o.stop(t+.06);
+  });
+}
+function bell(k2){
+  if(SND==='classic'){
+    if(k2==='work'){beep(880,.14);setTimeout(()=>beep(880,.14),160);}else if(k2==='tick'){beep(720,.12);}else if(k2==='rest'){beep(440,.22);}else{beep(660,.15);setTimeout(()=>beep(830,.15),180);setTimeout(()=>beep(990,.28),360);}
+    return;
+  }
+  if(k2==='work')bellStrike(660,1.6);
+  else if(k2==='tick')clack();
+  else if(k2==='rest')bellStrike(440,.9,.8);
+  else{bellStrike(660,1.4);setTimeout(()=>bellStrike(660,1.4),520);setTimeout(()=>bellStrike(660,2.2),1040);}
+}
 const elProg=document.getElementById('tprog');
 function segCol(t){return css(t==='work'?'--ember':(t==='rest'?'--steel':'--muted'));}
 function paintProg(){
@@ -1514,28 +1594,19 @@ function loadTimer(k,day){
   T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready',wk:wIdx,dk:k};
   elGo.textContent='Start';showSeg();
 }
-/* The session ends in focus mode, phone on the grass, so the log button has to
-   be there and not three scrolls down the Week tab. */
-function offerLog(){
-  try{
-    if(!fGo||!fEl)return;
-    const already=isDone(wIdx,dIdx);
-    fNext.innerHTML=already?'LOGGED':`<button class="fc" id="flog" type="button" style="flex:none;padding:12px 20px">Log this session</button>`;
-    const b=document.getElementById('flog');
-    if(b)b.addEventListener('click',()=>{toggleDone(wIdx,dIdx);offerLog();});
-  }catch(e){}
-}
 function finish(){T.state='done';stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
   if(FOCUS&&fEl){
     fEl.classList.remove('fwork','frest','fprep');fEl.classList.add('fdone');
-    fName.textContent='Session complete';fClock.textContent='00:00';
+    const before=totDone(),after=before+(isDone(wIdx,dIdx)?0:1);
+    const rankUp=rankOf(after)!==rankOf(before);
+    const dn=campDayCount(),md=DAYMETA[DK[dIdx]];
+    fName.textContent='Session complete';fClock.textContent='00:00';fClock.style.color='';
     fPhase.textContent='Done';fPhase.style.color=css('--restore');
-    /* the moment that makes it feel like building something: what this session
-       just added to the pile */
-    const doneNow=totDone()+(isDone(wIdx,dIdx)?0:1);
-    const dn=campDayCount();
-    fCue.textContent=(campPhase()==='live'&&dn>=1&&dn<=70?'Day '+dn+' of 70 · ':'')+'session '+doneNow+' in the books · '+rankOf(doneNow);
-    if(fRing)fRing.style.strokeDashoffset='0';if(fGo)fGo.textContent='Done';offerLog();
+    fRound.textContent='Week '+W[wIdx].n+' · '+md.title+' · complete';
+    fCue.textContent='SESSION '+after+' · '+rankOf(after).toUpperCase()+(rankUp?' · RANK UP':'')+(campPhase()==='live'&&dn>=1&&dn<=70?' · DAY '+dn+' OF 70':'');
+    if(fRing){fRing.style.strokeDashoffset='0';fRing.style.stroke=css('--restore');}
+    fNext.textContent=isDone(wIdx,dIdx)?'LOGGED':(md.cool?'COOLDOWN NEXT, THEN LOG IT':'');
+    if(fGo)fGo.textContent=isDone(wIdx,dIdx)?'Close':'Log it and close';
   }}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
@@ -1553,8 +1624,9 @@ function announce(sg){
   const prev=T.segs[T.i-1];
   const newRound=!prev||prev.type!=='work';
   let t;
-  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=[vrand(VP.lastwork),endp(lbl(sg.label))];
-  else if(newRound) t=[endp(lbl(sg.label)),vrand(VP.begin)];
+  const det=(sg.detail&&sg.detail.length<150)?[endp(sg.detail)]:[];
+  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=[vrand(VP.lastwork),endp(lbl(sg.label))].concat(det);
+  else if(newRound) t=[endp(lbl(sg.label))].concat(det,[vrand(VP.begin)]);
   else t=[endp(lbl(sg.label))].concat(Math.random()<0.22?[vrand(VP.push)]:[]);
   saySeq(t,true);
   setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
@@ -1611,11 +1683,12 @@ function tick(){
     if(sg.d>=120&&crossed(Math.round(sg.d/2))&&!T.warned.mid){T.warned.mid=1;say(vrand(VP.mid),false);}
     if(sg.d>=120&&crossed(30)&&!T.warned[30]){T.warned[30]=1;say(vrand(VP.thirty),false);}
     /* 30 second stations get no countdown: the next station call is the cue */
-    if(sg.d>=60&&T.left===10&&!T.warned[10]){
+    if(sg.d>=60&&crossed(10)&&!T.warned[10]){
       T.warned[10]=1;
-      say(vrand(T.i===T.segs.length-1?VP.tenlast:VP.ten),false);
+      const line=vrand(T.i===T.segs.length-1?VP.tenlast:VP.ten);
+      clack();setTimeout(()=>say(line,false),SND==='classic'?0:400);
     }
-    if(sg.d<60&&T.i===T.segs.length-1&&T.left===10&&!T.warned[10]){T.warned[10]=1;say(vrand(VP.tenlast),false);}
+    if(sg.d<60&&T.i===T.segs.length-1&&crossed(10)&&!T.warned[10]){T.warned[10]=1;const line=vrand(VP.tenlast);clack();setTimeout(()=>say(line,false),SND==='classic'?0:400);}
   }else if((sg.type==='prep'||(sg.type==='rest'&&sg.d>=30))&&crossed(4)&&!T.warned[3]){T.warned[3]=1;say('Three. Two. One.',false);}
   elClock.textContent=fmt(T.left);paintProg();paintFocus();
 }
@@ -1660,6 +1733,17 @@ const fEl=document.getElementById('focus'),fName=document.getElementById('fname'
       fPhase=document.getElementById('fphase'),fRound=document.getElementById('fround'),fNext=document.getElementById('fnext'),
       fCue=document.getElementById('fcue'),fRing=document.getElementById('rfg'),fGo=document.getElementById('fgo');
 const RC=2*Math.PI*92;
+/* one pip per round, so how far through the session you are never needs reading */
+const fPips=document.getElementById('fpips');let PIPKEY='';
+function paintPips(sg){
+  if(!fPips||!T||!T.segs)return;
+  const key=T.rounds+'|'+sg.round;
+  if(key===PIPKEY)return;
+  PIPKEY=key;
+  let p='';
+  for(let i=1;i<=T.rounds;i++)p+='<span class="pip'+(i<sg.round?' dn':'')+(i===sg.round?' cur':'')+'"></span>';
+  fPips.innerHTML=p;
+}
 if(fRing){fRing.style.strokeDasharray=RC.toFixed(1);fRing.style.strokeDashoffset='0';}
 let FOCUS=false;
 function paintFocus(){
@@ -1678,7 +1762,8 @@ function paintFocus(){
   fPhase.textContent=T.state==='ready'?'Ready':(PHTXT[sg.type]||'Work');
   fPhase.style.color=col;
   fRound.textContent='Week '+W[wIdx].n+' · '+DAYMETA[DK[dIdx]].title+' · R'+sg.round+'/'+T.rounds;
-  fCue.textContent=sg.cue||'';
+  fCue.textContent=sg.cue||(sg.type==='work'&&sg.detail?sg.detail:'');
+  paintPips(sg);
   fNext.textContent=sg.next?('NEXT  '+sg.next.toUpperCase()):'';
   fRing.style.stroke=col;
   fRing.style.strokeDashoffset=(RC*(1-Math.max(0,Math.min(1,T.left/sg.d)))).toFixed(1);
@@ -1694,10 +1779,12 @@ const tfocus=document.getElementById('tfocus');
 if(tfocus)tfocus.addEventListener('click',()=>setFocus(true));
 const fx=document.getElementById('fx');
 if(fx)fx.addEventListener('click',()=>setFocus(false));
-['fgo','fskip','freset'].forEach((id,i)=>{
-  const b=document.getElementById(id);
-  if(b)b.addEventListener('click',()=>{const t=[elGo,elSkip,elReset][i];if(t)t.click();paintFocus();});
-});
+function focusBtn(i){
+  /* at the end of a session the big button is the point: bank it and leave */
+  if(i===0&&T&&T.state==='done'){if(!isDone(wIdx,dIdx))toggleDone(wIdx,dIdx);setFocus(false);return;}
+  const t=[elGo,elSkip,elReset][i];if(t)t.click();paintFocus();
+}
+['fgo','fskip','freset'].forEach((id,i)=>{const b=document.getElementById(id);if(b)b.addEventListener('click',()=>focusBtn(i));});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&FOCUS)setFocus(false);});
 
 /* ---- views ---- */
@@ -1715,7 +1802,7 @@ vIQ.addEventListener('click',()=>setView('iq'));
 /* ---- storage ---- */
 async function saveWeek(i){try{await storage.set('forge:week',String(i));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
-async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
@@ -1725,13 +1812,15 @@ function saveSkip(){return saveKey('forge:skip',JSON.stringify(SKIP));}
 function saveResume(){return saveKey('forge:resume',JSON.stringify(RESUME));}
 function saveExtra(){return saveKey('forge:extra',JSON.stringify(EXTRA));}
 function saveCamps(){return saveKey('forge:camps',JSON.stringify(CAMPS));}
+function saveBk(){return saveKey('forge:bk',BK);}
 function saveFinish(){return saveKey('forge:finish',JSON.stringify(FINISH));}
 async function saveChecks(){try{await storage.set('forge:check',JSON.stringify(CHECKS));SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 let NAMES=[],ONBOARD=false;
-const onboardEl=document.getElementById('onboard'),campbarEl=document.getElementById('campbar'),finaleEl=document.getElementById('finale');
+const heroEl=document.getElementById('hero'),onboardEl=document.getElementById('onboard'),campbarEl=document.getElementById('campbar'),finaleEl=document.getElementById('finale');
 /* First open on a fresh phone: who are you, what do you have, why are you
    here. Three questions, then the camp is theirs. */
 function paintOnboard(){
+  try{document.body.classList.toggle('ready',!ONBOARD);}catch(e){}
   if(!onboardEl)return;
   if(!ONBOARD){onboardEl.innerHTML='';return;}
   const chip=(id,label,on)=>`<button class="sw obchip${on?' on':''}" data-ob="${id}" type="button">${on?'&#9679;':'&#9675;'} ${label}</button>`;
@@ -1780,6 +1869,16 @@ function paintOnboard(){
 }
 const OB_STATE={name:'',gloves:false,wraps:false,bag:false,partner:false,g1:true,g2:true,g3:false,g4:false,start:forwardMonday()};
 /* the camp as a bar you can watch fill: day marker over 70, in phase color */
+function paintHero(){
+  if(!heroEl)return;
+  const slot=todaySlot();
+  if(ONBOARD||campPhase()!=='live'||!slot||lapsed()||wIdx!==slot.w||dIdx!==slot.d){heroEl.innerHTML='';return;}
+  const w=W[slot.w],k=DK[slot.d],md=DAYMETA[k],day=w.d[k];
+  const doneToday=DONE[dkey(slot.w,slot.d)]===todayISO();
+  const dn=Math.min(70,Math.max(1,campDayCount()));
+  heroEl.innerHTML='<div class="hero" style="--ph:var('+(PCOL[slot.w]||'--ember')+')"><div class="hk">TODAY &middot; WEEK '+w.n+' &middot; DAY '+dn+' OF 70</div><div class="ht">'+md.title+'</div><div class="hm">'+LASTTOT+' MIN &middot; '+typeText[md.type].toUpperCase()+' &middot; INTENSITY '+md.intensity+'/5</div>'+
+    (doneToday?'<div class="hdone">Logged. That is the day.</div>':'<div class="hbtns">'+(day.tm?'<button class="hgo" data-act="herostart" type="button">Start</button>':'')+'<button class="hmark" data-act="marktoday" type="button">Mark done</button></div>')+'</div>';
+}
 function paintCampBar(){
   if(!campbarEl)return;
   if(ONBOARD){campbarEl.innerHTML='';return;}
@@ -1824,8 +1923,8 @@ async function boot(){
        Writing forge:start here would make the legacy check claim the next
        boot as the original fighter, so a buddy who opens the app and closes
        it before answering would wake up as someone else. */
-    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;
-    VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';
+    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';
+    VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
     START=forwardMonday();
     recomputeBagWeek();
     const slot0=todaySlot();
@@ -1834,12 +1933,12 @@ async function boot(){
     return;
   }
   /* reset per-profile state so switching fighters never leaks a log across */
-  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;
+  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';
   PRERESTORE=null;MAKEUP=null;qcur=null;SAVEFAIL='';CUT=0;RB.open=false;
-  VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';
+  VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
-  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;GLOVES_ON=o.gl!==false;WRAPS_ON=o.wr!==false;GOALS=typeof o.goals==='string'?o.goals:'';}}}catch(e){}
+  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;GLOVES_ON=o.gl!==false;WRAPS_ON=o.wr!==false;GOALS=typeof o.goals==='string'?o.goals:'';SND=o.snd==='classic'?'classic':'bell';}}}catch(e){}
   try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
   try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
   try{const r=await storage.get('forge:check');if(r&&r.value){const c=JSON.parse(r.value);if(c&&typeof c==='object')CHECKS=c;}}catch(e){}
@@ -1847,6 +1946,7 @@ async function boot(){
   try{const r=await storage.get('forge:extra');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))EXTRA=x.filter(y=>y&&y.d&&isFinite(y.m));}}catch(e){}
   try{const r=await storage.get('forge:camps');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))CAMPS=x.filter(y=>y&&typeof y==='object');}}catch(e){}
   try{const r=await storage.get('forge:finish');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object')FINISH=x;}}catch(e){}
+  try{const r=await storage.get('forge:bk');if(r&&r.value&&parseISO(r.value))BK=r.value;}catch(e){}
   try{const r=await storage.get('forge:resume');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object'&&x.start&&Array.isArray(x.added))RESUME=x;}}catch(e){}
   try{const r=await storage.get('forge:start');if(r&&r.value&&parseISO(r.value))START=r.value;}catch(e){}
   /* One-time correction for the ORIGINAL install only: earlier builds guessed

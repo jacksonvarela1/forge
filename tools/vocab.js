@@ -50,8 +50,8 @@ for (const bag of [true, false]) {
   for (let wi = 0; wi < 10; wi++) {
     g(`wIdx=${wi}`);
     for (const k of DK) {
-      const segs = JSON.parse(g(`(function(){const d=W[${wi}].d[${JSON.stringify(k)}];const c=buildSegs(${JSON.stringify(k)},d);return JSON.stringify(c?c.segs.map(s=>({label:s.label,next:s.next})):[]);})()`));
-      for (const s of segs) { addEnd(s.label); if (s.next) addEnd(s.next); }
+      const segs = JSON.parse(g(`(function(){const d=W[${wi}].d[${JSON.stringify(k)}];const c=buildSegs(${JSON.stringify(k)},d);return JSON.stringify(c?c.segs.map(s=>({label:s.label,next:s.next,detail:s.detail})):[]);})()`));
+      for (const s of segs) { addEnd(s.label); if (s.next) addEnd(s.next); if (s.detail && s.detail.length < 150) addEnd(s.detail); }
     }
   }
 }

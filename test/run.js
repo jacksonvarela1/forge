@@ -1028,11 +1028,11 @@ async function main() {
     let kicks = 0;
     for (let i = 0; i < 300; i++) { if (/kick|teep|shoots|sprawl/i.test(q("callerPick('defense','R1 pure defense')"))) kicks++; }
     assert(kicks > 0, 'caller: Friday defense still calls kicks and shots');
-    // repeat suppression survives filtering: back to back repeats stay at zero
+    // repeat suppression survives filtering: the memoised pool is the same array every call
     q('selectWeek(0);selectDay(1)');
     let rep = 0, last = '';
-    for (let i = 0; i < 200; i++) { const c = q("callerPick('combo','R1 1-2 only, pivot after every one')"); if (c === last) rep++; last = c; }
-    assert(rep <= 3, 'caller: filtered pools keep their repeat history (' + rep + ' back to back)');
+    for (let i = 0; i < 200; i++) { const c = q("fromPool(poolFor(0),c=>!KICKCALL.test(c),'R1 test')"); if (c === last) rep++; last = c; }
+    assert(rep === 0, 'caller: filtered pools keep their repeat history (' + rep + ' back to back)');
   }
 
   // ---- the service worker only waits for a tap when a page can actually show one ----
@@ -1071,6 +1071,111 @@ async function main() {
     newPage.handlers.message.forEach(f => f({ data: { type: 'SKIP_WAITING' } }));
     assert(newPage.calls.skip === 1, 'sw: the Update tap swaps it in');
     assert(/PING_UPDATE/.test(appSrc) && /CAN_PROMPT/.test(appSrc), 'sw: the page answers the ping');
+  }
+
+  /* ===== v23: the session as an event ===== */
+  // ---- the coach says the rule of the round ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(0);elGo.click()');
+    const sp = mm.speech.length;
+    mm.clock.advance(11500); // through the 10 second prep into round 1
+    const said = mm.speech.slice(sp).join(' | ');
+    assert(/step-drag out/.test(said), 'rules: round 1 of Monday tells you what to do, not just its name (' + said.slice(0, 120) + ')');
+    const withDetail = mm.g('(function(){let n=0,bad=0;for(let w=0;w<10;w++)for(const k of DK){const d=W[w].d[k];const c=buildSegs(k,d);if(!c)continue;c.segs.forEach(s=>{if(s.type==="work"&&s.detail)n++;if(/^R\\d · /.test(s.label)&&s.detail)bad++;});}return n+"|"+bad;})()');
+    const [n, bad] = withDetail.split('|').map(Number);
+    const expected = Number(mm.g('(function(){let c=0;for(let w=0;w<10;w++)for(const k of ["mon","tue","wed","fri"]){const d=W[w].d[k];if(!d.tm)continue;(d.r||[]).slice(0,d.tm.rounds).forEach(x=>{if(x.length>1&&x[0].length>4)c++;});}return c;})()'));
+    assert(n === expected && n > 30, 'rules: every titled round carries a spoken rule (' + n + ' of ' + expected + ')');
+    assert(bad === 0, 'rules: an id-only round never says its rule twice');
+  }
+
+  // ---- the hero ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);paintHero()');
+    const hero = mm.g('heroEl.innerHTML');
+    assert(/TODAY/.test(hero) && /Combinations/.test(hero) && /herostart/.test(hero), 'hero: today shows its title and a Start button');
+    mm.g('selectDay(2);paintHero()');
+    assert(mm.g('heroEl.innerHTML') === '', 'hero: browsing another day hides it');
+    mm.g('selectDay(1);paintHero()');
+    mm.g("lifeAct('herostart',{})");
+    assert(mm.g('T.state') === 'run' && mm.g('FOCUS') === true, 'hero: Start runs the session and opens focus mode');
+    mm.g('setFocus(false);elReset.click();elReset.click()');
+    mm.g('toggleDone(0,1);paintHero()');
+    assert(/Logged\. That is the day\./.test(mm.g('heroEl.innerHTML')), 'hero: once logged it says so instead of offering Start');
+    const lap = await lifeMachine(mkDone(21, '2026-08-02'), '2026-08-20', '2026-07-13');
+    lap.g('selectWeek(5);selectDay(3);paintHero()');
+    assert(lap.g('heroEl.innerHTML') === '', 'hero: a layoff hides it until you pick up');
+  }
+
+  // ---- finishing a session ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);setFocus(true);elGo.click()');
+    const segs = JSON.parse(mm.g('JSON.stringify(T.segs.map(s=>({d:s.d})))'));
+    mm.clock.advance(segs.reduce((n2, s) => n2 + s.d * 1000, 0) + 60000);
+    assert(mm.g('T.state') === 'done', 'finish: session ran to done');
+    assert(/SESSION 1/.test(mm.g('fCue.textContent')) && /DEBUT/.test(mm.g('fCue.textContent')), 'finish: the cue says session 1 and the rank');
+    assert(mm.g('fGo.textContent') === 'Log it and close', 'finish: the big button banks it');
+    assert(mm.g('fClock.style.color') === '', 'finish: the clock colour is released so the done state can colour it');
+    mm.g('focusBtn(0)');
+    assert(mm.g('isDone(0,1)') === true && mm.g('FOCUS') === false, 'finish: one tap logs the session and closes focus mode');
+  }
+
+  // ---- weight: trend line and honesty ----
+  {
+    const mm = await lifeMachine({}, '2026-10-01', '2026-07-13');
+    mm.g("BW=[{d:'2026-07-14',w:186},{d:'2026-08-20',w:188.6},{d:'2026-09-02',w:187.4}];paintWeight()");
+    const html = mm.g('weightCardEl.innerHTML');
+    assert(/as of/.test(html) && !/This week/.test(html), 'weight: a stale average says "as of" and does not pretend it is this week');
+    assert(/bwchart/.test(html) && /<path/.test(html) && !/NaN/.test(html), 'weight: the trend line is drawn with no NaN');
+    mm.g("BW=[];paintWeight()");
+    assert(!/NaN|undefined/.test(mm.g('weightCardEl.innerHTML')), 'weight: empty state is clean');
+  }
+
+  // ---- streak and tape ----
+  {
+    const mm = await lifeMachine({}, '2026-08-20', '2026-07-13');
+    const iso = n3 => { const d = new Date(parseISO2('2026-08-20').getTime() - n3 * 86400000); return isoOf(d.getTime()); };
+    mm.g(`DONE={'0-0':'${iso(0)}','0-1':'${iso(1)}','0-2':'${iso(3)}','0-3':'${iso(4)}'}`);
+    assert(mm.g('streak()') === 4, 'streak: one rest day inside a run does not break it');
+    mm.g(`DONE={'0-0':'${iso(0)}','0-1':'${iso(1)}','0-2':'${iso(4)}'}`);
+    assert(mm.g('streak()') === 2, 'streak: two missing days in a row do');
+    mm.g(`DONE={'0-0':'${iso(1)}'}`);
+    assert(mm.g('streak()') === 1, 'streak: today not logged yet keeps yesterday alive');
+    mm.g("CHECKS={0:[1,1,0,0,0]};selectWeek(2);selectDay(6)");
+    const p = mm.g('panel.innerHTML');
+    assert(/not graded yet/.test(p) && /Nothing held/.test(p), 'tape: an untouched week reads not graded yet and offers Nothing held');
+    mm.g('selectWeek(0);selectDay(6)');
+    assert(/2\/5 this week/.test(mm.g('panel.innerHTML')), 'tape: a graded week shows its own score');
+  }
+
+  // ---- the bell ----
+  {
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1);elGo.click()');
+    mm.g('globalThis.__osc=0;(function(){const f=ac.createOscillator.bind(ac);ac.createOscillator=function(){globalThis.__osc++;return f();};})()');
+    mm.g("bell('work')");
+    assert(mm.g('globalThis.__osc') >= 4, 'bell: a struck bell is several partials (' + mm.g('globalThis.__osc') + ')');
+    mm.g('globalThis.__osc=0;clack()');
+    assert(mm.g('globalThis.__osc') === 2, 'bell: the clack is two sticks');
+    mm.g("SND='classic';globalThis.__osc=0;bell('work')");
+    mm.clock.advance(300);
+    assert(mm.g('globalThis.__osc') === 2, 'bell: classic mode is the old two beeps');
+    mm.g('globalThis.__osc=0;clack()');
+    assert(mm.g('globalThis.__osc') === 0, 'bell: classic mode adds no clack');
+    mm.g('saveOpts()');
+    assert(/"snd":"classic"/.test(mm.g("localStorage.getItem('forge:opts')")), 'bell: the sound choice persists');
+  }
+
+  // ---- backups ----
+  {
+    const mm = await lifeMachine(mkDone(6, '2026-09-05'), '2026-09-10', '2026-07-13');
+    assert(/No backup yet/.test(mm.g('todayCardEl.innerHTML')), 'backup: six sessions and no backup earns a nudge');
+    mm.g("BK=todayISO();saveBk();paintToday()");
+    assert(!/No backup yet|Last backup/.test(mm.g('todayCardEl.innerHTML')), 'backup: a fresh backup silences it');
+    assert(/Last backup: /.test(mm.g('logToolsEl.innerHTML')), 'backup: the tools card says when it was');
+    assert(/forge:bk/.test(mm.g("localStorage.getItem('forge:bk')===null?'':'forge:bk'")), 'backup: the stamp persists');
   }
 
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');
