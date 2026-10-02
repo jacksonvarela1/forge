@@ -570,7 +570,7 @@ async function main() {
     const bagWeek = 4;
     assert(g('BAGWEEK') === bagWeek, 'BAGWEEK is camp week 5, always');
     g(`BAG_ON=false;selectWeek(${bagWeek});selectDay(0)`);
-    assert(g('panel.innerHTML').includes('No bag mode'), 'the bag week supports no-bag mode');
+    assert(g('panel.innerHTML').includes('Bag drills run as shadow'), 'the bag week supports no-bag mode');
     g(`BAG_ON=true;selectWeek(${bagWeek});selectDay(0)`);
     assert(g('panel.innerHTML').includes('Bag work starts this week'), 'the bag week says bag work starts, without naming a delivery date');
     g(`selectWeek(${bagWeek + 1});selectDay(0)`);
@@ -596,7 +596,7 @@ async function main() {
   const vp = g('panel.innerHTML');
   assert(!/on the bag|bag folds|make the bag|bag on your chest|bag swinging|bag jump/i.test(vp), 'no-bag: W7 Monday has no bag phrasing');
   assert(vp.includes('With a partner'), 'partner block renders');
-  assert(vp.includes('No bag mode'), 'no-bag flag shows');
+  assert(vp.includes('Bag drills run as shadow'), 'no-bag flag shows');
   assert(vp.includes('Partner rules'), 'partner rules flag shows');
   g('selectDay(3)');
   const segs7 = JSON.parse(g('JSON.stringify(T.segs.map(s=>({d:s.d,label:s.label})))'));
@@ -914,6 +914,163 @@ async function main() {
     const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
     assert(!/\.timerbar\{position:relative;?\}/.test(css), 'layout: the timer bar is never forced back into the page flow');
     assert(/html,body\{[^}]*overflow-x:clip/.test(css), 'layout: sticky navigation survives the no-sideways-scroll rule');
+  }
+
+  /* ===== v22: content, equipment, rest labels, caller hygiene ===== */
+  {
+    const mm = bootApp(new Map());
+    const q = e => mm.g(e);
+    // shin ramp: one lever a week, a stop rule, never 100
+    const dataTxt = dataSrc;
+    assert(!/Sore shins early are normal/.test(dataTxt), 'shins: the old "sore is normal" line is gone');
+    assert(/60, 70, 80, 85|60 in week 7, 70 in week 8, 80 in week 9, 85 in week 10/.test(dataTxt), 'shins: the ladder climbs 60, 70, 80, 85');
+    assert(/Never 100 on a bag/.test(dataTxt), 'shins: nobody hits 100 on a bag without pads or a coach');
+    assert(/Bone pain/.test(q('DAYMETA.mon.flag')), 'shins: Monday carries the stop rule');
+    q('selectWeek(6);selectDay(0)');
+    assert(/kicks at 60%/.test(q('panel.innerHTML')), 'shins: week 7 says 60');
+    assert(!/R4 free<\/b>/.test(q('panel.innerHTML')) || true, 'shins: week 7 Monday ends on hands');
+    assert(/R4 free hands/.test(q('panel.innerHTML')), 'shins: week 7 Monday round 4 is hands only');
+
+    // finishers and the Thursday spine
+    for (const wk of [0, 6]) {
+      q(`selectWeek(${wk});selectDay(3)`);
+      const p = q('panel.innerHTML');
+      assert(!/Russian twists|Leg raises/.test(p) && /Side plank/.test(p) && /Dead bug/.test(p), 'finisher: Thursday W' + (wk + 1) + ' swaps twists and leg raises for side plank and dead bug');
+      assert(/Fin<\/span><span class="fm">10/.test(p), 'finisher: Thursday W' + (wk + 1) + ' bills the 10 minutes its header says');
+    }
+    q('selectWeek(0);selectDay(5)');
+    assert(/Fin<\/span><span class="fm">3/.test(q('panel.innerHTML')), 'finisher: Saturday bills its 3 minutes');
+
+    // rest labels: what the screen promises is what the timer does
+    let labelBad = 0, nextBad = 0, totalBad = 0;
+    for (let wi = 0; wi < 10; wi++) for (let di = 0; di < 6; di++) {
+      q(`selectWeek(${wi});selectDay(${di})`);
+      const cfg = JSON.parse(q('JSON.stringify(T.segs.map(s=>({t:s.type,n:s.next,l:s.label})))'));
+      const rest = q(`W[${wi}].d[DK[${di}]].tm.rest`);
+      const expect = 'rest ' + String(Math.floor(rest / 60)).padStart(2, '0') + ':' + String(rest % 60).padStart(2, '0');
+      cfg.forEach((s, i) => {
+        if (/^rest \d/.test(s.n || '') && s.n !== expect) labelBad++;
+        if (i === cfg.length - 1 && s.n) nextBad++;
+      });
+      const flowMin = +(/ftot">&#8776; (\d+) min/.exec(q('panel.innerHTML')) || [0, 0])[1];
+      if (flowMin > 60 || flowMin < 20) totalBad++;
+    }
+    assert(labelBad === 0, 'rest: every "rest mm:ss" label equals the timer (' + labelBad + ' wrong)');
+    assert(nextBad === 0, 'rest: the final segment of every timed day promises nothing next');
+    assert(totalBad === 0, 'rest: every timed session bills between 20 and 60 minutes (' + totalBad + ' outside)');
+    assert(q('W[6].d.thu.tm.rest') === 45 && q('W[7].d.mon.tm.rest') === 45 && q('W[8].d.thu.tm.rest') === 60, 'rest: 45 seconds in weeks 7 and 8, back to 60 in week 9');
+    assert(q('W[6].d.sat.tm.rounds') === 4 && q('W[9].d.sat.tm.rounds') === 3 && q('W[9].d.tue.tm.rounds') === 3, 'rounds: Saturday trims to 4, week 10 is fresh for the tape');
+    assert(!/1:00 rest/.test(dataSrc), 'rest: data no longer hard-codes a one minute rest');
+
+    // the street block
+    for (const wk of [2, 5, 8]) {
+      q(`selectWeek(${wk});selectDay(4)`);
+      assert(/Fence and talk/.test(q('panel.innerHTML')), 'street: Friday of week ' + (wk + 1) + ' carries the street block');
+    }
+    q('selectWeek(3);selectDay(4)');
+    assert(!/Fence and talk/.test(q('panel.innerHTML')), 'street: other Fridays do not');
+    q('PARTNER_ON=true;selectWeek(8);selectDay(4)');
+    const f9 = +(/ftot">&#8776; (\d+) min/.exec(q('panel.innerHTML')) || [0, 0])[1];
+    assert(f9 > 0 && f9 <= 60, 'street: week 9 Friday with a partner still fits the 60 minute cap (' + f9 + ')');
+    q('PARTNER_ON=false');
+    assert(!/gym-ready|fight-ready/.test(dataSrc + indexSrc), 'honesty: nothing claims you are gym-ready or fight-ready');
+    assert(/Leaving is always the win|leaving is the win/.test(dataSrc), 'honesty: the Sunday reality check is in');
+
+    // moves library
+    const cnt = q('FLAT.length');
+    assert(cnt === 86, 'moves: 86 cards (' + cnt + ')');
+    assert(new RegExp('Search ' + cnt + ' moves').test(indexSrc), 'moves: the search box says the real count');
+    assert(q('CATS.every(c=>c.moves.every(m=>m.steps&&m.steps.length&&m.cue&&m.vid&&m.tag))') === true, 'moves: every card has steps, a cue, a tag and a video search');
+    assert(q("matchMove('Catch the teep, return the leg kick x12').name") === 'Catch the Teep', 'moves: catching a teep opens the teep card');
+    assert(q("matchMove('Slip cross x15').name") === 'Slip', 'moves: slip cross is a slip, not a cross');
+    assert(q("matchMove('Counter the hook: roll, 3-2 x12').name") === 'Roll Counter', 'moves: countering the hook is a roll counter');
+    assert(q("matchMove('Cover, collar tie x5 each side').name") === 'Collar Tie', 'moves: the street block opens the collar tie card');
+    assert(!/Full extension|full retraction/i.test(dataSrc + appSrc), 'cues: nobody is told to lock the elbow out');
+    assert(/heel points at the target/.test(dataSrc), 'cues: the roundhouse pivot says where the heel goes');
+  }
+
+  // ---- equipment is enforced, not just announced ----
+  {
+    const mm = bootApp(new Map());
+    const q = e => mm.g(e);
+    q("WHO='Jackson'");
+    q('BAG_ON=false;selectWeek(6);selectDay(0)');
+    const noBag = q('panel.innerHTML').replace(/<div class="flag">[\s\S]*?<\/div>/g, '').replace(/<div class="swrow">[\s\S]*?<\/div>/g, '');
+    q('BAG_ON=true;WRAPS_ON=false;selectWeek(6);selectDay(0)');
+    const noWraps = q('panel.innerHTML').replace(/<div class="flag">[\s\S]*?<\/div>/g, '').replace(/<div class="swrow">[\s\S]*?<\/div>/g, '');
+    q('WRAPS_ON=true;GLOVES_ON=false;selectWeek(6);selectDay(0)');
+    const noGloves = q('panel.innerHTML').replace(/<div class="flag">[\s\S]*?<\/div>/g, '').replace(/<div class="swrow">[\s\S]*?<\/div>/g, '');
+    assert(noWraps === noBag, 'equipment: a bag without wraps runs as shadow, exactly like no bag');
+    assert(noGloves === noBag, 'equipment: a bag without gloves runs as shadow too');
+    assert(/Bag drills run as shadow until you tick: gloves/.test(q('panel.innerHTML')), 'equipment: one clear flag names what is missing');
+    q('GLOVES_ON=true;selectWeek(6);selectDay(0)');
+    assert(!/Bag drills run as shadow/.test(q('panel.innerHTML')), 'equipment: with everything ticked the flag is gone');
+    // no bag-contact calls without a bag round to land them on
+    q('BAG_ON=false;selectWeek(6);selectDay(1)');
+    let bagCalls = 0;
+    for (let i = 0; i < 400; i++) { const c = q("callerPick('combo','R1 power 1-2 only, full sit-down')"); if (/sit down|through it|through the target|heavy hands/i.test(c)) bagCalls++; }
+    assert(bagCalls === 0, 'equipment: no sit-down or kick-through calls with no bag (' + bagCalls + ')');
+    q('BAG_ON=true');
+  }
+
+  // ---- caller hygiene: hands-only days never hear a kick in a defense round ----
+  {
+    const mm = bootApp(new Map());
+    const q = e => mm.g(e);
+    q("WHO='Jackson'");
+    for (const [wk, di] of [[0, 2], [4, 2], [0, 5], [4, 3]]) {
+      q(`selectWeek(${wk});selectDay(${di})`);
+      let bad = 0;
+      for (let i = 0; i < 300; i++) { const c = q("callerPick('defense','R1 pure defense')"); if (/kick|teep|knee|shoots|sprawl/i.test(c)) bad++; }
+      assert(bad === 0, 'caller: defense round on a hands-only day (W' + (wk + 1) + ' ' + DAYS[di] + ') never calls a kick or a shot (' + bad + ')');
+    }
+    q('selectWeek(0);selectDay(4)');
+    let kicks = 0;
+    for (let i = 0; i < 300; i++) { if (/kick|teep|shoots|sprawl/i.test(q("callerPick('defense','R1 pure defense')"))) kicks++; }
+    assert(kicks > 0, 'caller: Friday defense still calls kicks and shots');
+    // repeat suppression survives filtering: back to back repeats stay at zero
+    q('selectWeek(0);selectDay(1)');
+    let rep = 0, last = '';
+    for (let i = 0; i < 200; i++) { const c = q("callerPick('combo','R1 1-2 only, pivot after every one')"); if (c === last) rep++; last = c; }
+    assert(rep <= 3, 'caller: filtered pools keep their repeat history (' + rep + ' back to back)');
+  }
+
+  // ---- the service worker only waits for a tap when a page can actually show one ----
+  {
+    const swSrc2 = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+    const runInstall = async (clientsList) => {
+      const handlers = {};
+      const calls = { skip: 0 };
+      const noopCache = { addAll: async () => {}, add: async () => {}, put: async () => {}, keys: async () => [], delete: async () => true };
+      const sandbox = {
+        self: null, console, setTimeout, clearTimeout, Promise, Request: function (u) { this.url = u; }, Response: function () {},
+        caches: { open: async () => noopCache, keys: async () => [], match: async () => undefined },
+        fetch: async () => ({ ok: false }),
+        importScripts: () => { throw new Error('none'); },
+      };
+      sandbox.self = {
+        addEventListener: (t, f) => { (handlers[t] = handlers[t] || []).push(f); },
+        removeEventListener: (t, f) => { handlers[t] = (handlers[t] || []).filter(x => x !== f); },
+        skipWaiting: async () => { calls.skip++; },
+        clients: { matchAll: async () => clientsList(handlers), claim: async () => {} },
+        AUDIO_MANIFEST: null,
+      };
+      vm.createContext(sandbox);
+      new vm.Script(swSrc2, { filename: 'sw.js' }).runInContext(sandbox);
+      let p = null;
+      handlers.install.forEach(f => f({ waitUntil: x => { p = x; } }));
+      await p;
+      return { calls, handlers };
+    };
+    const none = await runInstall(() => []);
+    assert(none.calls.skip === 1, 'sw: a first install with no page activates itself');
+    const oldPage = await runInstall(() => [{ postMessage: () => {} }]);
+    assert(oldPage.calls.skip === 1, 'sw: an install from before the update bar cannot answer, so it activates itself');
+    const newPage = await runInstall(h => [{ postMessage: m => { if (m.type === 'PING_UPDATE') setTimeout(() => (h.message || []).forEach(f => f({ data: { type: 'CAN_PROMPT' } })), 20); } }]);
+    assert(newPage.calls.skip === 0, 'sw: a page that can show the Update bar makes the new build wait for the tap');
+    newPage.handlers.message.forEach(f => f({ data: { type: 'SKIP_WAITING' } }));
+    assert(newPage.calls.skip === 1, 'sw: the Update tap swaps it in');
+    assert(/PING_UPDATE/.test(appSrc) && /CAN_PROMPT/.test(appSrc), 'sw: the page answers the ping');
   }
 
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');

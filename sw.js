@@ -1,5 +1,5 @@
 /* The Forge service worker: cache-first for full offline use. */
-const CACHE = 'forge-v21';
+const CACHE = 'forge-v22';
 /* Voice clips live in their own cache that survives version bumps. They are
    content-addressed by hash, so a clip never changes under a given name and
    there is nothing to invalidate. Keeping them out of the versioned cache is
@@ -58,12 +58,26 @@ self.addEventListener('install', e => {
         ));
       }
     } catch (err) {}
-    /* v21 only: installs that predate the in-app update bar cannot ask for an
-       update, so this one build activates itself. The next build removes this
-       line and waits for the Update tap instead. */
-    await self.skipWaiting();
+    /* A page that can show the Update bar answers a ping, and then this build
+       waits for the tap. An install from before the bar existed cannot ask for
+       an update, so for it (or a first install, which has no page) the new
+       build activates itself rather than stranding the phone on the old one. */
+    if (!(await pagesCanPrompt())) await self.skipWaiting();
   })());
 });
+
+async function pagesCanPrompt() {
+  const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  if (!cs.length) return false;
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = v => { if (!settled) { settled = true; clearTimeout(timer); self.removeEventListener('message', onMsg); resolve(v); } };
+    const timer = setTimeout(() => finish(false), 900);
+    const onMsg = e => { if (e.data && e.data.type === 'CAN_PROMPT') finish(true); };
+    self.addEventListener('message', onMsg);
+    cs.forEach(c => { try { c.postMessage({ type: 'PING_UPDATE' }); } catch (err) {} });
+  });
+}
 
 /* the page asks for the swap once nothing is running */
 self.addEventListener('message', e => {

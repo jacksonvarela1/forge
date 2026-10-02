@@ -1,4 +1,4 @@
-const BUILD='v21';
+const BUILD='v22';
 /* ---- storage: same call shape as the artifact API, backed by localStorage outside artifacts ---- */
 const rawstorage = window.storage ?? {
   get: async k => { const v = localStorage.getItem(k); return v == null ? null : { value: v }; },
@@ -41,7 +41,7 @@ function css(v){return getComputedStyle(document.documentElement).getPropertyVal
 function fmt(s){const m=Math.floor(s/60),ss=s%60;return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0');}
 /* ---- inline move lookup ---- */
 const ALIAS={
- 'Fighting Stance':['stance'],
+ 'Stance':['stance'],
  'Step-Drag':['step-drag','step drag','footwork'],
  'Pivot':['pivot'],
  'Switch Stance':['switch stance'],
@@ -65,19 +65,24 @@ const ALIAS={
  'Check':['check'],
  'Knee':['knee'],
  'Elbow':['elbow'],
- 'Slip':['slip','slip the swing'],
- 'Roll (Bob-and-Weave)':['roll'],
+ 'Slip':['slip','slip the swing','slip cross','slip jab'],
+ 'Roll':['roll'],
  'Parry':['parry'],
  'Catch':['catch'],
- 'Shell (High Guard)':['shell'],
+ 'Shell':['shell'],
+ 'Body Kick Cover':['body kick cover','cover the body kick'],
+ 'Head Kick Cover':['head kick cover','cover the head kick'],
+ 'Clinch Defense':['clinch defense','frame, inside position'],
+ 'Catch the Teep':['catch the teep'],
+ 'Collar Tie':['collar tie'],
  'Long Guard':['long guard','frame'],
  'Pull':['pull'],
  'Shoulder Roll':['shoulder roll'],
  'Check Hook':['check hook'],
  'Pull Counter':['pull counter','pull, then'],
  'Cross Counter':['cross counter'],
- 'Roll Counter':['roll counter','roll, then'],
- 'Sprawl Counter':['sprawl into','sprawl counter'],
+ 'Roll Counter':['roll counter','roll, then','counter the hook'],
+ 'Sprawl Counter':['sprawl into','sprawl counter','counter the shot'],
  'Check and Return':['check, return','check into','return kick'],
  'Intercept':['intercept','hit the advance','teep the advance'],
  'Feint':['feint'],
@@ -162,7 +167,7 @@ const MOVEWEEK={};
       scan(d.t);scan(d.r);});});
     /* the matcher resolves ties by key length, so a few moves never bind.
        pin those deterministically instead of dropping them from the deck. */
-    const FIX={'Rear Hook (4)':0,'Rear Uppercut (6)':0,'Shell':2,'Pull':3,'Level Change':1,'The Rest':0,'T-Spine Opener':0};
+    const FIX={'Rear Hook (4)':0,'Rear Uppercut (6)':0,'Shell':2,'Pull':3,'Level Change':1,'The Rest':0,'T-Spine Opener':0,'Body Kick Cover':4,'Head Kick Cover':4,'Clinch Defense':7,'Collar Tie':7};
     /* Bag Work is pinned to the week the bag actually arrives. The literal has
        to stay in step with BAGWEEK below, which cannot be referenced from here
        without hitting its temporal dead zone inside this IIFE. */
@@ -366,16 +371,17 @@ function render(){
   const B=[];
   const dt=adaptItems(day.t),dr=adaptItems(day.r);
   if(m.warm)B.push({n:'Warm-up',s:'Warm',du:'5 min',it:WARM[m.warm]});
-  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt,step:1});B.push({n:'Finisher',s:'Fin',du:'5 min',it:dr,sec:1});}
+  if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt,step:1});{const fm=dr&&dr[0]?/(\d+)\s*min/.exec(String(dr[0][0])):null;B.push({n:'Finisher',s:'Fin',du:(fm?fm[1]:'5')+' min',it:dr,sec:1});}}
   else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:dt});if(dr&&dr.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:dr,sec:1});}
   else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1,step:1});}
   /* Partner work is billed at 10 minutes and comes OUT of the Rounds block, it is
      never bolted on top: the session is capped at 60 minutes and a free sixth
      block is how a 45 minute session quietly becomes 70. */
   if(PARTNER_ON&&PARTNER[k]&&PARTNER[k].length&&k!=='sun')B.push({n:'With a partner',s:'Duo',du:'10 min',it:PARTNER[k],sec:1});
+  if(k==='fri'&&STREETWK.indexOf(wIdx)>=0)B.push({n:'Street',s:'Street',du:'8 min',it:STREET,sec:1});
   if(m.cool)B.push({n:'Cooldown',s:'Cool',du:'5 min',it:COOL[m.cool]});
   let tot=0,flow='';
-  B.forEach(b=>{const mn=durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
+  B.forEach(b=>{const mn=(b.step&&day.tm)?Math.round(effRounds*day.tm.work/60+(effRounds-1)*day.tm.rest/60):durMin(b.du);tot+=mn;if(mn>0)flow+=`<div class="fseg" style="flex:${mn}"><span class="fl">${b.s}</span><span class="fm">${mn}'</span></div>`;});
   const flowbar=`<div class="flow">${flow}<div class="ftot">&#8776; ${tot} min</div></div>`;
   const blocks=B.map(b=>b.it&&b.it.length?`<div class="block${b.sec?' sec':''}"><div class="blabel"><span class="name">${b.n}</span><span class="dur">${b.du}${b.step?stepper:''}</span></div><ul class="items">${liRich(b.it)}</ul></div>`:'').join('');
   panel.innerHTML=`
@@ -390,10 +396,8 @@ function render(){
    ${blocks}
    ${m.flag?`<div class="flag">${m.flag}</div>`:''}
    ${(MAKEUP&&MAKEUP.w===wIdx&&MAKEUP.d===dIdx)?`<div class="flag">Makeup session: trimmed short on purpose so tomorrow&rsquo;s real session survives it. Run what is here, mark it done, and the missed cell fills in. No guilt, just reps.</div>`:''}
-   ${(!BAG_ON&&wIdx>=BAGWEEK)?`<div class="flag">No bag mode: bag drills above are swapped for their shadow versions. Chase snap and full retraction instead of impact.</div>`:''}
+   ${(wIdx>=BAGWEEK&&!bagLive())?`<div class="flag">Bag drills run as shadow until you tick: ${[!BAG_ON&&'a bag',!WRAPS_ON&&'wraps',!GLOVES_ON&&'gloves'].filter(Boolean).join(' and ')}. Chase snap and a clean recovery instead of impact.${!WRAPS_ON?' Bare knuckles on a bag is how a good week ends a training month, and wraps are twelve dollars.':''}</div>`:''}
    ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">Bag work starts this week. Most of the week is still air work until the bag is hanging. The moment it is up: wraps and 16 oz gloves every round, hands and kicks at 50 percent, and stop the second a wrist or a shin complains.</div>`:''}${(BAG_ON&&wIdx===BAGWEEK+1)?`<div class="flag">First full week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands and kicks stay at 50 percent all week no matter how good it feels: your wrists and shins are brand new to impact. Boxer’s wrist happens in week one on the bag, not week five. Sore shins mean back off, not push on.</div>`:''}
-   ${(BAG_ON&&wIdx>=BAGWEEK&&!WRAPS_ON)?`<div class="flag">No wraps yet, so no bag rounds yet: bare knuckles on a bag is how a good week ends a training month. Twelve dollars fixes this. Until then every bag drill runs as shadow.</div>`:''}
-   ${(BAG_ON&&wIdx>=BAGWEEK&&WRAPS_ON&&!GLOVES_ON)?`<div class="flag">No gloves: bag work is wraps only, straight punches only, 50 percent, and stop at the first skin hot spot. Hooks wait for gloves, they load the wrist sideways.</div>`:''}
    ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?`Partner drills start in week ${BAGWEEK+1}. Until you have a partner these are a preview. `:''}${PARTNER_RULES}</div>`:''}
    ${k==='sun'?checkCard():''}
    <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
@@ -1006,6 +1010,7 @@ function paintIQ(){
 
 /* ---- search ---- */
 const srch=document.getElementById('srch');
+if(srch)srch.placeholder='Search '+FLAT.length+' moves. Try check hook, teep, wrap...';
 if(srch)srch.addEventListener('input',()=>{
   const q=srch.value.trim().toLowerCase();
   document.querySelectorAll('#moves .msection').forEach(sec=>{
@@ -1165,6 +1170,7 @@ function callerStop(){if(callT){clearTimeout(callT);callT=null;}}
 /* A call must match the round it lands in: no punch combos in a teep round,
    no kick calls in a hands-only round, movement cues only in footwork rounds. */
 const KICKCALL=/kick|teep|knee|check/i;
+const BAGCALL=/sit down|through it|through the target|heavy hands|power one two|body kick, hard/i;
 const HANDCALL=/jab|one|two|three|four|five|six|hook|cross|uppercut|body shot|punch|straight|hands|feint the|sell it|fake the shot/i;
 function poolFilterFor(label){
   const L=String(label).toLowerCase();
@@ -1181,11 +1187,27 @@ function poolFilterFor(label){
      Wednesday, Thursday and Saturday are hands only by design. The day's own
      weapon rule always applies on top. */
   const dayw=(DAYMETA[DK[dIdx]]||{}).weapons;
-  if(dayw==='hands'){const inner=f;return c=>!KICKCALL.test(c)&&(!inner||inner(c));}
+  if(dayw==='hands'){const inner=f;f=c=>!KICKCALL.test(c)&&(!inner||inner(c));}
+  if(!bagLive()){const inner2=f;f=c=>!BAGCALL.test(c)&&(!inner2||inner2(c));}
   return f;
 }
-function fromPool(pool,filter){
-  const p=filter?pool.filter(filter):pool;
+/* filtered pools are memoised so vrand keeps its repeat history across calls */
+const FPC=new WeakMap();
+const DEFCACHE=new WeakMap();
+function defPool(base){
+  if((DAYMETA[DK[dIdx]]||{}).weapons!=='hands')return base;
+  let p=DEFCACHE.get(base);
+  if(!p){p=base.filter(c=>!KICKCALL.test(c)&&!/shoots|sprawl|level change/i.test(c));DEFCACHE.set(base,p);}
+  return p;
+}
+function fromPool(pool,filter,key){
+  let p=pool;
+  if(filter){
+    let m=FPC.get(pool);if(!m){m=new Map();FPC.set(pool,m);}
+    const ck=String(key||'')+'|'+((DAYMETA[DK[dIdx]]||{}).weapons||'');
+    p=m.get(ck);
+    if(!p){p=pool.filter(filter);m.set(ck,p);}
+  }
   return p.length?vrand(p):vrand(CALLCUE.filter(c=>!KICKCALL.test(c)&&!HANDCALL.test(c)));
 }
 /* the day's own corner cues, spoken mid-round: Monday hears kick corrections,
@@ -1211,9 +1233,9 @@ function callerPick(ctx,label){
   const filter=poolFilterFor(label);
   const r=Math.random();
   if(r<0.10)return vrand(VP.praise);
-  if(flavor==='defense')return r<0.20?vrand(CALLCUE):(r<0.32?dayCue(filter):vrand(wIdx>=4?DEFATK:DEFPAIR));
-  if(flavor==='free')return r<0.22?vrand(CALLCUE):(r<0.36?dayCue(filter):fromPool(FREECALL,filter));
-  return r<0.20?vrand(CALLCUE):(r<0.34?dayCue(filter):fromPool(pool,filter));
+  if(flavor==='defense')return r<0.20?vrand(CALLCUE):(r<0.32?dayCue(filter):vrand(defPool(wIdx>=4?DEFATK:DEFPAIR)));
+  if(flavor==='free')return r<0.22?vrand(CALLCUE):(r<0.36?dayCue(filter):fromPool(FREECALL,filter,label));
+  return r<0.20?vrand(CALLCUE):(r<0.34?dayCue(filter):fromPool(pool,filter,label));
 }
 /* cadence per round type: defense is stimulus-response (fast), technique and
    stations sit mid, free rounds get sparse corner prompts with real silence */
@@ -1249,7 +1271,7 @@ const CORNER={
  wed:['Rear heel spins out on the cross.','Retract faster than you throw.','Lead hand stays home when the cross goes.','Light feet tonight. You hinged heavy this morning.','Do not lean past your front foot.'],
  thu:['Form holds when the arms burn. Slow down before you get ugly.','Breathe through your nose. Bring it down.','Level change from the legs, never the waist.','Output, not flailing.','Land in stance, not flat footed.'],
  fri:['Small slips. A big lean is just a slow miss.','Come up already throwing.','Defense and counter are one motion.','Do not freeze. React and fire.','Eyes up. Hands up.'],
- sat:['Hands up even when you are gassed.','Full extension, full retraction.','Turn the body on every hook.','Last round should look like the first.','Keep the pace honest.'],
+ sat:['Hands up even when you are gassed.','Reach long, stop short of locked, snap it home.','Turn the body on every hook.','Last round should look like the first.','Keep the pace honest.'],
  sun:[]
 };
 function cornerCue(){const a=CORNER[DK[dIdx]]||[];return a.length?a[Math.floor(Math.random()*a.length)]:'';}
@@ -1284,7 +1306,7 @@ function checkCard(){
    retraction instead of impact. Filled per drill; unknown labels pass through. */
 const NOBAG_MAP={
  'Range check 2 min':['Slow-motion roundhouse x8 each','five counts out, five counts back, the foot never touches down between reps'],
- 'Leg kick x15 each':['Leg kick x15 each','snap and full retraction instead of impact, full pivot every rep'],
+ 'Leg kick x15 each':['Leg kick x15 each','snap and a clean recovery instead of impact, full pivot every rep'],
  'Body kick x15 each':['Body kick x15 each','hip all the way over, freeze a beat at extension, return on balance'],
  'Power teep x15 each':['Power teep x15 each','knee up a beat, then drive, standing foot pivoted'],
  'Switch kick x12 each':['Switch kick x12 each','kick and hold 3 seconds at extension, then return on balance'],
@@ -1292,12 +1314,12 @@ const NOBAG_MAP={
  '1-2 at 70% x20':['1-2 snap x20','arm loose like a towel snap, fist tight only at the end, never lock the elbow out'],
  '1-2-3 x15':['1-2-3 x15','picture him stepping in, the hook meets him mid-step'],
  'Uppercuts in close x12 each':['Uppercuts in close x12 each','imagine the clinch, dig up short from the legs'],
- 'Rotate every 30 sec on the bag. 1:00 rest.':['Rotate every 30 sec. 1:00 rest. Count reps, the number is the standard.'],
+ 'Rotate every 30 sec on the bag. Rest per the timer.':['Rotate every 30 sec. Rest per the timer. Count reps, the number is the standard.'],
  '30s max output':['30s punch-out, 90 straights'],
  '30s 1-2 on the bag, max hands':['30s 1-2, max hands'],
  'Touch, slip, counter x15 each':['Touch, slip, counter x15 each','flash the jab as his, slip it, cross back'],
  'R1|slip-counter on the bag only':['R1','slip-counter only, make every miss real'],
- 'Rotate every 30 sec, hands on the bag. 1:00 rest.':['Rotate every 30 sec, hands only. 1:00 rest. Count the reps.'],
+ 'Rotate every 30 sec, hands on the bag. Rest per the timer.':['Rotate every 30 sec, hands only. Rest per the timer. Count the reps.'],
  '30s max straights':['30s max straights, count 90'],
  'Teep the advance x15':['Teep the advance x15','he steps in, the teep meets him mid-step'],
  'Chase kick x12 each':['Chase kick x12 each','he backs off, step with him, the body kick lands as he moves'],
@@ -1306,7 +1328,7 @@ const NOBAG_MAP={
  'Elbows in close x12 each':['Elbows in close x12 each','chest to chest range, short and sharp'],
  'Hit the advance x15':['Hit the advance x15','1-2 as he steps in, that is timing'],
  'In-out on the swing x12':['In-out x12','in behind the jab, out before the answer'],
- 'Rotate every 30 sec on the bag. 1:00 rest. Hardest session of the camp.':['Rotate every 30 sec. 1:00 rest. Hardest session of the camp. Count reps.'],
+ 'Rotate every 30 sec on the bag. Rest per the timer. Hardest session of the camp.':['Rotate every 30 sec. Rest per the timer. Hardest session of the camp. Count reps.'],
  'The swing is the attack':['He is always coming forward','every attack you imagine, make it miss'],
  'Slip the swing, 2-3 x15':['Slip the jab, 2-3 x15'],
  'Pivot off it, hook x12':['Pivot off him, hook x12']
@@ -1322,8 +1344,10 @@ function recomputeBagWeek(){
     MOVEWEEK['Wrapping Hands']=BAGWEEK;
   }catch(e){}
 }
+/* a bag round needs the bag, wraps and gloves; without all three it runs as shadow */
+function bagLive(){return BAG_ON&&WRAPS_ON&&GLOVES_ON;}
 function adaptItems(arr){
-  if(!arr||BAG_ON||wIdx<BAGWEEK)return arr;
+  if(!arr||bagLive()||wIdx<BAGWEEK)return arr;
   return arr.map(it=>{
     const sub=NOBAG_MAP[it.length>1?it[0]+'|'+it[1]:'']||NOBAG_MAP[it[0]];
     return sub?sub.slice():it;
@@ -1332,7 +1356,7 @@ function adaptItems(arr){
 function adaptNote(note){
   const parts=String(note).split(/\s*no bag yet[:.]?\s*/i);
   if(parts.length<2)return note;
-  return BAG_ON?parts[0]:parts[0]+' No bag yet: '+parts[1];
+  return bagLive()?parts[0]:parts[0]+' No bag yet: '+parts[1];
 }
 /* Additive partner block per day, shown when the Partner switch is on.
    Everything choreographed or single-technique: two beginners, no pads. */
@@ -1353,6 +1377,15 @@ const PARTNER={
 };
 const PARTNER_RULES='Partner rules, agreed out loud before you touch gloves. Percentage is set BEFORE the round and nobody raises it mid-round. No head contact at all, and the week 9 mouthguard does not change that: a mouthguard protects teeth and jaws, it does not protect brains, and two beginners with nobody watching have no business trading head shots. Body contact is touch only. Kicks stay light, land above the knee, and never shin on shin until you both have pads. No free sparring. Whoever is striking wears the gloves. Any hard contact, accidental or not, ends the round for both of you. Ten minutes, and it comes out of your rounds, not on top of them.';
 
+/* What to do when it is not a drill: fence, cover, hold on, get up. Display only,
+   billed 8 minutes. Solo work builds hands and a plan, not pressure; leaving is the win. */
+const STREETWK=[2,5,8];
+const STREET=[
+ ['Fence and talk, 2 min','hands open at chest height, palms out, feet bladed. Say "I do not want any trouble" out loud. The fence is a guard and a boundary, never a challenge'],
+ ['Cover up x10','forearms against the head, elbows in, chin down. Cover first, then step out and leave. Practice it from the fence, not from a fighting stance'],
+ ['Cover, collar tie x5 each side','cover a swing, then wrap the back of the neck with your near hand and keep your elbows in. You are holding on, not winning'],
+ ['Stand up from the floor x3 each side','one hand and one foot down, back toward a wall, rise into stance with your hands up. Slow first, then a little faster']
+];
 /* ---- round-aware calling ---- */
 function roundCall(label,k){
   const L=String(label).toLowerCase();
@@ -1376,14 +1409,14 @@ function buildSegs(k,day){
   if(k==='thu'||k==='sat'){
     const st=adaptItems(day.t).filter(x=>/^30s/i.test(x[0])).map(x=>x[0].replace(/^30s\s*/i,''));
     for(let r=1;r<=R;r++){
-      st.forEach((nm,i)=>segs.push({d:30,type:'work',label:nm,next:i<st.length-1?st[i+1]:'rest 1:00',round:r,call:stationCall(nm)}));
+      st.forEach((nm,i)=>segs.push({d:30,type:'work',label:nm,next:i<st.length-1?st[i+1]:(r<R?'rest '+fmt(rs):''),round:r,call:stationCall(nm)}));
       if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:st[0],round:r,cue:nextCue()});
     }
   }else{
     const labels=adaptItems(day.r||[]).map(x=>x.length>1&&x[0].length<=4?(x[0]+' · '+x[1]):x[0]);
     for(let r=1;r<=R;r++){
       const L=labels[r-1]||('Round '+r);
-      segs.push({d:wk2,type:'work',label:L,next:r<R?'rest 1:00':'',round:r,call:roundCall(L,k)});
+      segs.push({d:wk2,type:'work',label:L,next:r<R?'rest '+fmt(rs):'',round:r,call:roundCall(L,k)});
       if(r<R)segs.push({d:rs,type:'rest',label:'Rest',next:labels[r]||('Round '+(r+1)),round:r,cue:nextCue()});
     }
   }
@@ -1889,6 +1922,9 @@ const ugo=document.getElementById('updgo');
 if(ugo)ugo.addEventListener('click',applyUpdate);
 if('serviceWorker' in navigator){
   const hadController=!!navigator.serviceWorker.controller;
+  /* tells an installing build that this page can show the Update bar, so it
+     waits for the tap instead of swapping underneath a session */
+  navigator.serviceWorker.onmessage=e=>{if(e.data&&e.data.type==='PING_UPDATE'&&e.source&&e.source.postMessage)e.source.postMessage({type:'CAN_PROMPT'});};
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
       SWREG=reg;
