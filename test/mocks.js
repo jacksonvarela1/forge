@@ -151,9 +151,23 @@ function makeContext(localStore, knownIds) {
     AudioContext: class {
       constructor() { this.state = 'running'; this.currentTime = 0; this.destination = {}; }
       createOscillator() { return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; }
-      createGain() { return { connect() {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } }; }
+      createGain() { return { connect() {}, gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {} } }; }
+      createBufferSource() { return { buffer: null, loop: false, connect() {}, start() { this.started = true; }, stop() { this.stopped = true; } }; }
       resume() {}
-    }
+    },
+    OfflineAudioContext: class {
+      constructor(ch, len, sr) { this.length = len; this.sampleRate = sr; this.destination = {}; }
+      createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+      createOscillator() { return { type: '', frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, start() {}, stop() {} }; }
+      createGain() { return { connect() {}, gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } }; }
+      createBufferSource() { return { buffer: null, connect() {}, start() {}, stop() {} }; }
+      createBiquadFilter() { return { type: '', frequency: { value: 0 }, connect() {} }; }
+      startRendering() { return Promise.resolve({ duration: this.length / this.sampleRate, length: this.length }); }
+    },
+    btoa: s => Buffer.from(String(s), 'binary').toString('base64'),
+    atob: s => Buffer.from(String(s), 'base64').toString('binary'),
+    location: { origin: 'https://example.test', pathname: '/forge/', search: '', hash: '' },
+    history: { replaceState() {} }
   };
   sandbox.window = sandbox;
 

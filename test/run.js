@@ -856,7 +856,7 @@ async function main() {
     assert(mm.g('guardSwitch(0,2)') === true, 'guard: and goes through on a yes');
     // reset arms first, fires second
     mm.g('elReset.click()');
-    assert(mm.g('T.state') === 'run' && mm.g('elReset.textContent') === 'Tap again', 'guard: first Reset tap only arms it');
+    assert(mm.g('T.state') === 'run' && mm.g('elReset.textContent') === 'Sure?', 'guard: first Reset tap only arms it');
     mm.g('elReset.click()');
     assert(mm.g('T.state') === 'ready', 'guard: second tap resets');
   }
@@ -1367,6 +1367,406 @@ async function main() {
     await p;
     assert(deleted.length === 0, 'sw: a missing manifest prunes nothing');
     assert(/importScripts\('\.\/audio\/manifest\.js\?b=' \+ CACHE\)/.test(swSrc3), 'sw: the manifest import is versioned');
+  }
+
+  /* ===== v25: the coach reads you, the moves light up ===== */
+  {
+    // the coach check-in: Tuesday of week 1 is a four round day
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1)');
+    assert(mm.g('coachRead()') === null, 'coach: nothing is read until all three questions are answered');
+    const set = (s, l, b) => mm.g(`READY[todayISO()]={s:${s},l:${l},b:${b}}`);
+    set(0, 0, 0);
+    assert(mm.g('coachRead().level') === 'go' && mm.g('coachRead().cut') === 0, 'coach: all clear means run it as written');
+    set(1, 1, 0);
+    assert(mm.g('coachRead().level') === 'trim' && mm.g('coachRead().cut') === 1, 'coach: short sleep and heavy legs take a round off');
+    set(0, 0, 1);
+    assert(mm.g('coachRead().level') === 'trim' && /Sore/.test(mm.g('coachRead().msg')), 'coach: soreness trims too');
+    set(1, 0, 0);
+    assert(mm.g('coachRead().level') === 'note' && mm.g('coachRead().cut') === 0, 'coach: one thing off is a note, not a cut');
+    set(0, 0, 2);
+    assert(mm.g('coachRead().level') === 'stop' && mm.g('coachRead().cut') === 3, 'coach: pain stops the kicking and leaves one round');
+    set(0, 0, 0);
+    mm.g("DONE={'0-0':'2026-07-12','0-2':'2026-07-13'};DEBRIEF={'0-0':{e:4},'0-2':{e:4}}");
+    assert(mm.g('coachRead().level') === 'trim' && /cooked/i.test(mm.g('coachRead().msg')), 'coach: two cooked sessions in a row trim the next');
+    mm.g("DONE={};DEBRIEF={};READY={};READY['2026-07-14']={s:1,l:0,b:0};READY['2026-07-13']={s:1};READY['2026-07-12']={s:1}");
+    assert(mm.g('shortNights()') === 3 && mm.g('coachRead().level') === 'trim', 'coach: three short nights in a week trim');
+    mm.g("lifeAct('applyread',{})");
+    assert(mm.g('CUT') === 3, 'coach: Apply cuts Tuesday to technique plus one round after three short nights');
+    mm.g("READY={};lifeAct('ready',{dataset:{k:'s',v:'1'}})");
+    assert(mm.g("READY[todayISO()].s") === 1 && /forge:more/.test(mm.g("localStorage.getItem('forge:more')?'forge:more':''")), 'coach: a tap is remembered and persisted');
+    mm.g('paintCheckin()');
+    assert(/Coach check-in/.test(mm.g('checkinEl.innerHTML')), 'coach: the check-in card shows on today before the session');
+    mm.g('toggleDone(0,1);paintCheckin()');
+    assert(mm.g('checkinEl.innerHTML') === '', 'coach: and goes away once the session is logged');
+    assert(/How was it\?/.test(mm.g('panel.innerHTML')), 'coach: a logged session asks how it went');
+    mm.g("lifeAct('debrief',{dataset:{e:'3'}})");
+    assert(mm.g("DEBRIEF['0-1'].e") === 3, 'coach: the debrief is stored');
+  }
+  {
+    // Fight IQ remembers misses
+    const mm = await lifeMachine({}, '2026-10-01', '2026-09-28');
+    mm.g("iqmMark('Teep',false)");
+    assert(mm.g("IQM['Teep'].b") === 0 && mm.g("IQM['Teep'].due") === '2026-10-02', 'iq: a miss comes back tomorrow');
+    mm.g("iqmMark('Teep',true);iqmMark('Teep',true)");
+    assert(mm.g("IQM['Teep'].b") === 2 && mm.g("IQM['Teep'].due") === '2026-10-05', 'iq: two hits stretch the gap to four days');
+    mm.g("IQM={'Jab (1)':{b:0,r:0,w:1,due:'2026-10-01'}};selectWeek(3)");
+    let hits = 0;
+    for (let i = 0; i < 200; i++) if (mm.g('qpick().m.name') === 'Jab (1)') hits++;
+    assert(hits > 120, 'iq: what you missed is asked far more often (' + hits + ' of 200)');
+    assert(mm.g('iqmDue().length') === 1, 'iq: one card is due today');
+    mm.g('paintIQ()');
+    assert(/due today/.test(mm.g('iqstatsEl.innerHTML')), 'iq: the stats show how many are due');
+  }
+  {
+    // the skill tree lights up from what was really drilled
+    const mm = await lifeMachine({ '0-0': '2026-07-13', '1-0': '2026-07-20', '2-0': '2026-07-27' }, '2026-07-28', '2026-07-13');
+    const counts = JSON.parse(mm.g('JSON.stringify(drilledCounts())'));
+    assert(counts['Leg Kick'] >= 3, 'tree: three Monday sessions put the leg kick in three sessions (' + counts['Leg Kick'] + ')');
+    assert(mm.g("moveState('Leg Kick',drilledCounts(),reachedWeek())") === 'drilled', 'tree: three sessions is drilled');
+    mm.g("IQM['Leg Kick']={b:2,r:2,w:0,due:'2026-08-01'}");
+    assert(mm.g("moveState('Leg Kick',drilledCounts(),reachedWeek())") === 'tempered', 'tree: drilled plus remembered is tempered');
+    assert(mm.g("moveState('Wrapping Hands',drilledCounts(),reachedWeek())") === 'locked', 'tree: a week 5 move is locked in week 3');
+    const html = mm.g('treeHTML()');
+    assert(/of 86 moves drilled/.test(html) && /st-locked/.test(html) && /st-tempered/.test(html), 'tree: summary and every state render');
+    assert(!/undefined|NaN/.test(html), 'tree: clean markup');
+  }
+  {
+    // weeks held, best streak, the week line
+    const mm = await lifeMachine({ '0-0': '2026-07-13', '0-1': '2026-07-14', '0-2': '2026-07-15', '0-3': '2026-07-16' }, '2026-07-16', '2026-07-13');
+    assert(mm.g('weeksHeld()') === 1, 'held: four sessions in a week is a week held');
+    assert(mm.g('noteBest()') >= 4 && mm.g('BEST') >= 4, 'held: the best streak is remembered');
+    const line = mm.g('weekLine(0)');
+    assert(/THE FORGE \| Jackson \| WEEK 1/.test(line) && /4\/7 sessions/.test(line), 'held: the week line says what happened');
+    assert(!new RegExp('[' + String.fromCharCode(8211, 8212) + ']').test(line), 'held: no dashes in what gets pasted into a group chat');
+    mm.g("DONE={};EXTRA=[{d:todayISO(),t:'shadow',m:3,light:true}]");
+    assert(mm.g('streak()') === 1, 'held: a light day keeps the streak alive');
+  }
+  {
+    // just one round is a light day and never the day's real session
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1)');
+    const sp = mm.speech.length;
+    assert(mm.g('startOneRound()') === true && mm.g('T.quick') === true && mm.g('T.state') === 'run', 'one round: it starts straight away');
+    assert(mm.g('sessionRunning()') === true, 'one round: the app knows a round is live');
+    mm.g('render()');
+    assert(mm.g('T.quick') === true && mm.g('T.state') === 'run', 'one round: a repaint does not destroy it');
+    mm.clock.advance(200000);
+    assert(mm.g('T.state') === 'done' && mm.g('EXTRA.length') === 1 && mm.g('EXTRA[0].light') === true, 'one round: finishing logs a light day');
+    assert(mm.speech.slice(sp).some(s => /Free shadow/.test(s)), 'one round: the coach names it');
+    mm.g('focusBtn(0)');
+    assert(mm.g('isDone(0,1)') === false && mm.g('FOCUS') === false, 'one round: closing it never logs the real session');
+    assert(mm.g('T.quick') !== true, 'one round: the normal session is back on the timer');
+  }
+  {
+    // combo tap
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('ctNew()');
+    assert(mm.g('CT.seq.length') === 2 && mm.g('CT.seq.every(n=>n>=1&&n<=3)'), 'combo tap: week 1 starts with two punches from 1 to 3');
+    const seq = JSON.parse(mm.g('JSON.stringify(CT.seq)'));
+    assert(mm.g(`ctTap(${seq[0]})`) === 'ok' && mm.g(`ctTap(${seq[1]})`) === 'next' && mm.g('CT.streak') === 1, 'combo tap: the right taps score');
+    const s2 = JSON.parse(mm.g('JSON.stringify(CT.seq)'));
+    const wrong = s2[0] === 1 ? 2 : 1;
+    assert(mm.g(`ctTap(${wrong})`) === 'bad' && mm.g('CT.streak') === 0 && mm.g('CTBEST') === 1, 'combo tap: a wrong tap resets the streak but keeps the best');
+    mm.g("IQMODE='numbers';paintCard()");
+    assert(/COMBO TAP/.test(mm.g('cardEl.innerHTML')) && /Cross/.test(mm.g('cardEl.innerHTML')), 'combo tap: the numbers screen draws');
+  }
+  {
+    // the Home Screen gate
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('paintA2hs()');
+    assert(mm.g('a2hsEl.innerHTML') === '', 'a2hs: nothing shows off Safari');
+    mm.g("navigator.userAgent='Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)';navigator.standalone=false;paintA2hs()");
+    assert(/Add to Home Screen/.test(mm.g('a2hsEl.innerHTML')), 'a2hs: a buddy on Safari is told how to install it');
+    mm.g("lifeAct('a2dismiss',{})");
+    assert(mm.g('a2hsEl.innerHTML') === '' && mm.g("localStorage.getItem('forge:a2hs')") === '1', 'a2hs: Not now is remembered');
+    assert(mm.g("STORE_KEYS.indexOf('forge:more')>=0") === true, 'persist: the new bag is a known key');
+  }
+
+  /* ===== v25 content: street rules, fix-it, opponents, gym kit ===== */
+  {
+    const NODASH = new RegExp('[' + String.fromCharCode(8211, 8212) + ']');
+    const mm = await lifeMachine({}, '2026-07-21', '2026-07-13'); // a Tuesday in week 2
+    const deck = JSON.parse(mm.g('JSON.stringify(STREETDECK)'));
+    assert(deck.length === 14 && deck.every(c => c.q && c.steps.length >= 2 && c.steps.length <= 4 && c.cue), 'street: fourteen complete cards');
+    assert(!NODASH.test(JSON.stringify(deck)), 'street: no em or en dashes');
+    const all = JSON.stringify(deck);
+    assert(!/Laws vary by state/.test(all) && /ask a lawyer/.test(all), 'street: no legal-sounding standard, it says ask a lawyer');
+    assert(/Do not drive yourself/.test(all) && /few witnesses/.test(all) && /do not go\. Yell/.test(all), 'street: the reviewed safety wording is in');
+    assert(!/\bBJJ\b/.test(all), 'street: nothing assumes the reader has BJJ');
+    mm.g("IQMODE='street';paintCard()");
+    assert(/STREET RULES/.test(mm.g('cardEl.innerHTML')) && !/REMEMBER/.test(mm.g('cardEl.innerHTML')), 'street: the question shows before the answer');
+    mm.g("lifeAct('strev',{})");
+    assert(/REMEMBER/.test(mm.g('cardEl.innerHTML')), 'street: reveal shows the steps and the cue');
+    const first = mm.g('ST.i');
+    mm.g("lifeAct('stnext',{})");
+    assert(mm.g('ST.i') !== first && mm.g('ST.rev') === false, 'street: next moves to a different scenario');
+
+    // fix-it
+    const fx = JSON.parse(mm.g('JSON.stringify(FIXIT)'));
+    const names = JSON.parse(mm.g('JSON.stringify(CHECK5.map(c=>c[0]))'));
+    assert(fx.length === 5 && fx.every((f, i) => f.name === names[i] && f.drills.length === 3 && f.camera && f.why), 'fix-it: one block per checkpoint, three drills each');
+    assert(!NODASH.test(JSON.stringify(fx)), 'fix-it: no em or en dashes');
+    mm.g('CHECKS={0:[1,0,1,1,1]};selectWeek(1);selectDay(1)');
+    assert(mm.g('fixTarget()') === 1 && /Fix-it: Feet/.test(mm.g('panel.innerHTML')), 'fix-it: a missed Feet check puts a Feet block in next week Tuesday');
+    mm.g('selectDay(3)');
+    assert(!/Fix-it/.test(mm.g('panel.innerHTML')), 'fix-it: hard days stay as they are');
+    mm.g('CHECKS={0:[1,1,1,1,1]};selectDay(1)');
+    assert(mm.g('fixTarget()') === -1 && !/Fix-it/.test(mm.g('panel.innerHTML')), 'fix-it: a clean tape adds nothing');
+    mm.g('CHECKS={0:[1,0,0,1,1],1:[0,0,1,1,1]};selectWeek(2);selectDay(1)');
+    assert(mm.g('fixTarget()') === 1, 'fix-it: of several misses it picks the one that has failed most');
+    mm.g('selectWeek(0);selectDay(6)');
+    assert(/Film it once/.test(mm.g('panel.innerHTML')), 'fix-it: the tape card says where to put the phone');
+    mm.g('CHECKS={};selectWeek(1);selectDay(1)');
+    const flow = +(/ftot">&#8776; (\d+) min/.exec(mm.g('panel.innerHTML')) || [0, 0])[1];
+    assert(flow > 0 && flow <= 60, 'fix-it: sessions still fit the hour');
+  }
+  {
+    // opponents for free rounds
+    const mm = await lifeMachine({}, '2026-07-15', '2026-07-13'); // Wednesday, hands only
+    mm.g('selectWeek(0);selectDay(2)');
+    let bad = 0;
+    for (let i = 0; i < 300; i++) if (/legs|kick|sprawl|wrestler/i.test(mm.g('archLine()'))) bad++;
+    assert(bad === 0, 'opponents: a hands-only day never names a kicker or a wrestler (' + bad + ')');
+    mm.g('selectDay(0)');
+    let seen = 0;
+    for (let i = 0; i < 400; i++) if (/chops your legs|wrestler/i.test(mm.g('archLine()'))) seen++;
+    assert(seen > 0, 'opponents: Monday can face the kicker and the wrestler');
+    const mon = await lifeMachine({}, '2026-07-13', '2026-07-13');
+    mon.g('selectWeek(0);selectDay(0);elGo.click()');
+    const sp = mon.speech.length;
+    const segs = JSON.parse(mon.g('JSON.stringify(T.segs.map(s=>({d:s.d})))'));
+    mon.clock.advance(segs.reduce((n, s) => n + s.d * 1000, 0) + 60000);
+    assert(mon.speech.slice(sp).some(s => /^Your man/.test(s)), 'opponents: the free round names who you are fighting');
+  }
+  {
+    // the gym bridge kit, with the reviewer fixes
+    const mm = await lifeMachine({ '0-0': '2026-07-13', '0-1': '2026-07-14', '1-0': '2026-07-20' }, '2026-07-21', '2026-07-13');
+    const dm = mm.g('gymDM()');
+    assert(/Jackson/.test(dm) && /Fayetteville/.test(dm) && /about 2 weeks/.test(dm) && /BJJ/.test(dm), 'gym: the message uses his name and his real number of weeks');
+    mm.g("WHO='Pax';GYMS=null");
+    const dm2 = mm.g('gymDM()');
+    assert(/Pax/.test(dm2) && !/Fayetteville|BJJ/.test(dm2), 'gym: a buddy never sends a claim that is not his');
+    mm.g("lifeAct('gkbjj',{})");
+    assert(/BJJ/.test(mm.g('gymDM()')), 'gym: BJJ appears only when switched on');
+    assert(!/BJJ/.test(mm.g('GYMKIT.callScript')) && /Pax/.test(mm.g('gymCall()')), 'gym: the call script is generic and names the caller');
+    const kit = JSON.stringify(JSON.parse(mm.g('JSON.stringify(GYMKIT)')));
+    assert(/Do not spar on day one, even if they offer/.test(kit) && !/Never spar on day one unless/.test(kit), 'gym: no sparring on day one, even when offered');
+    assert(/who teaches it/.test(kit) && !/Is \[name\] the right coach/.test(kit), 'gym: the phone script is something he can actually say');
+    assert(/unless the gym trains in shoes/.test(kit), 'gym: the shoes rule is not stated as universal');
+    assert(!new RegExp('[' + String.fromCharCode(8211, 8212) + ']').test(kit), 'gym: no em or en dashes');
+    mm.g("lifeAct('gkscore',{dataset:{g:'0',c:'0'}});lifeAct('gkscore',{dataset:{g:'0',c:'0'}});lifeAct('gkscore',{dataset:{g:'1',c:'2'}})");
+    assert(mm.g('GYMS.s[0][0]') === 2 && mm.g('GYMS.s[1][2]') === 1, 'gym: a tap cycles the score');
+    mm.g("lifeAct('gkscore',{dataset:{g:'0',c:'0'}});lifeAct('gkscore',{dataset:{g:'0',c:'0'}})");
+    assert(mm.g('GYMS.s[0][0]') === 0, 'gym: three is the top and the next tap wraps to zero');
+    const html = mm.g('gymHTML()');
+    assert((html.match(/gkcell s/g) || []).length === 15 && /Total/.test(html) && !/undefined|NaN/.test(html), 'gym: five criteria across three gyms, clean markup');
+    assert(/forge:more/.test(mm.g("localStorage.getItem('forge:more')?'forge:more':''")), 'gym: scores persist');
+    mm.g('paintGym()');
+    assert(/Gym bridge kit/.test(mm.g('gymkitEl.innerHTML')), 'gym: the Gear tab draws it');
+  }
+
+  /* ===== v26: the beat and the rival ===== */
+  const settle = async () => { for (let i = 0; i < 4; i++) await new Promise(r => setImmediate(r)); };
+  {
+    const mm = await lifeMachine({}, '2026-07-13', '2026-07-13'); // Monday, technical
+    assert(mm.g('beatBpm()') === 96, 'beat: a technical day runs at 96');
+    mm.g('selectDay(3)');
+    assert(mm.g('beatBpm()') === 120, 'beat: Thursday, the hard day, runs at 120');
+    mm.g('selectDay(6)');
+    assert(mm.g('beatBpm()') === 84, 'beat: the restore day runs at 84');
+    mm.g('selectDay(0)');
+    mm.g("lifeAct('beat',{})");
+    assert(mm.g('BEAT_ON') === true && /"beat":true/.test(mm.g("localStorage.getItem('forge:opts')")), 'beat: the switch is remembered');
+    mm.g('selectWeek(0);selectDay(0);elGo.click()');
+    await settle();
+    assert(mm.g('!!beatSrc') === false, 'beat: silent during the get-set countdown');
+    mm.clock.advance(11000);
+    await settle();
+    assert(mm.g('!!beatSrc') === true && mm.g('BEATKEY') === '96', 'beat: starts with the first work round at the day tempo');
+    assert(mm.g('beatSrc.loop') === true, 'beat: it loops inside the audio engine, so a locked phone keeps it');
+    mm.g('elGo.click()'); // pause
+    await settle();
+    assert(mm.g('!!beatSrc') === false, 'beat: pausing silences it');
+    mm.g('elGo.click()'); // resume
+    await settle();
+    assert(mm.g('!!beatSrc') === true, 'beat: resuming brings it back');
+    mm.clock.advance(185000);
+    await settle();
+    assert(mm.g('T.segs[T.i].type') === 'rest' && mm.g('!!beatSrc') === false, 'beat: rest rounds are quiet');
+    mm.clock.advance(1200000);
+    await settle();
+    assert(mm.g('T.state') === 'done' && mm.g('!!beatSrc') === false, 'beat: the session end stops it');
+    assert(mm.g('beatCache[96] && beatCache[96].length > 0') === true, 'beat: the loop is rendered once and cached');
+    mm.g("lifeAct('beat',{})");
+    assert(mm.g('BEAT_ON') === false, 'beat: and switches off');
+  }
+  {
+    // rival
+    const mm = await lifeMachine({ '0-0': '2026-07-13', '0-1': '2026-07-14', '0-2': '2026-07-15' }, '2026-07-20', '2026-07-13');
+    const code = mm.g('rivalCode()');
+    const back = JSON.parse(mm.g(`JSON.stringify(parseRival(${JSON.stringify(code)}))`));
+    assert(back && back.n === 'Jackson' && back.s === '2026-07-13' && back.o.join(',') === '0,1,2', 'rival: the code round-trips name, start and every session day');
+    assert(code.length < 400 && /^[A-Za-z0-9_-]+$/.test(code), 'rival: short and URL safe (' + code.length + ')');
+    assert(/#r=/.test(mm.g('rivalLink()')) && /^https:\/\/example\.test\/forge\/#r=/.test(mm.g('rivalLink()')), 'rival: the link is the app address plus the code');
+    const enc = o => mm.g(`b64e(JSON.stringify(${JSON.stringify(o)}))`);
+    assert(mm.g('parseRival("not base64!")') === null, 'rival: garbage is rejected');
+    assert(mm.g(`parseRival(${JSON.stringify(enc({ n: 'x'.repeat(40), s: '2026-07-13', o: [1] }))})`) === null, 'rival: a long name is rejected');
+    assert(mm.g(`parseRival(${JSON.stringify(enc({ n: 'Pax', s: 'tomorrow', o: [1] }))})`) === null, 'rival: a bad date is rejected');
+    assert(mm.g(`parseRival(${JSON.stringify(enc({ n: 'Pax', s: '2026-07-13', o: new Array(300).fill(1) }))})`) === null, 'rival: an oversized list is rejected');
+    const odd = JSON.parse(mm.g(`JSON.stringify(parseRival(${JSON.stringify(enc({ n: '<b>Pax</b>', s: '2026-07-13', o: [0, -4, 2.5, 3, 9999] }))}))`));
+    assert(odd && odd.o.join(',') === '0,3', 'rival: nonsense day numbers are dropped');
+
+    // the ghost
+    mm.g("RIVAL={n:'Pax',s:'2026-07-13',o:[0,1,2,3,4,5,6,7,8,9],t:''};paintToday()");
+    const card = mm.g('todayCardEl.innerHTML');
+    assert(/Rival/.test(card) && /Pax was 5 ahead/.test(card), 'rival: Pax had eight sessions by day 8 and you have three');
+    mm.g("RIVAL={n:'Pax',s:'2026-07-13',o:[0],t:''};paintToday()");
+    assert(/You are 2 ahead of Pax/.test(mm.g('todayCardEl.innerHTML')), 'rival: ahead is said too');
+    mm.g("RIVAL={n:'<img src=x>',s:'2026-07-13',o:[0],t:''};paintToday()");
+    assert(!/<img src=x>/.test(mm.g('todayCardEl.innerHTML')), 'rival: a hostile name cannot inject markup');
+
+    // accepting a challenge
+    mm.g("RIVAL=null;PENDING_RIVAL={n:'Pax',s:'2026-07-13',o:[0,1],t:''}");
+    assert(/Accept the challenge/.test(mm.g('lifeBannerHTML()')), 'rival: a pending challenge asks first');
+    mm.g("lifeAct('rivalaccept',{})");
+    assert(mm.g('RIVAL.n') === 'Pax' && mm.g('PENDING_RIVAL') === null, 'rival: accepting makes it yours');
+    assert(/Pax/.test(mm.g("localStorage.getItem('forge:more')")), 'rival: and it is saved with your camp');
+    await mm.g('boot()');
+    assert(mm.g('RIVAL && RIVAL.n') === 'Pax', 'rival: it survives a reload');
+    mm.g("lifeAct('rivalclear',{})");
+    assert(mm.g('RIVAL') === null, 'rival: dropping it works');
+    mm.g("PENDING_RIVAL={n:'Pax',s:'2026-07-13',o:[0],t:''};lifeAct('rivalno',{})");
+    assert(mm.g('PENDING_RIVAL') === null, 'rival: No thanks clears the pending challenge');
+    // a brand new phone sees the dare during onboarding
+    const nb = bootApp(new Map());
+    await nb.g('boot()');
+    nb.g("PENDING_RIVAL={n:'Jackson',s:'2026-07-13',o:[0],t:''};paintOnboard()");
+    assert(/Jackson<\/b> dared you/.test(nb.g('onboardEl.innerHTML')), 'rival: onboarding greets a new fighter with the dare');
+  }
+
+  /* ===== v25 review fixes ===== */
+  {
+    // rival ghost survives Pick up
+    const mm = await lifeMachine(mkDone(42, '2026-08-20'), '2026-10-01', '2026-07-13');
+    const before = mm.g('myOffsets().length');
+    mm.g('doResume()');
+    assert(before === 42 && mm.g('myOffsets().length') === 42, 'rival: Pick up does not drop sessions from the ghost (' + mm.g('myOffsets().length') + ')');
+    mm.g("RIVAL={n:'Pax',s:'2026-07-13',o:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],t:''};paintToday()");
+    assert(/You are \d+ ahead of Pax/.test(mm.g('todayCardEl.innerHTML')), 'rival: after Pick up Jackson is correctly shown ahead');
+    // duplicates cannot inflate a rival
+    const enc = mm.g(`b64e(JSON.stringify({n:'Pax',s:'2026-07-13',o:[3,3,3,1,1,2]}))`);
+    assert(mm.g(`parseRival(${JSON.stringify(enc)}).o.join(',')`) === '1,2,3', 'rival: duplicate days collapse and sort');
+  }
+  {
+    // the coach follows the program's own rules
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13'); // Tuesday W1
+    mm.g('selectWeek(0);selectDay(1)');
+    mm.g("READY[todayISO()]={s:1,l:1,b:0}");
+    assert(!/60 percent|70 percent/.test(mm.g('coachRead().msg')), 'coach: never quotes a percent that could clash with a week cap');
+    mm.g("READY[todayISO()]={s:0,l:0,b:2}");
+    assert(/no kicks for 10 days/.test(mm.g('coachRead().msg')), 'coach: pain matches the stop rule on the Monday flag');
+    // short nights: Thursday and Saturday go to three rounds, skill days stay
+    mm.g("READY={};READY['2026-07-14']={s:1,l:0,b:0};READY['2026-07-13']={s:1};READY['2026-07-12']={s:1}");
+    mm.g('selectDay(3)');
+    mm.clock.jumpSilent(2 * 86400000);
+    mm.g("READY={};READY[todayISO()]={s:1,l:0,b:0};READY[addDaysISO(todayISO(),-1)]={s:1};READY[addDaysISO(todayISO(),-2)]={s:1};selectWeek(0);selectDay(3)");
+    assert(mm.g('todaySlot().d') === 3, 'coach: the clock is on a Thursday');
+    assert(mm.g('coachRead().cut') === 2 && /three rounds/.test(mm.g('coachRead().msg')), 'coach: three short nights take Thursday to three rounds');
+    mm.g('selectDay(2)');
+    assert(mm.g('coachRead()') !== null, 'coach: no crash on a skill day');
+    // never throws when there is no camp slot
+    const over = await lifeMachine(mkDone(5, '2026-08-01'), '2026-10-01', '2026-07-13');
+    over.g("READY[todayISO()]={s:1,l:0,b:0};READY[addDaysISO(todayISO(),-1)]={s:1};READY[addDaysISO(todayISO(),-2)]={s:1}");
+    assert(over.g('coachRead().level') === 'note', 'coach: past the end of the calendar it degrades to a note, not an error');
+    // stale cooked ratings age out
+    const st = await lifeMachine({ '0-0': '2026-07-13', '0-1': '2026-07-14', '0-2': '2026-08-12' }, '2026-08-20', '2026-07-13');
+    st.g("DEBRIEF={'0-0':{e:4},'0-1':{e:4}};READY[todayISO()]={s:0,l:0,b:0}");
+    assert(st.g('coachRead().level') === 'go', 'coach: two cooked sessions from weeks ago no longer trim today');
+    // apply does nothing mid-session
+    st.g('selectWeek(5);selectDay(3);elGo.click()');
+    st.g("READY[todayISO()]={s:1,l:1,b:0};applyRead()");
+    assert(st.g('CUT') === 0, 'coach: Apply is ignored while a round is live');
+  }
+  {
+    // debrief belongs to its camp
+    const mm = await lifeMachine(mkDone(10, '2026-09-01'), '2026-10-01', '2026-07-13');
+    mm.g("DEBRIEF={'0-0':{e:4},'0-1':{e:4}}");
+    await mm.g('runItBack()');
+    assert(Object.keys(JSON.parse(mm.g('JSON.stringify(DEBRIEF)'))).length === 0, 'debrief: Run it back starts the new camp with no old ratings');
+    assert(mm.g("CAMPS[0].debrief['0-0'].e") === 4, 'debrief: the old ratings are archived with the old camp');
+    mm.g('undoCamp()');
+    assert(mm.g("DEBRIEF['0-0'].e") === 4, 'debrief: undo brings them back');
+    mm.g("DONE['0-0']='2026-09-01';DEBRIEF['0-0']={e:3};toggleDone(0,0)");
+    assert(mm.g("DEBRIEF['0-0']") === undefined, 'debrief: un-logging a session drops its rating');
+  }
+  {
+    // just one round: same day rules, a skipped round banks nothing
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g('selectWeek(0);selectDay(1)');
+    mm.g('startOneRound()');
+    assert(mm.g("T.dk") === 'tue' && mm.g('T.quick') === true, 'one round: it belongs to the day it was started on');
+    mm.g("globalThis.__c=0;globalThis.confirm=()=>{globalThis.__c++;return true;}");
+    assert(mm.g('guardSwitch(0,1)') === true && mm.g('globalThis.__c') === 0, 'one round: staying on the same day does not prompt');
+    mm.g('elSkip.click();elSkip.click()');
+    assert(mm.g('T.state') === 'done' && mm.g('EXTRA.length') === 0, 'one round: skipping through it logs nothing');
+    const m2 = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    m2.g('selectWeek(0);selectDay(1);startOneRound()');
+    m2.g("globalThis.confirm=()=>true;lifeAct('herostart',{})");
+    assert(m2.g('T.quick') !== true, 'one round: starting the real session ends the round first');
+  }
+  {
+    // the beat cannot stack loops
+    const mm = await lifeMachine({}, '2026-07-13', '2026-07-13');
+    mm.g("BEAT_ON=true;selectWeek(0);selectDay(0);elGo.click()");
+    mm.clock.advance(11000);
+    mm.g('globalThis.__srcs=0;(function(){const f=ac.createBufferSource.bind(ac);ac.createBufferSource=function(){globalThis.__srcs++;return f();};})()');
+    mm.g('beatStop()');
+    await Promise.all([mm.g('beatSync()'), mm.g('beatSync()'), mm.g('beatSync()')]);
+    await settle();
+    assert(mm.g('globalThis.__srcs') === 1 && mm.g('!!beatSrc') === true, 'beat: three overlapping syncs start exactly one loop (' + mm.g('globalThis.__srcs') + ')');
+  }
+  {
+    // the persisted bag is sanitised
+    const mm = await lifeMachine({}, '2026-07-14', '2026-07-13');
+    mm.g(`applyMore({ready:{'2026-07-14':'x'},debrief:{'0-0':{e:'no'},'0-1':{e:3}},iqm:{a:5,b:{b:2,due:'2026-08-01'}},gyms:{n:1,s:2},best:-4,ct:'x',rival:{n:'x'}})`);
+    assert(mm.g('coachRead()') === null, 'bag: a malformed ready entry is dropped, not crashed on');
+    assert(mm.g("Object.keys(DEBRIEF).join(',')") === '0-1' && mm.g("Object.keys(IQM).join(',')") === 'b', 'bag: only well-formed debrief and review entries survive');
+    assert(mm.g('GYMS') === null && mm.g('BEST') === 0 && mm.g('CTBEST') === 0 && mm.g('RIVAL') === null, 'bag: bad gyms, counters and rival are reset');
+    mm.g(`applyMore(JSON.parse('{"ready":{"__proto__":{"s":1}},"iqm":{"constructor":{"b":1,"due":"x"}}}'))`);
+    assert(mm.g('({}).s') === undefined && Object.keys(JSON.parse(mm.g('JSON.stringify(READY)'))).length === 0, 'bag: prototype keys are ignored');
+    mm.g("GYMS={n:['a','b','c'],s:[[1,2,3,0,1],[0,0,0,0,0],[3,3,3,3,3]],bjj:true};applyMore(moreObj())");
+    assert(mm.g('GYMS.bjj') === true && mm.g('GYMS.s[2][4]') === 3, 'bag: a valid scorecard and its BJJ flag round-trip');
+    // a stranger never speaks as Jackson
+    mm.g("WHO='';GYMS=null");
+    assert(!/Fayetteville|BJJ/.test(mm.g('gymDM()')), 'gym: with no name the message claims nothing');
+  }
+  {
+    // fix-it respects the day
+    const mm = await lifeMachine({}, '2026-07-15', '2026-07-13');
+    mm.g("CHECKS={1:[1,1,0,1,1]};selectWeek(2)");
+    mm.g('selectDay(2)'); // Wednesday, hands only
+    assert(/Fix-it: Pivot/.test(mm.g('panel.innerHTML')) && !/leg kick|Kick, land/i.test(mm.g('panel.innerHTML').replace(/<[^>]*>/g, ' ').split('Fix-it: Pivot')[1].split('Cooldown')[0]), 'fix-it: Wednesday gets the no-kick pivot drills');
+    mm.g('selectDay(4)');
+    assert(!/Slow leg kick/.test(mm.g('panel.innerHTML')), 'fix-it: Friday keeps the legs quiet too');
+    mm.g('selectDay(1)');
+    assert(/Slow leg kick/.test(mm.g('panel.innerHTML')), 'fix-it: Tuesday still gets the full pivot block');
+  }
+  {
+    // small screens and states
+    const mm = await lifeMachine({ '0-0': '2026-07-13', '1-0': '2026-07-20', '2-0': '2026-07-27' }, '2026-07-28', '2026-07-13');
+    const html = mm.g('treeHTML()');
+    assert(/st-open/.test(html) && /aria-label="[^"]*, (locked until week|not drilled yet|seen|drilled|tempered)/.test(html), 'tree: a Not yet state and a spoken state on every node');
+    mm.g('selectWeek(0)');
+    mm.g("CT.seq=[1,6,5,2]");
+    mm.g("IQMODE='numbers';paintNumbers()");
+    assert(mm.g('CT.seq.every(n=>n<=3)') === true, 'combo tap: a sequence that no longer fits the week is replaced');
+    assert(/<span>\d<\/span>/.test(mm.g('cardEl.innerHTML')), 'combo tap: the sequence is drawn as separate numbers');
+    mm.g('buildGrid()');
+    const st = mm.g("(function(){PENDING_RIVAL=null;return a2hsEl.innerHTML;})()");
+    assert(typeof st === 'string', 'a2hs: renders without throwing');
+    mm.g("navigator.userAgent='iPhone';navigator.standalone=false;paintA2hs()");
+    assert(/separate from this Safari tab, so it opens empty/.test(mm.g('a2hsEl.innerHTML')) && /finish the name screen first/.test(mm.g('a2hsEl.innerHTML')), 'a2hs: someone who has logged is told how to carry their log over');
   }
 
   console.log((failures ? 'FAILED' : 'PASSED') + ': ' + (checks - failures) + '/' + checks + ' checks across 70 sessions');

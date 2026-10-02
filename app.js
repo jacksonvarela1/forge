@@ -1,4 +1,4 @@
-const BUILD='v24';
+const BUILD='v25';
 /* ---- storage: same call shape as the artifact API, backed by localStorage outside artifacts ---- */
 const rawstorage = window.storage ?? {
   get: async k => { const v = localStorage.getItem(k); return v == null ? null : { value: v }; },
@@ -11,10 +11,10 @@ const rawstorage = window.storage ?? {
    un-prefixed keys, so nothing already logged moves an inch; everyone else
    lives under their own prefix. Who is active and the roster are shared. */
 let WHO='';
-const SHARED_KEYS={'forge:who':1,'forge:names':1};
+const SHARED_KEYS={'forge:who':1,'forge:names':1,'forge:a2hs':1};
 /* every key a fighter owns, so backup, restore and profile switches loop one
    list instead of each remembering its own */
-const STORE_KEYS=['forge:bench','forge:bk','forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
+const STORE_KEYS=['forge:more','forge:bench','forge:bk','forge:week','forge:done','forge:opts','forge:iq','forge:bw','forge:notes','forge:start','forge:startv','forge:check','forge:skip','forge:resume','forge:extra','forge:camps','forge:finish'];
 function slugOf(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function nsKey(k){
   if(SHARED_KEYS[k])return k;
@@ -205,6 +205,7 @@ function toggleDone(w,d){
     const st=parseISO(DONE[k]);
     if(st&&Math.round((noonToday()-st)/86400000)>7&&typeof confirm==='function'&&!confirm('This one was logged over a week ago. Remove it from your record?'))return;
     delete DONE[k];
+    if(DEBRIEF[k]){delete DEBRIEF[k];saveMore();}
   }else{
     DONE[k]=todayISO();
     if(SKIP[k]){delete SKIP[k];saveSkip();}
@@ -231,7 +232,7 @@ function paintDone(){
    chip and is green; this marker sits at the top and is ember, so browsing
    ahead never makes you lose your place. */
 function paintNow(){
-  paintCampBar();paintHero();paintHeat();
+  paintCampBar();paintHero();paintHeat();paintCheckin();paintGear();noteBest();
   const slot=todaySlot();
   document.querySelectorAll('.wchip').forEach((c,x)=>c.classList.toggle('now',!!slot&&x===slot.w));
   document.querySelectorAll('.daytab').forEach((t,x)=>t.classList.toggle('now',!!slot&&x===slot.d&&wIdx===slot.w));
@@ -338,6 +339,7 @@ function rankOf(n){let r=RANKS[0][1];RANKS.forEach(x=>{if(n>=x[0])r=x[1];});retu
    days are part of the plan, a week off is not */
 function streak(){
   const days=new Set(Object.keys(DONE).map(k=>DONE[k]).filter(v=>typeof v==='string'));
+  EXTRA.forEach(x=>{if(x&&typeof x.d==='string')days.add(x.d);});
   let n=0,gap=0;const d=new Date();
   for(let i=0;i<400;i++){
     const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -385,7 +387,7 @@ function render(){
   if(m.warm)B.push({n:'Warm-up',s:'Warm',du:'5 min',it:WARM[m.warm]});
   if(k==='thu'||k==='sat'){B.push({n:'Work',s:'Work',du:rl,it:dt,step:1});{const fm=dr&&dr[0]?/(\d+)\s*min/.exec(String(dr[0][0])):null;B.push({n:'Finisher',s:'Fin',du:(fm?fm[1]:'5')+' min',it:dr,sec:1});}}
   else if(k==='sun'){B.push({n:'Session',s:'Flow',du:'40 min',it:dt});if(dr&&dr.length)B.push({n:'Checkpoint',s:'Chk',du:'',it:dr,sec:1});}
-  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1,step:1});}
+  else{B.push({n:'Technique',s:'Tech',du:'15 min',it:dt});{const fb=fixBlock(k);if(fb)B.push(fb);}B.push({n:'Rounds',s:'Rnds',du:rl,it:dr,sec:1,step:1});}
   /* Partner work is billed at 10 minutes and comes OUT of the Rounds block, it is
      never bolted on top: the session is capped at 60 minutes and a free sixth
      block is how a 45 minute session quietly becomes 70. */
@@ -403,7 +405,7 @@ function render(){
    <div class="pairline">${m.lift}</div>
    ${(wIdx>0&&NOTES[dkey(wIdx-1,dIdx)])?`<div class="pairline"><b>Last ${m.abbr}:</b> ${String(NOTES[dkey(wIdx-1,dIdx)]).replace(/</g,'&lt;')}</div>`:''}
    <div class="meter">${segs}<span class="mlabel">Intensity ${m.intensity}/5</span></div>
-   <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button></div>
+   <div class="swrow"><button class="sw${VOICE_ON?' on':''}" id="swV" type="button">${VOICE_ON?'&#9679;':'&#9675;'} Voice coach</button><button class="sw${CALLER_ON?' on':''}" id="swC" type="button">${CALLER_ON?'&#9679;':'&#9675;'} Combo caller</button><button class="sw${BEAT_ON?' on':''}" data-act="beat" type="button">${BEAT_ON?'&#9679;':'&#9675;'} Beat</button></div>
    <div class="swrow"><button class="sw${BAG_ON?' on':''}" id="swB" type="button">${BAG_ON?'&#9679;':'&#9675;'} Heavy bag</button><button class="sw${PARTNER_ON?' on':''}" id="swP" type="button">${PARTNER_ON?'&#9679;':'&#9675;'} Partner</button></div>
    ${flowbar}
    ${blocks}
@@ -413,7 +415,7 @@ function render(){
    ${(BAG_ON&&wIdx===BAGWEEK)?`<div class="flag">Bag work starts this week. Most of the week is still air work until the bag is hanging. The moment it is up: wraps and 16 oz gloves every round, hands and kicks at 50 percent, and stop the second a wrist or a shin complains.</div>`:''}${(BAG_ON&&wIdx===BAGWEEK+1)?`<div class="flag">First full week on the bag. Wraps and 16 oz gloves every round, no exceptions. Hands and kicks stay at 50 percent all week no matter how good it feels: your wrists and shins are brand new to impact. Boxer’s wrist happens in week one on the bag, not week five. Sore shins mean back off, not push on.</div>`:''}
    ${(PARTNER_ON&&k!=='sun')?`<div class="flag">${wIdx<=BAGWEEK?`Partner drills start in week ${BAGWEEK+1}. Until you have a partner these are a preview. `:''}${PARTNER_RULES}</div>`:''}
    ${k==='sun'?checkCard():''}
-   <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>
+   <div class="dbtnwrap"><button class="dbtn${isDone(wIdx,dIdx)?' on':''}" id="dbtn" type="button">${isDone(wIdx,dIdx)?'&#10003; Session logged':'Mark session done'}</button>${debriefHTML()}
     <textarea class="srch notebox" id="notebox" rows="2" placeholder="How did it go? What felt off? Two words is enough.">${(NOTES[dkey(wIdx,dIdx)]||'').replace(/</g,'&lt;')}</textarea></div>`;
   const db=document.getElementById('dbtn');
   if(db)db.addEventListener('click',()=>toggleDone(wIdx,dIdx));
@@ -662,7 +664,7 @@ function liveHTML(slot){
   const dn=Math.min(70,Math.max(1,campDayCount()));
   return `<div class="card${doneToday?' cardon':''}"><div class="cardhead"><span class="cardtitle">Today</span><span class="cardtag">Week ${slot.w+1} &middot; ${m.abbr}</span></div>
       <div class="todaytitle">${m.title}</div>
-      <div class="bwline"><b>Day ${dn} of 70</b>${streak()>1?` &middot; ${streak()} straight`:''}. ${status}${owed?` <b>${owed}</b> session${owed>1?'s':''} still open behind you.`:(fresh?'':' Nothing outstanding behind you.')}</div>
+      <div class="bwline"><b>Day ${dn} of 70</b>${streak()>1?` &middot; ${streak()} straight${BEST>streak()?' (best '+BEST+')':''}`:''}. ${status}${owed?` <b>${owed}</b> session${owed>1?'s':''} still open behind you.`:(fresh?'':' Nothing outstanding behind you.')}</div>
       ${MILESTONES[slot.w]?`<div class="bwnote" style="color:var(--ember)">${MILESTONES[slot.w]}</div>`:''}
       <div class="bwform">${abtn('gotoday','Open today','pri')}${(stamp&&!doneToday)?abtn('trainnow','Train today'):`<button class="sw${doneToday?' on':''}" data-act="marktoday" type="button">${doneToday?'&#10003; Done':'Mark done'}</button>`}</div>
       ${mk?`<div class="bwform">${abtn('makeup','Make up '+DAYMETA[DK[mk.d]].abbr+' &middot; short version','',` data-w="${mk.w}" data-d="${mk.d}"`)}</div>`:''}
@@ -700,6 +702,10 @@ function preHTML(){
       <div class="bwline">${days} day${days===1?'':'s'} to go. Until then the Moves tab and a few easy shadow rounds are plenty.</div>${undoCampHTML()}</div>`;
 }
 function paintToday(){
+  paintTodayBase();
+  if(RIVAL&&todayCardEl&&campPhase()!=='unset')todayCardEl.innerHTML+=rivalHTML();
+}
+function paintTodayBase(){
   if(!todayCardEl)return;
   const ph=campPhase();
   if(ph==='live')todayCardEl.innerHTML=liveHTML(todaySlot())+(lapsed()?'':taleHTML());
@@ -709,7 +715,8 @@ function paintToday(){
       <div class="bwnote">Set the date your camp started and this becomes a live calendar: it will jump you to today's session and show what you still owe.</div></div>`;
 }
 /* Week tab landing: the first thing seen after a layoff or after the camp ends */
-function lifeBannerHTML(){
+function lifeBannerHTML(){return rivalBannerHTML()+lifeBannerCore();}
+function lifeBannerCore(){
   if(ONBOARD)return '';
   const ph=campPhase();
   if(ph==='pre'&&PRECAMP&&totDone()===0)return '<div class="wb"><div class="wbt">New camp</div><div class="bwline">Camp '+(CAMPS.length+1)+' opens '+shortDate(START)+'.</div>'+undoCampHTML()+'</div>';
@@ -755,15 +762,15 @@ async function runItBack(){
   if(sessionRunning()&&typeof confirm==='function'&&!confirm('A session is running. End it and start a new camp?'))return false;
   const dt=document.getElementById('rbdate');
   const pick=(dt&&parseISO(dt.value))?isoOf(mondayOf(parseISO(dt.value))):nextMondayISO();
-  const entry={n:CAMPS.length+1,start:START,ended:todayISO(),done:DONE,notes:NOTES,check:CHECKS,skip:SKIP,finish:FINISH};
+  const entry={n:CAMPS.length+1,start:START,ended:todayISO(),done:DONE,notes:NOTES,check:CHECKS,skip:SKIP,finish:FINISH,debrief:DEBRIEF};
   const nextCamps=CAMPS.concat([entry]);
   /* the archive is written first: if it cannot be saved, nothing is cleared */
   try{await storage.set('forge:camps',JSON.stringify(nextCamps));}
   catch(e){SAVEFAIL='Could not save to this browser, so the old camp was not archived and nothing was cleared.';try{paintTools();}catch(_){}return false;}
-  PRECAMP={done:DONE,notes:NOTES,check:CHECKS,skip:SKIP,finish:FINISH,start:START,resume:RESUME,camps:CAMPS};
+  PRECAMP={done:DONE,notes:NOTES,check:CHECKS,skip:SKIP,finish:FINISH,start:START,resume:RESUME,camps:CAMPS,debrief:DEBRIEF};
   CAMPS=nextCamps;
-  DONE={};NOTES={};CHECKS={};SKIP={};FINISH=null;RESUME=null;START=pick;RB.open=false;
-  saveDone();saveNotes();saveChecks();saveSkip();saveFinish();saveResume();saveStart();saveWeek(0);
+  DONE={};NOTES={};CHECKS={};SKIP={};FINISH=null;RESUME=null;DEBRIEF={};START=pick;RB.open=false;
+  saveDone();saveNotes();saveChecks();saveSkip();saveFinish();saveResume();saveStart();saveWeek(0);saveMore();
   recomputeBagWeek();
   wIdx=0;dIdx=0;
   const slot=todaySlot();
@@ -774,7 +781,7 @@ async function runItBack(){
 function undoCamp(){
   if(!PRECAMP||totDone()>0)return;
   const p=PRECAMP;PRECAMP=null;
-  CAMPS=p.camps;DONE=p.done;NOTES=p.notes;CHECKS=p.check;SKIP=p.skip;FINISH=p.finish;START=p.start;RESUME=p.resume||null;
+  CAMPS=p.camps;DONE=p.done;NOTES=p.notes;CHECKS=p.check;SKIP=p.skip;FINISH=p.finish;START=p.start;RESUME=p.resume||null;DEBRIEF=p.debrief||{};saveMore();
   saveCamps();saveDone();saveNotes();saveChecks();saveSkip();saveFinish();saveResume();saveStart();recomputeBagWeek();
   const slot=todaySlot();
   if(slot){wIdx=slot.w;dIdx=slot.d;}else{wIdx=Math.max(0,Math.min(W.length-1,wIdx));}
@@ -856,6 +863,10 @@ function lifeAct(a,b){
     case 'trainnow':{const s=todaySlot();if(s){DONE[dkey(s.w,s.d)]=todayISO();saveDone();paintDone();render();buildGrid();}break;}
     case 'gologtab':setView('log');break;
     case 'herostart':{
+      if(T&&T.quick&&T.state!=='done'){
+        if(typeof confirm==='function'&&!confirm('A round is running. End it and start the session?'))break;
+        endLiveSession();
+      }
       if(T&&T.state==='done')elReset.click();
       if(!(T&&T.segs&&T.running))elGo.click();
       setFocus(true);break;
@@ -871,6 +882,32 @@ function lifeAct(a,b){
       BENCH.push({d:todayISO(),t:CB.t,v:Math.round(v*10)/10});CB.v='';saveBench();paintTools();break;
     }
     case 'benchdel':{const i=+ds.id;if(i>=0&&i<BENCH.length&&!(typeof confirm==='function'&&!confirm('Remove this result?'))){BENCH.splice(i,1);saveBench();paintTools();}break;}
+    case 'ready':{const t=todayISO();const r=READY[t]||(READY[t]={});r[ds.k]=+ds.v;saveMore();paintCheckin();break;}
+    case 'applyread':applyRead();break;
+    case 'debrief':{DEBRIEF[dkey(wIdx,dIdx)]={e:+ds.e};saveMore();render();break;}
+    case 'movemode':setMoveMode(ds.m==='tree');break;
+    case 'treejump':{
+      setMoveMode(false);
+      {const q=document.getElementById('srch');if(q&&q.value){q.value='';try{q.dispatchEvent(new Event('input'));}catch(e){}}}
+      const el=Array.from(document.querySelectorAll('.move')).find(x=>x.dataset&&x.dataset.name===ds.n);
+      if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'});
+      break;
+    }
+    case 'iqmode':setIqMode(ds.m||'cards');break;
+    case 'ctnum':ctTap(+ds.n);paintNumbers();break;
+    case 'shareweek':shareWeek(b);break;
+    case 'a2dismiss':A2HS_DISMISSED=true;try{rawstorage.set('forge:a2hs','1');}catch(e){}paintA2hs();break;
+    case 'oneround':startOneRound();break;
+    case 'strev':ST.rev=true;paintStreet();break;
+    case 'stnext':stNext();paintStreet();break;
+    case 'gkscore':{const g=gymEnsure(),j=+ds.g,i=+ds.c;if(g.s[j]&&i>=0&&i<5){g.s[j][i]=(g.s[j][i]+1)%4;saveMore();paintGym();}break;}
+    case 'gkbjj':{const g=gymEnsure();g.bjj=!g.bjj;saveMore();paintGym();break;}
+    case 'gkcopy':gymCopy(ds.w,b);break;
+    case 'rivalaccept':RIVAL=PENDING_RIVAL;PENDING_RIVAL=null;saveMore();paintCampBar();buildGrid();break;
+    case 'rivalno':PENDING_RIVAL=null;paintCampBar();break;
+    case 'rivalclear':RIVAL=null;saveMore();buildGrid();break;
+    case 'rivallink':shareRival(b);break;
+    case 'beat':BEAT_ON=!BEAT_ON;saveOpts();if(BEAT_ON)beatSync();else beatStop();render();break;
     case 'backupnow':{const e=document.getElementById('expbtn');if(e)e.click();break;}
   }
 }
@@ -951,7 +988,7 @@ function taleHTML(){
   };
   return '<div class="card tale"><div class="cardhead"><span class="cardtitle">Tale of the tape</span><span class="cardtag">WEEK '+(a+1)+(b>=0?' VS WEEK '+(b+1):'')+'</span></div>'+
     '<div class="tt tth"><div class="tl">THIS WEEK</div><div class="tm"></div><div class="tr">LAST WEEK</div></div>'+
-    row('SESSIONS',A.s,B?B.s:null)+row('ROUNDS',A.r,B?B.r:null)+row('TAPE',tape(a),b>=0?tape(b):null,v=>v+'/5')+'</div>';
+    row('SESSIONS',A.s,B?B.s:null)+row('ROUNDS',A.r,B?B.r:null)+row('TAPE',tape(a),b>=0?tape(b):null,v=>v+'/5')+'<div class="bwform">'+abtn('shareweek','Copy my week')+'</div></div>';
 }
 
 /* the Combine: three tests you can repeat, so progress is a number and not a feeling */
@@ -1092,6 +1129,605 @@ async function shareFightCard(){
   }
 }
 
+
+/* ================= v25: the coach reads you, the moves light up ================= */
+/* One small bag for everything added in this round, saved under forge:more so
+   backup, restore and profile switching only have one more key to know about. */
+let READY={},DEBRIEF={},IQM={},BEST=0,GYMS=null,CTBEST=0;
+function moreObj(){return {ready:READY,debrief:DEBRIEF,iqm:IQM,best:BEST,gyms:GYMS,ct:CTBEST,rival:RIVAL};}
+function plainObj(x){return !!x&&typeof x==='object'&&!Array.isArray(x);}
+function cleanMap(src,ok){
+  const out={};
+  if(!plainObj(src))return out;
+  Object.keys(src).forEach(k=>{
+    if(k==='__proto__'||k==='constructor'||k==='prototype')return;
+    if(ok(src[k]))out[k]=src[k];
+  });
+  return out;
+}
+function cleanGyms(g){
+  if(!plainObj(g)||!Array.isArray(g.n)||g.n.length!==3||!g.n.every(x=>typeof x==='string'))return null;
+  if(!Array.isArray(g.s)||g.s.length!==3||!g.s.every(r=>Array.isArray(r)&&r.length===5&&r.every(x=>Number.isInteger(x)&&x>=0&&x<=3)))return null;
+  return {n:g.n.map(x=>x.slice(0,24)),s:g.s,bjj:!!g.bjj};
+}
+function applyMore(o){
+  if(!plainObj(o))return;
+  READY=cleanMap(o.ready,v=>plainObj(v));
+  DEBRIEF=cleanMap(o.debrief,v=>plainObj(v)&&Number.isInteger(v.e));
+  IQM=cleanMap(o.iqm,v=>plainObj(v)&&Number.isInteger(v.b)&&v.b>=0&&v.b<=4&&typeof v.due==='string');
+  BEST=(Number.isFinite(+o.best)&&+o.best>=0)?Math.floor(+o.best):0;
+  GYMS=cleanGyms(o.gyms);
+  CTBEST=(Number.isFinite(+o.ct)&&+o.ct>=0)?Math.floor(+o.ct):0;
+  RIVAL=cleanRival(o.rival);
+}
+function saveMore(){return saveKey('forge:more',JSON.stringify(moreObj()));}
+function addDaysISO(iso,n){const d=parseISO(iso);d.setDate(d.getDate()+n);return isoOf(d);}
+
+/* ---- the coach check-in: three taps, and the session adapts ----
+   The rules are corner note 07 made live: short sleep, heavy legs, soreness and
+   two cooked sessions in a row each take a round off; pain stops the kicking. */
+function readyToday(){return READY[todayISO()]||null;}
+function shortNights(){let n=0;for(let i=0;i<7;i++){const r=READY[addDaysISO(todayISO(),-i)];if(r&&r.s)n++;}return n;}
+/* two cooked sessions only count if they are the two most recent logged ones
+   and both are from the last few days */
+function cookedLately(){
+  const rows=Object.keys(DONE).filter(k=>/^\d+-[0-6]$/.test(k)&&typeof DONE[k]==='string').map(k=>({k:k,d:DONE[k]}));
+  rows.sort((x,y)=>x.d<y.d?-1:(x.d>y.d?1:(x.k<y.k?-1:1)));
+  const two=rows.slice(-2);
+  if(two.length<2)return false;
+  return two.every(r=>{
+    const e=DEBRIEF[r.k],p=parseISO(r.d);
+    const age=p?Math.round((noonToday()-p)/86400000):99;
+    return !!e&&e.e===4&&age>=0&&age<=4;
+  });
+}
+function coachRead(){
+  const r=readyToday();
+  if(!plainObj(r)||!('s' in r)||!('l' in r)||!('b' in r))return null;
+  const slot=todaySlot();
+  const dy=slot?(W[slot.w].d[DK[slot.d]]||{}):{};
+  const rounds=dy.tm?dy.tm.rounds:0;
+  const dk=slot?DK[slot.d]:'';
+  let level='go',cut=0,msg='You are good to go. Run it as written.';
+  if(r.b===2){level='stop';cut=Math.max(0,rounds-1);msg='Pain is a stop sign. Bone pain or pain at rest means no kicks for 10 days. Sharp or in a joint: rest and get it looked at. Muscle ache only: one easy shadow round.';}
+  else if(r.s&&r.l){level='trim';cut=1;msg='Short sleep and heavy legs. Take one round off and stay under the percent this week calls for.';}
+  else if(r.b===1){level='trim';cut=1;msg='Sore. Take one round off. Kicks one notch under plan, or skip them.';}
+  else if(cookedLately()){level='trim';cut=1;msg='Two cooked sessions in a row. One round off today, and sleep beats volume this week.';}
+  else if(shortNights()>=3){
+    if(dk==='thu'||dk==='sat'){level='trim';cut=Math.max(0,rounds-3);msg='Three short nights this week. Cut to three rounds today and go to bed early.';}
+    else if(dk==='tue'){level='trim';cut=Math.max(0,rounds-1);msg='Three short nights this week. Make Tuesday technique plus one round, then go to bed early.';}
+    else{level='note';msg='Three short nights this week. Skill days stay, but keep it smooth and go to bed early.';}
+  }
+  else if(r.s||r.l){level='note';msg=(r.s?'Short sleep':'Heavy legs')+'. Run it, but stay under the percent this week calls for. If it feels wrong, cut a round.';}
+  if(!rounds){cut=0;if(level==='trim')msg='Restore day anyway. Keep it slow and short.';}
+  else if(cut>rounds-1)cut=Math.max(0,rounds-1);
+  return {level:level,cut:cut,msg:msg};
+}
+function applyRead(){
+  if(sessionRunning())return;
+  const cr=coachRead();
+  if(cr&&cr.cut>0){CUT=Math.max(CUT,cr.cut);render();}
+}
+const checkinEl=document.getElementById('checkin');
+function paintCheckin(){
+  if(!checkinEl)return;
+  const slot=todaySlot();
+  if(ONBOARD||campPhase()!=='live'||!slot||lapsed()||wIdx!==slot.w||dIdx!==slot.d||isDone(slot.w,slot.d)){checkinEl.innerHTML='';return;}
+  const r=readyToday()||{};
+  const chip=(k,v,label)=>'<button class="sw obchip'+(r[k]===v?' on':'')+'" data-act="ready" data-k="'+k+'" data-v="'+v+'" aria-pressed="'+(r[k]===v)+'" type="button">'+label+'</button>';
+  const cr=coachRead();
+  checkinEl.innerHTML='<div class="card checkin"><div class="cardhead"><span class="cardtitle">Coach check-in</span><span class="cardtag">10 seconds</span></div>'+
+    '<div class="ck3"><span class="cklab">SLEEP</span>'+chip('s',0,'7h or more')+chip('s',1,'Short')+'</div>'+
+    '<div class="ck3"><span class="cklab">LEGS</span>'+chip('l',0,'Fresh')+chip('l',1,'Heavy')+'</div>'+
+    '<div class="ck3"><span class="cklab">BODY</span>'+chip('b',0,'Fine')+chip('b',1,'Sore')+chip('b',2,'Pain')+'</div>'+
+    (cr?'<div class="coachline '+cr.level+'">'+esc(cr.msg)+'</div>'+((cr.cut>0&&CUT<cr.cut)?'<div class="bwform">'+abtn('applyread','Cut '+cr.cut+' round'+(cr.cut>1?'s':''),'pri')+'</div>':''):'')+'</div>';
+}
+function debriefHTML(){
+  if(!isDone(wIdx,dIdx))return '';
+  const e=(DEBRIEF[dkey(wIdx,dIdx)]||{}).e;
+  const lab=[[1,'Easy'],[2,'Right'],[3,'Hard'],[4,'Cooked']];
+  return '<div class="debrief"><div class="bwnote">How was it? The coach reads this next time.</div><div class="bwchips">'+lab.map(x=>'<button class="sw obchip'+(e===x[0]?' on':'')+'" data-act="debrief" data-e="'+x[0]+'" aria-pressed="'+(e===x[0])+'" type="button">'+x[1]+'</button>').join('')+'</div></div>';
+}
+
+/* ---- Fight IQ remembers what you miss ---- */
+function iqmMark(name,ok){
+  const e=IQM[name]||{b:0,r:0,w:0,due:''};
+  if(ok){e.r++;e.b=Math.min(4,e.b+1);}else{e.w++;e.b=0;}
+  e.due=addDaysISO(todayISO(),[1,2,4,8,16][e.b]);
+  IQM[name]=e;saveMore();
+}
+function iqmDue(){const t=todayISO();return Object.keys(IQM).filter(n=>IQM[n].due&&IQM[n].due<=t);}
+
+/* ---- the skill tree: every move, lit by what you have actually drilled ---- */
+function reachedWeek(){const s=todaySlot();if(s)return s.w;const h=highestLogged();return h>=0?Math.floor(h/7):0;}
+function drilledCounts(){
+  const c={};
+  Object.keys(DONE).forEach(k=>{
+    const m=/^(\d+)-(\d+)$/.exec(k);if(!m)return;
+    const day=W[+m[1]]&&W[+m[1]].d[DK[+m[2]]];if(!day)return;
+    const seen={};
+    [day.t,day.r].forEach(arr=>(arr||[]).forEach(it=>{const mv=matchMove(String(it[0]));if(mv&&!seen[mv.name]){seen[mv.name]=1;c[mv.name]=(c[mv.name]||0)+1;}}));
+  });
+  return c;
+}
+function moveState(name,counts,rw){
+  const wk=MOVEWEEK[name];
+  if(wk!==undefined&&wk>rw)return 'locked';
+  const n=counts[name]||0,e=IQM[name];
+  if(n>=3&&e&&e.b>=2)return 'tempered';
+  if(n>=3)return 'drilled';
+  return n>0?'seen':'open';
+}
+function treeHTML(){
+  const counts=drilledCounts(),rw=reachedWeek();
+  let lit=0,total=0,tempered=0,h='';
+  CATS.forEach(c=>{
+    let row='';
+    c.moves.forEach(m=>{
+      const st=moveState(m.name,counts,rw);
+      total++;if(st==='drilled'||st==='tempered')lit++;if(st==='tempered')tempered++;
+      const lab={locked:'locked until week '+((MOVEWEEK[m.name]||0)+1),open:'not drilled yet',seen:'seen',drilled:'drilled',tempered:'tempered'}[st];
+      row+='<button class="node st-'+st+'" data-act="treejump" data-n="'+esc(m.name)+'" aria-label="'+esc(m.name.replace(/\s*\(.*\)/,''))+', '+lab+'" type="button"><i></i><span>'+esc(m.name.replace(/\s*\(.*\)/,''))+'</span></button>';
+    });
+    h+='<div class="trcat"><div class="trh">'+esc(c.cat)+'</div><div class="trgrid">'+row+'</div></div>';
+  });
+  return '<div class="trsum"><b>'+lit+'</b> of '+total+' moves drilled, <b>'+tempered+'</b> tempered</div>'+
+    '<div class="trleg"><span class="node st-locked"><i></i>Locked</span><span class="node st-open"><i></i>Not yet</span><span class="node st-seen"><i></i>Seen</span><span class="node st-drilled"><i></i>Drilled 3x</span><span class="node st-tempered"><i></i>Tempered</span></div>'+
+    '<div class="bwnote">Drilled means it showed up in three sessions you logged. Tempered means you also remembered it in Fight IQ.</div>'+h;
+}
+let MOVETREE=false;
+const treeEl=document.getElementById('tree');
+function setMoveMode(on){
+  MOVETREE=!!on;
+  try{
+    if(treeEl){treeEl.style.display=on?'':'none';if(on)treeEl.innerHTML=treeHTML();}
+    if(movesEl)movesEl.style.display=on?'none':'';
+    ['catbar','srch','nomoves'].forEach(id=>{const e=document.getElementById(id);if(e&&id!=='nomoves')e.style.display=on?'none':'';});
+    const mi=document.querySelector('#movesView .mintro');if(mi)mi.style.display=on?'none':'';
+    document.querySelectorAll('#mtoggle .sw').forEach(b=>b.classList.toggle('on',(b.dataset.m==='tree')===!!on));
+    window.scrollTo(0,0);
+  }catch(e){}
+}
+
+/* ---- weeks held, best streak, and a week you can paste into the group chat ---- */
+function weeksHeld(){let n=0;for(let w=0;w<W.length;w++)if(weekCount(w)>=4)n++;return n;}
+function noteBest(){const s=streak();if(s>BEST){BEST=s;saveMore();}return BEST;}
+function weekLine(w){
+  const on=String.fromCodePoint(0x1F7E7),off=String.fromCodePoint(0x2B1B);
+  let sq='';for(let d=0;d<7;d++)sq+=isDone(w,d)?on:off;
+  return 'THE FORGE | '+(WHO||'Jackson')+' | WEEK '+(w+1)+'\n'+sq+'\n'+weekCount(w)+'/7 sessions | '+weekRounds(w)+' rounds | '+streak()+' straight | '+rankOf(totDone());
+}
+async function shareWeek(btn){
+  const s=todaySlot();if(!s)return false;
+  const t=weekLine(s.w);
+  try{
+    if(navigator.share){await navigator.share({text:t});return true;}
+    await navigator.clipboard.writeText(t);
+    if(btn)btn.textContent='Copied';
+    return true;
+  }catch(e){if(btn&&!(e&&e.name==='AbortError'))btn.textContent='Could not copy';return false;}
+}
+
+/* ---- the Home Screen gate: a buddy on Safari gets told once how to install it ---- */
+const a2hsEl=document.getElementById('a2hs');
+let A2HS_DISMISSED=false;
+function onIosBrowser(){try{return /iPhone|iPad|iPod/.test(navigator.userAgent||'')&&!navigator.standalone;}catch(e){return false;}}
+function paintA2hs(){
+  if(!a2hsEl)return;
+  if(A2HS_DISMISSED||!onIosBrowser()){a2hsEl.innerHTML='';return;}
+  const logged=totDone()>0||BW.length>0||EXTRA.length>0;
+  const lead=logged
+    ?'The Home Screen app keeps its own log, separate from this Safari tab, so it opens empty. To bring yours over: Log tab, Copy backup, install, open the new icon, finish the name screen first, then Log tab, Restore.'
+    :'Install it before you log anything. The Home Screen app keeps its own log, separate from this Safari tab, and it opens full screen and works with no signal.';
+  a2hsEl.innerHTML='<div class="card a2hs"><div class="cardhead"><span class="cardtitle">Add to Home Screen</span></div><div class="bwline">'+lead+'</div><ol class="a2steps"><li>Tap the Share button in Safari, the square with an arrow.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Open The Forge from the new icon.</li></ol><div class="bwform">'+abtn('a2dismiss','Hide this')+'</div></div>';
+}
+
+/* ---- the Gear tab knows what you already own ---- */
+function paintGear(){
+  try{
+    const el=document.querySelector('#gearView .gitem[data-eq="gl"]');
+    if(el){
+      const why=el.querySelector('.gwhy'),wk=el.querySelector('.gwk');
+      if(why&&!why.dataset.o)why.dataset.o=why.textContent;
+      el.classList.toggle('gown',!!GLOVES_ON);
+      if(wk)wk.textContent=GLOVES_ON?'\u2713':'NOW';
+      if(why)why.textContent=GLOVES_ON?why.dataset.o:'Not yet. 16 oz is the standard: they cover bag work now and sparring later. Budget $40-80.';
+      const secs=document.querySelectorAll('#gearView .gsec');
+      if(secs.length>1&&el.parentNode){const hd=GLOVES_ON?secs[0]:secs[1];hd.parentNode.insertBefore(el,hd.nextSibling);}
+      const ga=document.getElementById('gloveadd');if(ga)ga.style.display=GLOVES_ON?'none':'';
+    }
+    const nm=coachNamed();
+    document.querySelectorAll('.jx').forEach(e=>{e.style.display=nm?'':'none';});
+    document.querySelectorAll('.jy').forEach(e=>{e.style.display=nm?'none':'';});
+  }catch(e){}
+}
+
+/* ---- just one round: the lowest bar that still counts ---- */
+function startOneRound(){
+  if(sessionRunning()){
+    if(typeof confirm==='function'&&!confirm('A session is running. End it and start one round?'))return false;
+    endLiveSession();
+  }
+  const segs=[
+    {d:10,type:'prep',label:'Get set',next:'Free shadow',round:1},
+    {d:180,type:'work',label:'Free shadow',detail:'',next:'',round:1,call:'free'}
+  ];
+  stopTick();callerStop();vstop();
+  T={segs:segs,rounds:1,i:0,left:10,running:false,int:null,state:'ready',wk:wIdx,dk:DK[dIdx],quick:true};
+  elGo.disabled=false;elSkip.disabled=false;elReset.disabled=false;elGo.textContent='Start';
+  showSeg();setFocus(true);elGo.click();
+  return true;
+}
+
+/* ---- Combo Tap: learn the numbers on the couch ---- */
+let IQMODE='cards';
+const CT={seq:[],pos:0,streak:0,flash:''};
+const CTNAMES={1:'Jab',2:'Cross',3:'Lead hook',4:'Rear hook',5:'Lead uppercut',6:'Rear uppercut'};
+function ctNew(){
+  const maxN=wIdx<2?3:(wIdx<4?5:6);
+  const len=Math.min(5,2+Math.floor(CT.streak/3));
+  const s=[];
+  for(let i=0;i<len;i++){let n;do{n=1+Math.floor(Math.random()*maxN);}while(i>0&&n===s[i-1]);s.push(n);}
+  CT.seq=s;CT.pos=0;
+}
+function ctTap(n){
+  if(!CT.seq.length)ctNew();
+  if(n===CT.seq[CT.pos]){
+    CT.pos++;
+    if(CT.pos>=CT.seq.length){CT.streak++;if(CT.streak>CTBEST){CTBEST=CT.streak;saveMore();}CT.flash='ok';ctNew();return 'next';}
+    CT.flash='';return 'ok';
+  }
+  CT.streak=0;CT.flash='bad';ctNew();return 'bad';
+}
+function paintNumbers(){
+  if(!cardEl)return;
+  const maxN=wIdx<2?3:(wIdx<4?5:6);
+  if(!CT.seq.length||CT.seq.some(n=>n>maxN))ctNew();
+  let btns='';for(let n=1;n<=maxN;n++)btns+='<button class="qbtn ctb" data-act="ctnum" data-n="'+n+'" type="button">'+CTNAMES[n]+'</button>';
+  const dots=CT.seq.map((x,i)=>'<span class="ctd'+(i<CT.pos?' dn':'')+'"></span>').join('');
+  cardEl.innerHTML='<div class="qcard ct'+(CT.flash?' '+CT.flash:'')+'"><div class="qcat">COMBO TAP</div><div class="ctseq">'+CT.seq.map(n=>'<span>'+n+'</span>').join('')+'</div><div class="ctdots">'+dots+'</div><div class="qask">Tap the punches in order</div></div>'+
+    '<div class="ctgrid">'+btns+'</div>'+
+    '<div class="bwnote">Streak <b>'+CT.streak+'</b> &middot; best <b>'+CTBEST+'</b>. 1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut. Numbers unlock as the weeks do.</div>';
+}
+function setIqMode(m){
+  IQMODE=m;
+  try{['iqstats','iqnote'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=m==='cards'?'':'none';});}catch(e){}
+  try{document.querySelectorAll('#iqmodes .sw').forEach(b=>b.classList.toggle('on',b.dataset.m===m));}catch(e){}
+  paintCard();
+}
+
+
+/* ================= v25 content: street rules, fix-it, gym kit, opponents =================
+   Written for a beginner training alone, then reviewed by a skeptical coach for
+   safety and accuracy; the lines below are the reviewed versions. */
+
+/* ---- Street Rules: the "not die in a street fight" goal, honestly ---- */
+const STREETDECK=[
+ {q:"A guy at the party keeps staring at you. What now?",steps:["The easiest fight to win is the one you are not in.","Leave early, switch rooms, or walk out with a friend.","Do not stare back to prove a point. Look away, but keep him in the corner of your eye.","If your gut says something is off, leave. Do not wait for proof."],cue:"The best fight is the one you skip."},
+ {q:"Someone gets in your face and starts yelling. What do you do?",steps:["Hands up at chest height, palms open, like you are saying calm down.","Lead hand stays between his face and yours. Stand angled, not square.","Talk low and slow. Say you do not want trouble, then leave.","It will not always work. Some guys want the fight no matter what."],cue:"Open hands, quiet voice, feet ready."},
+ {q:"He is still coming at you. How do you make space and leave?",steps:["Back away at an angle, not in a straight line.","Keep your hands up and eyes on him until you have real distance.","Head toward people, light, and open doors. Not dead ends or dark corners.","Put a friend, staff, or a car between you and him if you can."],cue:"Move toward people, away from trouble."},
+ {q:"He calls you a coward when you walk away. Does it matter?",steps:["No. Walking away with no injuries and no charges is a win.","Strangers and drunks you will never see again do not get a vote.","One punch and a hard fall can cause brain injury or worse.","If running gets you out, run. Do not stop to look back."],cue:"Getting home in one piece is the win."},
+ {q:"He throws a wild swing at your head. You have no time.",steps:["Chin down, elbows in, forearms up tight against both sides of your head.","Keep your eyes open. Peek through the gap in your arms.","Cover buys a second, not a win. Use it to clinch or leave.","Do not freeze in the cover. Frozen means he keeps hitting you."],cue:"Cover first, then clinch or leave."},
+ {q:"He keeps swinging and you cannot get away. What now?",steps:["Step in, not back. Close the gap so his punches lose power.","Wrap both arms around his upper body. Head tight against his chest.","Knees bent, feet wide, weight low. Be heavy and hard to throw.","A clinch is a pause, not a plan. Skip it if he has a weapon or friends. Leave when you can."],cue:"Hug him close until you can leave."},
+ {q:"You have grappling skills. When do you stay off the floor?",steps:["Grappling helps: you stay calm when grabbed and can often control one person.","Concrete tears skin and cracks heads. His friends can kick you while you are down.","Any chance of more than one attacker means stay on your feet.","If it does go down, control him, get up first, and leave."],cue:"Stay up. The floor is where his friends join in."},
+ {q:"Someone shows a knife or gun and wants your stuff. Now what?",steps:["Give it to him. Phone and wallet can be replaced. You cannot.","Hands visible, move slow, hand it over or toss it away from you.","Then leave. Do not argue, chase, or try to take it back.","If he tries to take you somewhere else, do not go. Yell, and run if there is a clear way out."],cue:"Property is replaceable. You are not."},
+ {q:"Three guys step up at once. Can you win?",steps:["Honest answer: no. Several attackers can beat even trained people.","Your only job is to escape. Move before they spread out around you.","Keep moving so they get in each other's way. Head for people and light.","If you get knocked down, cover your head and get up fast."],cue:"You do not win. You escape."},
+ {q:"You just got hit. Your vision is flashing and your legs feel loose.",steps:["You are hurt, so act like it. Hands up, chin down, cover your head.","Do not stand and trade. Clinch or back off to buy time.","Move toward people and light. Make noise. Hold on if you have to.","Once you are safe, get checked for a concussion today, even if you feel fine. Do not drive yourself."],cue:"Hurt means cover up and get out."},
+ {q:"It is 1 am, you are drunk, and a guy is mouthing off.",steps:["Drink dulls your reaction time and judgment. Skills shrink, confidence grows.","Parking lots mean concrete, cars, and few witnesses. Bad place to be slow.","Leave with friends and keep walking. Get a rideshare or a sober driver. Never drive drunk.","Drunk guys swing wild and will not listen. Do not argue with them."],cue:"Drunk, dark, and alone is the worst setup."},
+ {q:"The fight is over and you got out. What now?",steps:["Get safe first, then check yourself for injuries, even ones you do not feel.","Call 911 if anyone is hurt or you were attacked. Stick to simple facts.","Once you are out, stop. Do not go back or chase him. What counts as self-defense depends on your state, so ask a lawyer.","Do not brag or post it. Get a lawyer if charges come up."],cue:"Get safe, call it in, do not brag."},
+ {q:"Does shadowboxing alone make you ready for a real fight?",steps:["It builds form, footwork, rhythm, and wind. Those are real and matter.","It does not teach timing, distance, or how it feels to be hit.","Nobody hits back, so you never practice the scary part: staying calm.","Treat this camp as a start. It makes you fitter, not fight ready."],cue:"Shadowboxing builds you. It does not test you."},
+ {q:"Why is a real gym with live partners the next step?",steps:["A partner moves, hits back, and surprises you. That is what teaches you.","A coach spots bad habits you cannot see alone, before they stick.","Light, controlled rounds teach you to stay calm when you get tagged.","Look for a beginner class with a good coach. Ask to watch first."],cue:"Skill gets tested by people, not air."}
+];
+const ST={i:-1,rev:false};
+function stNext(){
+  let n;
+  do{n=Math.floor(Math.random()*STREETDECK.length);}while(STREETDECK.length>1&&n===ST.i);
+  ST.i=n;ST.rev=false;
+}
+function paintStreet(){
+  if(!cardEl)return;
+  if(ST.i<0)stNext();
+  const c=STREETDECK[ST.i];
+  const ans=ST.rev?'<div class="qans"><ul>'+c.steps.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><div class="qcue"><b>REMEMBER:</b> '+esc(c.cue)+'</div></div><div class="qbtns"><button class="qbtn rev" data-act="stnext" type="button">Next scenario</button></div>':'<div class="qbtns"><button class="qbtn rev" data-act="strev" type="button">What would you do? Reveal</button></div>';
+  cardEl.innerHTML='<div class="qcard"><div class="qcat">STREET RULES &middot; '+(ST.i+1)+' OF '+STREETDECK.length+'</div><div class="qname" style="font-size:1.4rem">'+esc(c.q)+'</div><div class="qask">Think it through, then reveal</div></div>'+ans+'<div class="bwnote">General safety thinking, not legal advice and not a substitute for a real coach. The honest answer is usually to leave.</div>';
+}
+
+/* ---- the weekly tape turns a miss into a four minute Fix-it block ---- */
+const FIXIT=[
+ {name:"Hands",camera:"Film front-on at chin height, 8 feet away, so both hands and your chin are in the shot.",why:"A dropped hand is a free shot at your chin, and you will not see it coming.",drills:[
+  ["Slow-motion 1-2 for 80 sec, hand returns to the cheek","Punch out, hand home, then the next one. Rear hand never leaves the cheek on the jab."],
+  ["1-2-3 at 40 percent for 80 sec, each hand ends at home","Lead hand to the eyebrow, rear hand to the cheek, every single time."],
+  ["Body jab then head jab for 80 sec, knees bend, hands stay up","Change level from the knees so the guard does not sink with you."]]},
+ {name:"Feet",camera:"Film from a low shelf or the floor, knee height, 8 feet away at a front corner. Get both feet and your stance width in the shot.",why:"Crossed, square or flat feet leave you stuck and easy to shove down, and you cannot punch or defend from there.",drills:[
+  ["Stance reset for 80 sec, step out, step back in sideways on","Rear foot turned out about 45 degrees, rear heel up, feet just past shoulder width."],
+  ["Step-drag all four directions for 80 sec, feet never touch","Near foot moves first, far foot drags, the width stays the same."],
+  ["Step-drag with a 1-2 on every second step for 80 sec","Punch as the feet land. Stay on the balls of your feet, rear heel up."]]},
+ {name:"Pivot",camera:"Film side-on at hip height, 10 feet away with your whole body in the frame, so you can see the base heel turn and whether you land balanced.",why:"No pivot means a torqued knee and a bad landing. The same turn on the ball of the foot is how you step off the line and leave.",drills:[
+  ["Base-foot pivot, no kick, for 80 sec, heel points at the target","Turn on the ball of the foot, never twist on a flat heel. Not in socks on a slick floor."],
+  ["Slow leg kick at 30 percent for 80 sec, pivot before the shin lands","Heel turns first, hips follow, shin last."],
+  ["Kick, land, freeze 2 sec at 40 percent for 80 sec, hands up","Land in your stance. A wobble means slow down, not try harder."]],
+  alt:[
+  ["Base-foot pivot, no kick, for 80 sec, heel points at the target","Turn on the ball of the foot, never twist on a flat heel. Not in socks on a slick floor."],
+  ["Step off the line with a 1-2 at 40 percent for 80 sec, pivot on the lead foot","Land balanced, hands home, then turn back to face the target."],
+  ["Pivot, hold 2 sec, hands up for 80 sec at 40 percent","Land in your stance. A wobble means slow down, not try harder."]]},
+ {name:"Flow",camera:"Film side-on at chest height, 8 feet away, so every pause between punches shows.",why:"Three separate decisions leave gaps, and a gap is a free beat for them to hit you or grab you.",drills:[
+  ["50 percent 1-2-3 for 80 sec, never stop moving","Slow is fine, stopping is not. Smooth first, fast later."],
+  ["1-2-3 at 40 percent for 80 sec, said out loud","Say one-two-three in one steady rhythm. If you hear gaps, fix the gaps."],
+  ["1-2-3-2 into a step-drag out at 40 percent for 80 sec","The next punch leaves as the last hand gets home, with no stop in between."]]},
+ {name:"Gas",camera:"Film front-on at chest height, 10 feet back, whole body in frame. Do not move the phone between rounds.",why:"Tired hands drop and feet go flat, and in a real situation, if you are gassed, the move is to leave.",drills:[
+  ["Jab-cross for 80 sec, breathe out sharp on every punch","Exhale on the hit, never hold your breath."],
+  ["Step-drag laps for 80 sec, guard up, shoulders loose","Elbows in, shoulders down. When the hands start to sink, lift them back, do not wait for a rest."],
+  ["1-2 and step-drag out at 60 percent for 80 sec, same speed start to finish","Count reps out loud. The last 10 reps should look like the first 10. Conditioning days build the tank."]]}
+];
+/* which checkpoint to fix: only one that was missed last week, the one that has failed most */
+function fixTarget(){
+  if(wIdx<1)return -1;
+  const prev=CHECKS[wIdx-1];
+  if(!prev)return -1;
+  const misses=[];
+  for(let i=0;i<5;i++)if(!prev[i])misses.push(i);
+  if(!misses.length)return -1;
+  const graded=Object.keys(CHECKS);
+  let best=misses[0],bestN=-1;
+  misses.forEach(i=>{const n=graded.filter(w=>!(CHECKS[w]||[])[i]).length;if(n>bestN){bestN=n;best=i;}});
+  return best;
+}
+function fixBlock(k){
+  if(k!=='tue'&&k!=='wed'&&k!=='fri')return null;
+  const i=fixTarget();
+  if(i<0)return null;
+  if(MAKEUP&&MAKEUP.w===wIdx&&MAKEUP.d===dIdx)return null;
+  /* Wednesday is hands only and Friday keeps the legs quiet before Saturday */
+  const drills=(k!=='tue'&&FIXIT[i].alt)?FIXIT[i].alt:FIXIT[i].drills;
+  return {n:'Fix-it: '+FIXIT[i].name,s:'Fix',du:'4 min',it:drills,sec:1};
+}
+
+/* ---- free-round opponents: shadowboxing against someone ---- */
+const ARCH=[
+ {key:"pressure",line:"Your man is a pressure fighter. Circle out and make him miss.",kicks:false,legs:false},
+ {key:"jabber",line:"Your man is a tall jabber. Slip it and get inside.",kicks:false,legs:false},
+ {key:"counter",line:"Your man is a counterpuncher. Feint first, then throw one clean shot.",kicks:false,legs:false},
+ {key:"southpaw",line:"Your man is a southpaw. Step outside his lead foot and hit.",kicks:false,legs:false},
+ {key:"swinger",line:"Your man is a wild swinger. Stay calm, step off to the side, counter straight.",kicks:false,legs:false},
+ {key:"clincher",line:"Your man is a clinch grinder. Pivot out before he ties you up.",kicks:false,legs:false},
+ {key:"kicker",line:"Your man chops your legs. Check the kick, then fire back.",kicks:true,legs:false},
+ {key:"wrestler",line:"Your man is a wrestler. Sprawl on his shot, then hit him.",kicks:false,legs:true},
+ {key:"speedster",line:"Your man is faster than you. Guard tight, make him come to you, counter his first shot.",kicks:false,legs:false},
+ {key:"quitter",line:"Your man is gassed and dropping his hands. Stay on him, keep your own hands home, finish the round.",kicks:false,legs:false}
+];
+const ARCHPOOL={hands:ARCH.filter(x=>!x.kicks&&!x.legs).map(x=>x.line),all:ARCH.map(x=>x.line)};
+function archLine(){
+  const hands=(DAYMETA[DK[dIdx]]||{}).weapons==='hands';
+  return vrand(hands?ARCHPOOL.hands:ARCHPOOL.all);
+}
+
+/* ---- the gym bridge kit: week 10's last line made doable ---- */
+const GYMKIT={
+ callScript:"Hi, is this [gym]? I am [name]. I want to try a beginner striking class. Do you offer a trial, and what does it cost? When is the next beginner class, and who teaches it? What should I bring? Thanks.",
+ askList:["Is there a beginner or fundamentals class, and when does it run?","Is the trial free or paid, and what does it cost?","Do I have to sign a contract, or is it month to month?","How many students are in a beginner class, and how many coaches?","Do beginners spar? When, and is it always optional?","Do I need my own gloves and shin guards, or can I borrow?"],
+ scorecard:[["Beginner class","A real fundamentals class on the schedule, not just one mixed class for everyone."],["Coach attention","Does the coach watch you, fix your form, and learn your name?"],["Trial price","Free or cheap first class, and no pressure to sign a contract that day."],["Vibe and safety","New guys get light, controlled work and nobody is showing off. Would you come back?"],["Distance","Close enough that you will still go twice a week when you are tired."]],
+ classLooksLike:["Warm up first: jump rope or a jog, shadowboxing, some bodyweight work. About 15 minutes.","The coach teaches one or two moves, like a jab and cross or a teep. You copy them in a line.","Partner drills on pads or slow and light. Beginner classes usually skip hard sparring.","Bag or pad rounds, often 3 minutes on with a short rest. Pace yourself.","Conditioning near the end: burpees, core, push ups. Expect to be tired.","Cool down and thank your partners. The whole class runs 60 to 90 minutes. Every gym does it a little differently."],
+ etiquette:["Arrive 10 to 15 minutes early. Sign the waiver, meet the coach, say you are new.","Shoes come off before the mat, unless the gym trains in shoes. Watch what others do. Wear slides to the bathroom, never bare feet.","Greet the coach and your partners. Many gyms bow or touch gloves. Just copy the room.","Listen first, talk later. When the coach explains, eyes up and no side chatter.","Ask before any sparring. Ask the coach, then your partner, and say light and slow. Not on day one.","Hurt or stuck? Tap or say stop, early. When a partner taps or says stop, you stop right away.","Trim your nails, wear clean clothes, wash wraps and gear after every class. Shower after."],
+ bagList:["Mouthguard. A boil and bite one is fine for day one.","Hand wraps. The coach will show you how to wrap them.","Boxing gloves, 14 to 16 oz. Many gyms lend a pair for a trial, so ask first.","Shin guards: only if the gym asks. Do not buy any before you know.","Water bottle, full.","Small towel.","Dry change of clothes, plus a plastic bag for the sweaty ones.","Groin cup. Wear it any time there is partner work or sparring."],
+ firstClassRules:["Leave your ego at the door. Any rank or past training does not count here. Be the new guy.","Tell the coach you are new before class starts, plus any injuries and what you have trained so far.","Go 50 percent. Learn the shape of each move first. Speed and power come later.","Ask to be paired with someone patient. Say it out loud: I am new, can I work with a calm partner?","Do not spar on day one, even if they offer. Say: not today, I am still learning the basics. Ask about light, controlled rounds after a few classes.","Go to the next one. Class two usually feels better than class one. If you felt unsafe or ignored, leave and try a different gym."]
+};
+function weeksTrained(){let n=0;for(let w=0;w<W.length;w++)if(weekCount(w)>0)n++;return n;}
+function isJackson(){return !!WHO&&WHO.toLowerCase()==='jackson';}
+function gymState(){return GYMS||{n:['','',''],s:[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],bjj:isJackson()};}
+function gymEnsure(){if(!GYMS)GYMS=gymState();return GYMS;}
+function gymDM(){
+  const g=gymState(),wk=weeksTrained(),name=WHO||'Jackson';
+  const exp=wk>0?'I have been doing solo striking work for about '+wk+' week'+(wk>1?'s':''):'I am just getting started with striking';
+  return 'Hey, I am '+name+'.'+(isJackson()?' I am a student here in Fayetteville.':'')+' '+exp+(g.bjj?' and I train BJJ':'')+'. I want to try a beginner or fundamentals class. Do you offer a trial? What does it cost, and what should I bring? Thanks!';
+}
+function gymCall(){return GYMKIT.callScript.replace('[name]',WHO||'Jackson');}
+const gymkitEl=document.getElementById('gymkit');
+function gymHTML(){
+  const g=gymState();
+  const li=a=>'<ul class="gkl">'+a.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  let grid='<div class="gknames">';
+  for(let j=0;j<3;j++)grid+='<input class="gkname" data-g="'+j+'" maxlength="24" placeholder="Gym '+(j+1)+' name" value="'+esc(g.n[j]||'')+'" aria-label="Gym '+(j+1)+' name">';
+  grid+='</div><div class="gkg"><span></span><b class="gkh">1</b><b class="gkh">2</b><b class="gkh">3</b></div>';
+  GYMKIT.scorecard.forEach((c,i)=>{
+    grid+='<div class="gkr"><div class="gkc"><b>'+esc(c[0])+'</b><span>'+esc(c[1])+'</span></div>';
+    for(let j=0;j<3;j++)grid+='<button class="gkcell s'+g.s[j][i]+'" data-act="gkscore" data-g="'+j+'" data-c="'+i+'" type="button" aria-label="'+esc(c[0])+', gym '+(j+1)+', '+g.s[j][i]+' of 3">'+g.s[j][i]+'</button>';
+    grid+='</div>';
+  });
+  grid+='<div class="gkr gkt"><div class="gkc"><b>Total</b></div>';
+  const tots=[0,1,2].map(j=>g.s[j].reduce((a,b)=>a+b,0));
+  const top=Math.max.apply(null,tots);
+  for(let j=0;j<3;j++)grid+='<div class="gkcell tot'+((top>0&&tots[j]===top)?' best':'')+'">'+tots[j]+'</div>';
+  grid+='</div>';
+  return '<div class="card gym"><div class="cardhead"><span class="cardtitle">Gym bridge kit</span><span class="cardtag">week 10 made doable</span></div>'+
+   '<div class="bwnote">Message to send</div><div class="gkbox">'+esc(gymDM())+'</div>'+
+   '<div class="bwchips"><button class="sw obchip'+(g.bjj?' on':'')+'" data-act="gkbjj" type="button">'+(g.bjj?'&#9679;':'&#9675;')+' I train BJJ</button></div>'+
+   '<div class="bwform">'+abtn('gkcopy','Copy message','pri',' data-w="dm"')+abtn('gkcopy','Copy call script','',' data-w="call"')+'</div>'+
+   '<div class="bwnote">Ask before you book</div>'+li(GYMKIT.askList)+
+   '<div class="bwnote">Compare up to three gyms. Tap a number to score each one from 0 to 3.</div>'+grid+
+   '<details class="gkd"><summary>What a class looks like</summary>'+li(GYMKIT.classLooksLike)+'</details>'+
+   '<details class="gkd"><summary>Class etiquette</summary>'+li(GYMKIT.etiquette)+'</details>'+
+   '<details class="gkd"><summary>What to pack</summary>'+li(GYMKIT.bagList)+'</details>'+
+   '<details class="gkd"><summary>Your first class: six rules</summary>'+li(GYMKIT.firstClassRules)+'</details></div>';
+}
+function paintGym(){
+  if(!gymkitEl)return;
+  let open=[];
+  try{open=Array.from(gymkitEl.querySelectorAll?gymkitEl.querySelectorAll('details'):[]).map(d=>!!d.open);}catch(e){}
+  gymkitEl.innerHTML=gymHTML();
+  try{Array.from(gymkitEl.querySelectorAll?gymkitEl.querySelectorAll('details'):[]).forEach((d,i)=>{if(open[i])d.open=true;});}catch(e){}
+}
+async function gymCopy(which,btn){
+  const t=which==='call'?gymCall():gymDM();
+  try{await navigator.clipboard.writeText(t);if(btn)btn.textContent='Copied';return true;}
+  catch(e){if(btn)btn.textContent='Could not copy';return false;}
+}
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t&&t.classList&&t.classList.contains('gkname')){gymEnsure().n[+t.dataset.g]=String(t.value||'').slice(0,24);saveMore();}
+});
+
+
+/* ================= v26: a beat to train to, and a rival in your pocket ================= */
+
+/* ---- the beat: a two bar drum loop rendered once, looped natively ----
+   Rendering into a buffer (rather than scheduling hits on a timer) is what keeps
+   it steady when the phone is locked: the loop runs inside the audio engine. */
+let BEAT_ON=false,beatSrc=null,beatGain=null,BEATKEY='',BEATGEN=0;
+const beatCache={},beatPending={};
+function beatBpm(){const m=DAYMETA[DK[dIdx]]||{};return m.type==='hard'?120:(m.type==='recovery'?84:96);}
+/* one render per tempo, shared by everyone who asks while it is in flight */
+function renderBeat(bpm){
+  if(beatCache[bpm])return Promise.resolve(beatCache[bpm]);
+  if(!beatPending[bpm])beatPending[bpm]=renderBeatNow(bpm).then(b=>{delete beatPending[bpm];return b;});
+  return beatPending[bpm];
+}
+async function renderBeatNow(bpm){
+  const OAC=(typeof window!=='undefined')&&(window.OfflineAudioContext||window.webkitOfflineAudioContext);
+  if(!OAC)return null;
+  try{
+    const sr=22050,beat=60/bpm,len=Math.round(sr*beat*8);
+    const oc=new OAC(1,len,sr);
+    const noise=oc.createBuffer(1,sr,sr);
+    const nd=noise.getChannelData(0);
+    for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
+    const kick=t=>{
+      const o=oc.createOscillator(),g=oc.createGain();
+      o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(42,t+.13);
+      g.gain.setValueAtTime(.9,t);g.gain.exponentialRampToValueAtTime(.001,t+.22);
+      o.connect(g);g.connect(oc.destination);o.start(t);o.stop(t+.25);
+    };
+    const snare=t=>{
+      const s=oc.createBufferSource();s.buffer=noise;
+      const f=oc.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;
+      const g=oc.createGain();g.gain.setValueAtTime(.55,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);
+      s.connect(f);f.connect(g);g.connect(oc.destination);s.start(t);s.stop(t+.16);
+      const o=oc.createOscillator(),og=oc.createGain();
+      o.type='triangle';o.frequency.value=190;og.gain.setValueAtTime(.3,t);og.gain.exponentialRampToValueAtTime(.001,t+.09);
+      o.connect(og);og.connect(oc.destination);o.start(t);o.stop(t+.1);
+    };
+    const hat=(t,v)=>{
+      const s=oc.createBufferSource();s.buffer=noise;
+      const f=oc.createBiquadFilter();f.type='highpass';f.frequency.value=7000;
+      const g=oc.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+.04);
+      s.connect(f);f.connect(g);g.connect(oc.destination);s.start(t);s.stop(t+.05);
+    };
+    for(let bar=0;bar<2;bar++){
+      const b0=bar*4*beat;
+      kick(b0);kick(b0+2*beat);kick(b0+(bar?3.5:2.5)*beat);
+      snare(b0+beat);snare(b0+3*beat);
+      for(let i=0;i<8;i++)hat(b0+i*beat/2,i%2?.14:.22);
+    }
+    const buf=await oc.startRendering();
+    /* keep the summed drums under full scale so nothing clips */
+    if(buf&&buf.getChannelData){
+      const d=buf.getChannelData(0);let pk=0;
+      for(let i=0;i<d.length;i++){const v=Math.abs(d[i]);if(v>pk)pk=v;}
+      if(pk>0.9){const k=0.9/pk;for(let i=0;i<d.length;i++)d[i]*=k;}
+    }
+    beatCache[bpm]=buf;
+    return buf;
+  }catch(e){return null;}
+}
+function beatWanted(){return !!(BEAT_ON&&T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work');}
+function beatStop(){BEATGEN++;try{if(beatSrc)beatSrc.stop();}catch(e){}beatSrc=null;beatGain=null;BEATKEY='';}
+async function beatSync(){
+  try{
+    /* warm the loop during the get-set countdown so it starts on the first bell */
+    if(BEAT_ON&&T&&T.running)renderBeat(beatBpm());
+    if(!beatWanted()){beatStop();return false;}
+    if(!ac)return false;
+    const bpm=beatBpm();
+    if(beatSrc&&BEATKEY===String(bpm))return true;
+    beatStop();
+    const gen=BEATGEN;
+    const buf=await renderBeat(bpm);
+    if(gen!==BEATGEN||!buf||!beatWanted())return false;
+    const src=ac.createBufferSource();
+    src.buffer=buf;src.loop=true;
+    beatGain=ac.createGain();
+    beatGain.gain.value=VOICE_ON?0.2:0.28;
+    src.connect(beatGain);beatGain.connect(ac.destination);
+    src.start();
+    beatSrc=src;BEATKEY=String(bpm);
+    return true;
+  }catch(e){return false;}
+}
+/* the coach stays audible: the beat sinks while a clip plays */
+function beatDuck(on){try{if(beatGain&&ac&&beatGain.gain.setTargetAtTime)beatGain.gain.setTargetAtTime(on?0.07:(VOICE_ON?0.2:0.28),ac.currentTime,0.06);}catch(e){}}
+
+/* ---- the rival: a challenge that travels in the link itself ----
+   No server: the link carries the challenger's name, start date and the day
+   offset of every session they logged. The friend's phone draws the ghost. */
+let RIVAL=null,PENDING_RIVAL=null;
+function b64e(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64d(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(escape(atob(s)));}
+function cleanRival(o){
+  if(!o||typeof o!=='object')return null;
+  if(typeof o.n!=='string'||!o.n||o.n.length>16)return null;
+  if(typeof o.s!=='string'||!parseISO(o.s))return null;
+  if(!Array.isArray(o.o)||o.o.length>200)return null;
+  const offs=Array.from(new Set(o.o.filter(x=>Number.isInteger(x)&&x>=0&&x<400))).sort((x,y)=>x-y).slice(0,200);
+  return {n:o.n,s:o.s,o:offs,t:(typeof o.t==='string'&&parseISO(o.t))?o.t:''};
+}
+function parseRival(code){try{return cleanRival(JSON.parse(b64d(code)));}catch(e){return null;}}
+function myOffsets(){
+  const s=parseISO(START);if(!s)return [];
+  const out=[];
+  /* the later of the plan cell and the log date: Pick up re-anchors START, and
+     the plan cell is what keeps those sessions counting; a session logged late
+     keeps its real date */
+  Object.keys(DONE).forEach(k=>{
+    const m=/^(\d+)-([0-6])$/.exec(k);if(!m)return;
+    const cell=(+m[1])*7+(+m[2]);
+    const d=parseISO(DONE[k]);
+    const n=Math.max(cell,d?Math.round((d-s)/86400000):0);
+    if(n<400)out.push(n);
+  });
+  return out.sort((x,y)=>x-y);
+}
+function rivalCode(){return b64e(JSON.stringify({n:String(WHO||'Jackson').slice(0,16),s:START,o:myOffsets(),t:todayISO()}));}
+function rivalLink(){
+  let base='https://jacksonvarela1.github.io/forge/';
+  try{if(location&&location.origin&&location.pathname)base=location.origin+location.pathname;}catch(e){}
+  return base+'#r='+rivalCode();
+}
+async function shareRival(btn){
+  const text=(WHO||'Jackson')+' is '+totDone()+'-0 on The Forge. Think you can keep up?';
+  const url=rivalLink();
+  try{
+    if(navigator.share){await navigator.share({title:'The Forge',text:text,url:url});return true;}
+    await navigator.clipboard.writeText(text+' '+url);
+    if(btn)btn.textContent='Link copied';
+    return true;
+  }catch(e){if(btn&&e&&e.name!=='AbortError')btn.textContent='Could not copy';return false;}
+}
+(function(){
+  try{
+    const m=/[#&]r=([A-Za-z0-9_-]+)/.exec(location.hash||'');
+    if(m){
+      PENDING_RIVAL=parseRival(m[1]);
+      try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+    }
+  }catch(e){}
+})();
+function rivalBannerHTML(){
+  if(!PENDING_RIVAL||ONBOARD)return '';
+  return '<div class="wb"><div class="wbt">Challenge</div><div class="bwline"><b>'+esc(PENDING_RIVAL.n)+'</b> sent you their camp. Accept and the app shows you how you stack up, day by day.</div><div class="bwform">'+abtn('rivalaccept','Accept the challenge','pri')+abtn('rivalno','No thanks')+'</div></div>';
+}
+function rivalHTML(){
+  if(!RIVAL)return '';
+  const ph=campPhase();
+  const day=ph==='live'?Math.max(0,campDayCount()-1):(ph==='over'?69:0);
+  const theirs=RIVAL.o.filter(x=>x<=day).length,mine=myOffsets().filter(x=>x<=day).length;
+  const diff=mine-theirs;
+  const line=diff>0?'You are '+diff+' ahead of '+RIVAL.n+' at this point in the camp.':(diff<0?RIVAL.n+' was '+(-diff)+' ahead by this day. Close the gap.':'Dead even with '+RIVAL.n+' at this point.');
+  const pct=x=>Math.min(100,Math.round(100*x/70));
+  return '<div class="card rival"><div class="cardhead"><span class="cardtitle">Rival</span><span class="cardtag">DAY '+(day+1)+'</span></div><div class="bwline">'+esc(line)+'</div>'+
+    '<div class="rv"><div class="rvl">YOU</div><div class="rvbar"><i style="width:'+pct(mine)+'%"></i></div><div class="rvn">'+mine+'</div></div>'+
+    '<div class="rv"><div class="rvl">'+esc(RIVAL.n.toUpperCase())+'</div><div class="rvbar them"><i style="width:'+pct(theirs)+'%"></i></div><div class="rvn">'+theirs+'</div></div>'+
+    '<div class="bwform">'+abtn('rivalclear','Drop rival')+'</div></div>';
+}
+
 /* ---- backup ----
    There is no account and no server. Months of training live in one browser
    profile, so an export that survives a cleared cache is not optional. */
@@ -1106,7 +1742,7 @@ function paintTools(){
     <div class="bwnote">Gear on hand. The program adapts around whatever is tapped on. Real bell swaps the round beeps for a struck bell and a wood clack.</div>
     <div class="bwchips">${eqChip('gl','Gloves',GLOVES_ON)}${eqChip('wr','Wraps',WRAPS_ON)}${eqChip('bag','Bag',BAG_ON)}${eqChip('p','Partner',PARTNER_ON)}${eqChip('snd','Real bell',SND==='bell')}</div>
     ${others.length?`<div class="bwnote">Also training on this phone:</div><div class="bwchips">${others.map(n=>`<button class="bwchip" data-who="${esc(n)}" type="button">${esc(n)}</button>`).join('')}</div>`:''}
-    <div class="bwform">${abtn('fightcard','Make my fight card','pri')}<button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
+    <div class="bwform">${abtn('fightcard','Make my fight card','pri')}${abtn('rivallink','Challenge a friend')}<button class="sw" id="addfighter" type="button">Add a fighter</button></div></div>`;
   logToolsEl.innerHTML=benchHTML()+extraHTML()+fighter+`<div class="card"><div class="cardhead"><span class="cardtitle">Camp start and backup</span></div>
     <div class="bwline">Camp week 1 started Monday <b>${START||'not set'}</b>. Change it if that is wrong and every week renumbers.</div>
     <div class="bwform"><input class="srch bwinput" id="startval" type="date" value="${START||''}"><button class="sw" id="startset" type="button">Set</button></div>
@@ -1166,7 +1802,7 @@ function paintTools(){
   });
   const ex=document.getElementById('expbtn');
   if(ex)ex.addEventListener('click',async()=>{
-    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx,skip:SKIP,extra:EXTRA,camps:CAMPS,finish:FINISH,bench:BENCH,opts:{v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND}});
+    const dump=JSON.stringify({v:1,done:DONE,bw:BW,notes:NOTES,check:CHECKS,start:START,iq:IQ,week:wIdx,skip:SKIP,extra:EXTRA,camps:CAMPS,finish:FINISH,bench:BENCH,more:moreObj(),opts:{v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND,beat:BEAT_ON}});
     try{await navigator.clipboard.writeText(dump);BK=todayISO();saveBk();paintToday();msg('Backup copied. Paste it somewhere safe: a note to yourself, an email, anywhere.');}
     catch(e){
       const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.value=dump;
@@ -1178,13 +1814,16 @@ function paintTools(){
     if(!PRERESTORE)return;
     DONE=PRERESTORE.done;BW=PRERESTORE.bw;NOTES=PRERESTORE.notes;CHECKS=PRERESTORE.check||{};START=PRERESTORE.start;IQ=PRERESTORE.iq;
     SKIP=PRERESTORE.skip||{};EXTRA=PRERESTORE.extra||[];CAMPS=PRERESTORE.camps||[];FINISH=PRERESTORE.finish||null;BENCH=PRERESTORE.bench||[];RESUME=PRERESTORE.resume||null;
+    if(PRERESTORE.more)applyMore(PRERESTORE.more);
+    if(PRERESTORE.opts){const p=PRERESTORE.opts;VOICE_ON=p.v!==false;CALLER_ON=p.c!==false;BAG_ON=p.bag!==false;PARTNER_ON=p.p===true;GLOVES_ON=p.gl!==false;WRAPS_ON=p.wr!==false;if(typeof p.goals==='string')GOALS=p.goals;SND=p.snd==='classic'?'classic':'bell';BEAT_ON=p.beat===true;}
     PRERESTORE=null;
-    saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();
+    saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();saveMore();saveOpts();if(BEAT_ON)beatSync();else beatStop();
     paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
     const e=document.getElementById('iomsg');if(e)e.textContent='Put back the way it was before the restore.';
   });
   const im=document.getElementById('impbtn');
   if(im)im.addEventListener('click',()=>{
+    if(!WHO){msg('Finish the name screen first, then Restore.');return;}
     const ta=document.createElement('textarea');ta.className='srch';ta.rows=4;ta.placeholder='paste your backup here, then hit Restore again';
     ta.id='impbox';
     const existing=document.getElementById('impbox');
@@ -1194,7 +1833,7 @@ function paintTools(){
       if(!o||typeof o!=='object')throw 0;
       /* snapshot first: restoring an older backup over a newer log is the one
          way this screen can destroy training history */
-      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),check:JSON.parse(JSON.stringify(CHECKS)),start:START,iq:JSON.parse(JSON.stringify(IQ)),skip:JSON.parse(JSON.stringify(SKIP)),extra:EXTRA.slice(),camps:JSON.parse(JSON.stringify(CAMPS)),finish:FINISH,bench:BENCH.slice(),resume:RESUME?JSON.parse(JSON.stringify(RESUME)):null};
+      PRERESTORE={done:JSON.parse(JSON.stringify(DONE)),bw:BW.slice(),notes:JSON.parse(JSON.stringify(NOTES)),check:JSON.parse(JSON.stringify(CHECKS)),start:START,iq:JSON.parse(JSON.stringify(IQ)),skip:JSON.parse(JSON.stringify(SKIP)),extra:EXTRA.slice(),camps:JSON.parse(JSON.stringify(CAMPS)),finish:FINISH,bench:BENCH.slice(),resume:RESUME?JSON.parse(JSON.stringify(RESUME)):null,more:JSON.parse(JSON.stringify(moreObj())),opts:{v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND,beat:BEAT_ON}};
       const startB4=START,skipB4=JSON.stringify(SKIP);
       if(o.done&&typeof o.done==='object')DONE=o.done;
       if(Array.isArray(o.bw))BW=o.bw.filter(x=>x&&x.d&&isFinite(x.w));
@@ -1207,10 +1846,11 @@ function paintTools(){
       if(Array.isArray(o.camps))CAMPS=o.camps.filter(y=>y&&typeof y==='object');
       if(o.done&&typeof o.done==='object')FINISH=(o.finish&&typeof o.finish==='object')?o.finish:null;
       if(Array.isArray(o.bench))BENCH=o.bench.filter(y=>y&&y.d&&y.t&&isFinite(y.v));
-      if(o.opts&&typeof o.opts==='object'){const p=o.opts;VOICE_ON=p.v!==false;CALLER_ON=p.c!==false;BAG_ON=p.bag!==false;PARTNER_ON=p.p===true;GLOVES_ON=p.gl!==false;WRAPS_ON=p.wr!==false;if(typeof p.goals==='string')GOALS=p.goals;SND=p.snd==='classic'?'classic':'bell';saveOpts();}
+      if(o.more)applyMore(o.more);
+      if(o.opts&&typeof o.opts==='object'){const p=o.opts;VOICE_ON=p.v!==false;CALLER_ON=p.c!==false;BAG_ON=p.bag!==false;PARTNER_ON=p.p===true;GLOVES_ON=p.gl!==false;WRAPS_ON=p.wr!==false;if(typeof p.goals==='string')GOALS=p.goals;SND=p.snd==='classic'?'classic':'bell';BEAT_ON=p.beat===true;saveOpts();}
       if(START!==startB4||JSON.stringify(SKIP)!==skipB4)RESUME=null;
       recomputeBagWeek();
-      saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();
+      saveDone();saveBW();saveNotes();saveChecks();saveStart();saveIQ();saveSkip();saveExtra();saveCamps();saveFinish();saveBench();saveResume();saveMore();
       existing.remove();
       paintDone();buildGrid();paintToday();paintWeight();paintIQ();render();
       msg('Restored. '+Object.keys(DONE).length+' sessions and '+BW.length+' weigh-ins are back. What was here before this restore is saved under Undo below, until you close the app.');
@@ -1252,7 +1892,7 @@ function buildGrid(){
   const prev=RANKS.filter(r=>r[0]<=tot).slice(-1)[0]||RANKS[0];
   const span=next?next[0]-prev[0]:1;
   const into=next?tot-prev[0]:1;
-  statsEl.innerHTML+=`<div class="rankstrip"><div class="rstrack"><div class="rsfill" style="width:${next?Math.round(100*into/span):100}%"></div></div><div class="rslabel">${next?`${next[0]-tot} session${next[0]-tot>1?'s':''} to ${next[1].toUpperCase()}`:'CAMP DONE'}${(EXTRA.length||CAMPS.length)?` &middot; ${lifetimeSessions()} LIFETIME`:''}</div></div>`;
+  statsEl.innerHTML+=`<div class="rankstrip"><div class="rstrack"><div class="rsfill" style="width:${next?Math.round(100*into/span):100}%"></div></div><div class="rslabel">${next?`${next[0]-tot} session${next[0]-tot>1?'s':''} to ${next[1].toUpperCase()}`:'CAMP DONE'}${weeksHeld()?` &middot; ${weeksHeld()} WEEK${weeksHeld()>1?'S':''} HELD`:''}${(EXTRA.length||CAMPS.length)?` &middot; ${lifetimeSessions()} LIFETIME`:''}</div></div>`;
   paintToday();paintWeight();paintTools();
 }
 if(gridEl)gridEl.addEventListener('click',e=>{const c=e.target.closest('.gcell');if(!c)return;toggleDone(+c.dataset.w,+c.dataset.d);});
@@ -1269,7 +1909,7 @@ CATS.forEach((c,i)=>{
  if(c.numbox)h+=`<div class="numbox">${c.numbox}</div>`;
  c.moves.forEach(mv=>{
   const wk=MOVEWEEK[mv.name];
-  h+=`<div class="move"><div class="mtop"><span class="mname">${mv.name}</span>${wk!==undefined?`<span class="mwk">WK ${wk+1}</span>`:''}<span class="mtag">${mv.tag}</span></div>
+  h+=`<div class="move" data-name="${esc(mv.name)}"><div class="mtop"><span class="mname">${mv.name}</span>${wk!==undefined?`<span class="mwk">WK ${wk+1}</span>`:''}<span class="mtag">${mv.tag}</span></div>
       <ul>${mv.steps.map(s=>`<li>${s}</li>`).join('')}</ul>
       <div class="mcue"><b>CUE:</b> ${mv.cue}</div>
       <div class="mvid"><b>VIDEO:</b> <a class="glink" href="${vidHref(mv.vid)}" target="_blank" rel="noopener">${mv.vid}</a></div></div>`;});
@@ -1284,9 +1924,26 @@ function qpool(){
   const p=FLAT.filter(x=>{const w=MOVEWEEK[x.m.name];return w===undefined?false:w<=wIdx;});
   return p.length?p:FLAT;
 }
-function qpick(){const P=qpool();let n=P[Math.floor(Math.random()*P.length)];if(qcur&&P.length>1&&n.m.name===qcur.m.name)return qpick();return n;}
+/* what you missed comes back sooner: due cards first, then cards you have never seen */
+function qpick(){
+  const P=qpool(),due=iqmDue();
+  const notCur=x=>!(qcur&&x.m.name===qcur.m.name);
+  const dueP=P.filter(x=>due.indexOf(x.m.name)>=0&&notCur(x));
+  const fresh=P.filter(x=>!IQM[x.m.name]&&notCur(x));
+  let pool=null;
+  if(dueP.length&&Math.random()<0.75)pool=dueP;else if(fresh.length&&Math.random()<0.5)pool=fresh;
+  pool=pool||P;
+  const n=pool[Math.floor(Math.random()*pool.length)];
+  if(qcur&&P.length>1&&n.m.name===qcur.m.name)return qpick();
+  return n;
+}
 function qnext(){qcur=qpick();qrev=false;paintCard();}
 function paintCard(){
+  if(IQMODE==='numbers')return paintNumbers();
+  if(IQMODE==='street')return paintStreet();
+  return paintCards();
+}
+function paintCards(){
   if(!cardEl)return;
   if(!qcur){qcur=qpick();}
   const m=qcur.m;
@@ -1295,8 +1952,8 @@ function paintCard(){
    :`<div class="qbtns"><button class="qbtn rev" id="qrev" type="button">Reveal</button></div>`;
   cardEl.innerHTML=`<div class="qcard"><div class="qcat">${qcur.cat}</div><div class="qname">${m.name}</div><div class="qtag">${m.tag}</div><div class="qask">What is the one fix?</div>${qrev?'':''}</div>${ans}`;
   const rv=document.getElementById('qrev');if(rv)rv.addEventListener('click',()=>{qrev=true;paintCard();});
-  const gd=document.getElementById('qgood');if(gd)gd.addEventListener('click',()=>{IQ.r++;saveIQ();paintIQ();qnext();});
-  const bd=document.getElementById('qbad');if(bd)bd.addEventListener('click',()=>{IQ.w++;saveIQ();paintIQ();qnext();});
+  const gd=document.getElementById('qgood');if(gd)gd.addEventListener('click',()=>{iqmMark(qcur.m.name,true);IQ.r++;saveIQ();paintIQ();qnext();});
+  const bd=document.getElementById('qbad');if(bd)bd.addEventListener('click',()=>{iqmMark(qcur.m.name,false);IQ.w++;saveIQ();paintIQ();qnext();});
   paintIQ();
 }
 function paintIQ(){
@@ -1304,7 +1961,8 @@ function paintIQ(){
   const t=IQ.r+IQ.w,pct=t?Math.round(100*IQ.r/t):0;
   iqstatsEl.innerHTML=`<div class="stat"><div class="sv">${IQ.r}</div><div class="sl">knew it</div></div>
    <div class="stat"><div class="sv">${IQ.w}</div><div class="sl">missed</div></div>
-   <div class="stat"><div class="sv">${pct}%</div><div class="sl">fight iq</div></div>`;
+   <div class="stat"><div class="sv">${pct}%</div><div class="sl">fight iq</div></div>
+   <div class="stat"><div class="sv">${iqmDue().length}</div><div class="sl">due today</div></div>`;
   const iq=document.getElementById('iqnote');
   if(iq)iq.textContent='Drawing from your week 1 to '+W[wIdx].n+' vocabulary. '+qpool().length+' moves in the deck. Think of the fix, reveal, grade yourself honestly.';
 }
@@ -1409,10 +2067,11 @@ async function playSeq(parts,tok){
     const b=CLIPS?await clipBuffer(key):null;
     if(tok!==clipToken)return;
     if(b&&ac){
+      beatDuck(true);
       await new Promise(done=>{try{const s=ac.createBufferSource();s.buffer=b;s.connect(ac.destination);clipCur=s;s.onended=done;s.start();
         /* clips carry a silent tail; do not make the next line wait for it */
         if(ac.state==='running')setTimeout(done,Math.max(150,(b.duration-0.5)*1000));}catch(e){done();}});
-      clipCur=null;
+      clipCur=null;beatDuck(false);
     }else{
       try{
         const u=new SpeechSynthesisUtterance(key);u.rate=1.02;u.pitch=1.02;u.volume=1;if(vvoice)u.voice=vvoice;
@@ -1601,7 +2260,7 @@ function checkCard(){
       if(miss>worstMiss){worstMiss=miss;worst=c[0];}
     });
   }
-  const legend=CHECK5.map(c=>`<div class="bwline"><b>${c[0]}:</b> ${c[1]}</div>`).join('');
+  const legend=CHECK5.map(c=>`<div class="bwline"><b>${c[0]}:</b> ${c[1]}</div>`).join('')+'<div class="bwnote">Film it once: phone on a shelf at chest height, 8 to 10 feet back, whole body in frame. Do not move it between rounds.</div><div class="bwnote">A miss becomes a four minute Fix-it block in the Tuesday, Wednesday and Friday sessions next week.</div>';
   return `<div class="card"><div class="cardhead"><span class="cardtitle">The weekly tape</span><span class="cardtag">${CHECKS[wIdx]?held+'/5 this week':'not graded yet'}</span></div>
     <div class="bwnote">Film one round of shadow at half speed, watch it back once, and tap what held up. Grade it like a coach who does not like you.</div>
     <div class="bwchips" id="ckrow">${chips}</div>
@@ -1846,9 +2505,11 @@ function showSeg(){
   elClock.style.color=(T.state==='run'&&work)?css('--ember'):css('--bone');
   paintProg();
   paintFocus();
+  try{beatSync();}catch(e){}
 }
 function stopTick(){if(T&&T.int){clearInterval(T.int);T.int=null;}if(T)T.running=false;}
 function loadTimer(k,day){
+  beatStop();
   if(T&&T.state==='run'){vstop();mediaOff();}
   stopTick();callerStop();
   const cfg=buildSegs(k,day);
@@ -1857,7 +2518,8 @@ function loadTimer(k,day){
   T={segs:cfg.segs,rounds:cfg.rounds,i:0,left:cfg.segs[0].d,running:false,int:null,state:'ready',wk:wIdx,dk:k};
   elGo.textContent='Start';showSeg();
 }
-function finish(){T.state='done';try{paintUpdate();}catch(e){}stopTick();callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
+function finish(){T.state='done';try{paintUpdate();}catch(e){}stopTick();beatStop();
+  if(T.quick&&!T.skipped){EXTRA.push({d:todayISO(),t:'shadow',m:3,light:true});saveExtra();}callerStop();setTimeout(()=>{try{if(!T||T.state==='done')mediaOff();}catch(e){}},8000);saySeq([vrand(VP.done),vrand(coachNamed()?VP.donetail:VP.donetailg)],true);bell('done');elGo.textContent='Start';elName.textContent='Session complete';elNext.textContent='';elClock.textContent='00:00';elPhase.textContent='Done';elPhase.style.color=css('--restore');elRound.textContent='';
   if(FOCUS&&fEl){
     fEl.classList.remove('fwork','frest','fprep');fEl.classList.add('fdone');
     const before=totDone(),after=before+(isDone(wIdx,dIdx)?0:1);
@@ -1871,6 +2533,7 @@ function finish(){T.state='done';try{paintUpdate();}catch(e){}stopTick();callerS
     fNext.textContent=isDone(wIdx,dIdx)?'LOGGED':(md.cool?'COOLDOWN NEXT, THEN LOG IT':'');
     if(fGo)fGo.textContent=isDone(wIdx,dIdx)?'Close':'Log it and close';
     if(fSparks)fSparks.innerHTML=sparksHTML();
+    if(T.quick){fCue.textContent=T.skipped?'ROUND SKIPPED · NOTHING LOGGED':'LIGHT DAY LOGGED · STREAK KEPT';fNext.textContent='';if(fGo)fGo.textContent='Close';}
   }}
 function lbl(x){return String(x).replace(/^R(\d)\s*·\s*/,'Round $1, ').replace(/^R(\d)\s+/,'Round $1, ');}
 function endp(x){x=String(x).trim();return /[.!?]$/.test(x)?x:x+'.';}
@@ -1889,8 +2552,10 @@ function announce(sg){
   const newRound=!prev||prev.type!=='work';
   let t;
   const det=(sg.detail&&sg.detail.length<150)?[endp(sg.detail)]:[];
-  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=[vrand(VP.lastwork),endp(lbl(sg.label))].concat(det);
-  else if(newRound) t=[endp(lbl(sg.label))].concat(det,[vrand(VP.begin)]);
+  /* a free round is against someone: name him so the shadow has a target */
+  const ar=(sg.call==='free')?[archLine()]:[];
+  if(newRound&&sg.round===T.rounds&&T.rounds>1) t=[vrand(VP.lastwork),endp(lbl(sg.label))].concat(det,ar);
+  else if(newRound) t=[endp(lbl(sg.label))].concat(det,ar,[vrand(VP.begin)]);
   else t=[endp(lbl(sg.label))].concat(Math.random()<0.22?[vrand(VP.push)]:[]);
   saySeq(t,true);
   setTimeout(()=>{if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work')callerStart();},1800);
@@ -1977,6 +2642,7 @@ elGo.addEventListener('click',()=>{
 });
 elSkip.addEventListener('click',()=>{
   if(!T||!T.segs||T.state==='done')return;
+  if(T.quick)T.skipped=true;
   if(T.state==='ready')T.state='run';
   callerStop();
   advance(false);
@@ -1984,7 +2650,7 @@ elSkip.addEventListener('click',()=>{
 });
 /* mid-session, one stray tap must not wipe the round: first tap arms it */
 let RESET_ARM=0;
-function paintResetLabel(armed){[elReset,document.getElementById('freset')].forEach(b=>{if(b)b.textContent=armed?'Tap again':'Reset';});}
+function paintResetLabel(armed){[elReset,document.getElementById('freset')].forEach(b=>{if(b)b.textContent=armed?'Sure?':'Reset';});}
 elReset.addEventListener('click',()=>{
   if(sessionRunning()&&!RESET_ARM){RESET_ARM=setTimeout(()=>{RESET_ARM=0;paintResetLabel(false);},3000);paintResetLabel(true);return;}
   if(RESET_ARM){clearTimeout(RESET_ARM);RESET_ARM=0;}
@@ -2038,7 +2704,7 @@ function setFocus(on){
   FOCUS=on;
   if(!fEl)return;
   fEl.classList.toggle('on',on);
-  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep','fdone');if(fSparks)fSparks.innerHTML='';}
+  if(on){paintFocus();if(T&&T.running)mediaOn();}else{fEl.classList.remove('fwork','frest','fprep','fdone');if(fSparks)fSparks.innerHTML='';if(T&&T.quick&&T.state==='done')render();}
 }
 const tfocus=document.getElementById('tfocus');
 if(tfocus)tfocus.addEventListener('click',()=>setFocus(true));
@@ -2046,7 +2712,7 @@ const fx=document.getElementById('fx');
 if(fx)fx.addEventListener('click',()=>setFocus(false));
 function focusBtn(i){
   /* at the end of a session the big button is the point: bank it and leave */
-  if(i===0&&T&&T.state==='done'){if(!isDone(wIdx,dIdx))toggleDone(wIdx,dIdx);setFocus(false);return;}
+  if(i===0&&T&&T.state==='done'){if(!T.quick&&!isDone(wIdx,dIdx))toggleDone(wIdx,dIdx);setFocus(false);return;}
   const t=[elGo,elSkip,elReset][i];if(t)t.click();paintFocus();
 }
 ['fgo','fskip','freset'].forEach((id,i)=>{const b=document.getElementById(id);if(b)b.addEventListener('click',()=>focusBtn(i));});
@@ -2061,7 +2727,8 @@ function setView(v){weekView.style.display=v==='week'?'':'none';movesView.style.
   document.body.classList.toggle('nobar',timerbar.style.display==='none');
   [vWeek,vMoves,vGear,vLog,vIQ].forEach(b=>b.setAttribute('aria-selected',String(b.classList.contains('active'))));
  }catch(e){}
- if(v==='log')buildGrid();if(v==='iq')paintCard();if(v!=='week'&&!(T&&T.running)){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
+ if(v==='moves'&&MOVETREE&&treeEl)treeEl.innerHTML=treeHTML();
+ if(v==='log')buildGrid();if(v==='gear')paintGym();if(v==='iq')paintCard();if(v!=='week'&&!(T&&T.running)){callerStop();}else if(T&&T.running&&T.segs&&T.segs[T.i]&&T.segs[T.i].type==='work'){callerStart();}window.scrollTo(0,0);}
 vWeek.addEventListener('click',()=>setView('week'));
 vMoves.addEventListener('click',()=>setView('moves'));
 vGear.addEventListener('click',()=>setView('gear'));
@@ -2071,7 +2738,7 @@ vIQ.addEventListener('click',()=>setView('iq'));
 /* ---- storage ---- */
 async function saveWeek(i){try{await storage.set('forge:week',String(i));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveDone(){try{await storage.set('forge:done',JSON.stringify(DONE));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
-async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
+async function saveOpts(){try{await storage.set('forge:opts',JSON.stringify({v:VOICE_ON,c:CALLER_ON,bag:BAG_ON,p:PARTNER_ON,gl:GLOVES_ON,wr:WRAPS_ON,goals:GOALS,snd:SND,beat:BEAT_ON}));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveIQ(){try{await storage.set('forge:iq',JSON.stringify(IQ));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveBW(){try{await storage.set('forge:bw',JSON.stringify(BW));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
 async function saveNotes(){try{await storage.set('forge:notes',JSON.stringify(NOTES));;SAVEFAIL='';}catch(e){SAVEFAIL='Could not save to this browser. Your phone storage may be full or in private mode. Copy a backup now, before you lose anything.';try{paintTools();}catch(_){}}}
@@ -2090,12 +2757,14 @@ const cardviewEl=document.getElementById('cardview'),heroEl=document.getElementB
    here. Three questions, then the camp is theirs. */
 function paintOnboard(){
   try{document.body.classList.toggle('ready',!ONBOARD);}catch(e){}
+  paintA2hs();
   if(!onboardEl)return;
   if(!ONBOARD){onboardEl.innerHTML='';return;}
   const chip=(id,label,on)=>`<button class="sw obchip${on?' on':''}" data-ob="${id}" type="button">${on?'&#9679;':'&#9675;'} ${label}</button>`;
   const st=OB_STATE;
   onboardEl.innerHTML=`<div class="card obcard"><div class="cardhead"><span class="cardtitle">Who is training?</span></div>
     <div class="bwnote">This camp is about to be yours: your own log, your own weigh-ins, your own coach. Nothing here is shared with anyone.</div>
+    ${PENDING_RIVAL?`<div class="bwline"><b>${esc(PENDING_RIVAL.n)}</b> dared you. Set up your camp and the app shows you how you stack up, day by day.</div>`:''}
     <div class="bwform"><input class="srch bwinput" id="obname" type="text" maxlength="20" placeholder="your first name" value="${esc(st.name)}"></div>
     <div class="bwnote">What do you have right now? Tap what applies, the program adapts around it.</div>
     <div class="bwchips">${chip('gloves','Boxing gloves',st.gloves)}${chip('wraps','Hand wraps',st.wraps)}${chip('bag','Heavy bag',st.bag)}${chip('partner','Training partner',st.partner)}</div>
@@ -2128,11 +2797,18 @@ function paintOnboard(){
     ONBOARD=false;
     await saveWho();
     /* write their choices into THEIR namespace, then boot into it */
+    VOICE_ON=true;CALLER_ON=true;SND='bell';BEAT_ON=false;
     GLOVES_ON=OB_STATE.gloves;WRAPS_ON=OB_STATE.wraps;BAG_ON=OB_STATE.bag;PARTNER_ON=OB_STATE.partner;
     GOALS=[OB_STATE.g1&&'learn striking',OB_STATE.g2&&'get conditioned',OB_STATE.g3&&'be ready if it ever goes down',OB_STATE.g4&&'walk into a real gym'].filter(Boolean).join(', ');
     START=startPick;
     await saveOpts();await saveStart();
     try{await storage.set('forge:startv',START_MIGRATION);}catch(e){}
+    if(PENDING_RIVAL){
+      RIVAL=PENDING_RIVAL;PENDING_RIVAL=null;
+      /* a new fighter starts clean: whoever was active a moment ago stays theirs */
+      READY={};DEBRIEF={};IQM={};BEST=0;GYMS=null;CTBEST=0;
+      await saveMore();
+    }
     boot();
   });
 }
@@ -2146,7 +2822,7 @@ function paintHero(){
   const stamp=DONE[dkey(slot.w,slot.d)],doneToday=stamp===todayISO(),earlier=!!stamp&&!doneToday;
   const dn=Math.min(70,Math.max(1,campDayCount()));
   heroEl.innerHTML='<div class="hero" style="--ph:var('+(PCOL[slot.w]||'--ember')+')"><div class="hk">TODAY &middot; WEEK '+w.n+' &middot; DAY '+dn+' OF 70</div><div class="ht">'+md.title+'</div><div class="hm">'+LASTTOT+' MIN &middot; '+typeText[md.type].toUpperCase()+' &middot; INTENSITY '+md.intensity+'/5</div><div class="hq">CORNER &middot; '+esc(cornerOfDay())+'</div>'+
-    (doneToday?'<div class="hdone">Logged. That is the day.</div>':(earlier?'<div class="hdone">Logged '+esc(shortDate(stamp))+', not today.</div>':'')+'<div class="hbtns">'+(day.tm?'<button class="hgo" data-act="herostart" type="button">Start</button>':'')+'<button class="hmark" data-act="'+(earlier?'trainnow':'marktoday')+'" type="button">'+(earlier?'Train today':'Mark done')+'</button></div>')+'</div>';
+    (doneToday?'<div class="hdone">Logged. That is the day.</div>':(earlier?'<div class="hdone">Logged '+esc(shortDate(stamp))+', not today.</div>':'')+'<div class="hbtns">'+(day.tm?'<button class="hgo" data-act="herostart" type="button">Start</button>':'')+'<button class="hmark" data-act="'+(earlier?'trainnow':'marktoday')+'" type="button">'+(earlier?'Train today':'Mark done')+'</button></div>'+(day.tm?'<button class="hlink" data-act="oneround" type="button">Short on time? Just one round</button>':''))+'</div>';
 }
 function paintCampBar(){
   if(!campbarEl)return;
@@ -2174,6 +2850,7 @@ async function boot(){
   try{
     const w=await rawstorage.get('forge:who');
     if(w&&typeof w.value==='string')WHO=w.value;
+    const ah=await rawstorage.get('forge:a2hs');if(ah&&ah.value)A2HS_DISMISSED=true;
     const nm=await rawstorage.get('forge:names');
     if(nm&&nm.value){const a=JSON.parse(nm.value);if(Array.isArray(a))NAMES=a.filter(x=>typeof x==='string'&&x);}
   }catch(e){}
@@ -2192,8 +2869,8 @@ async function boot(){
        Writing forge:start here would make the legacy check claim the next
        boot as the original fighter, so a buddy who opens the app and closes
        it before answering would wake up as someone else. */
-    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];
-    VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
+    DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];READY={};DEBRIEF={};IQM={};BEST=0;GYMS=null;CTBEST=0;RIVAL=null;CT.seq=[];CT.pos=0;CT.streak=0;CT.flash='';if(MOVETREE)setMoveMode(false);
+    VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';BEAT_ON=false;
     START=forwardMonday();
     recomputeBagWeek();
     const slot0=todaySlot();
@@ -2202,12 +2879,12 @@ async function boot(){
     return;
   }
   /* reset per-profile state so switching fighters never leaks a log across */
-  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];
+  DONE={};IQ={r:0,w:0};BW=[];NOTES={};CHECKS={};START=null;SKIP={};EXTRA=[];CAMPS=[];FINISH=null;RESUME=null;PRECAMP=null;BK='';BENCH=[];READY={};DEBRIEF={};IQM={};BEST=0;GYMS=null;CTBEST=0;RIVAL=null;CT.seq=[];CT.pos=0;CT.streak=0;CT.flash='';if(MOVETREE)setMoveMode(false);
   PRERESTORE=null;MAKEUP=null;qcur=null;SAVEFAIL='';CUT=0;RB.open=false;
-  VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';
+  VOICE_ON=true;CALLER_ON=true;BAG_ON=true;PARTNER_ON=false;GLOVES_ON=true;WRAPS_ON=true;GOALS='';SND='bell';BEAT_ON=false;
   try{const r=await storage.get('forge:done');if(r&&r.value)DONE=JSON.parse(r.value)||{};}catch(e){}
   try{const r=await storage.get('forge:iq');if(r&&r.value){const q=JSON.parse(r.value);if(q&&typeof q.r==='number')IQ=q;}}catch(e){}
-  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;GLOVES_ON=o.gl!==false;WRAPS_ON=o.wr!==false;GOALS=typeof o.goals==='string'?o.goals:'';SND=o.snd==='classic'?'classic':'bell';}}}catch(e){}
+  try{const r=await storage.get('forge:opts');if(r&&r.value){const o=JSON.parse(r.value);if(o){VOICE_ON=o.v!==false;CALLER_ON=o.c!==false;BAG_ON=o.bag!==false;PARTNER_ON=o.p===true;GLOVES_ON=o.gl!==false;WRAPS_ON=o.wr!==false;GOALS=typeof o.goals==='string'?o.goals:'';SND=o.snd==='classic'?'classic':'bell';BEAT_ON=o.beat===true;}}}catch(e){}
   try{const r=await storage.get('forge:bw');if(r&&r.value){const b=JSON.parse(r.value);if(Array.isArray(b))BW=b.filter(x=>x&&x.d&&isFinite(x.w));}}catch(e){}
   try{const r=await storage.get('forge:notes');if(r&&r.value){const n=JSON.parse(r.value);if(n&&typeof n==='object')NOTES=n;}}catch(e){}
   try{const r=await storage.get('forge:check');if(r&&r.value){const c=JSON.parse(r.value);if(c&&typeof c==='object')CHECKS=c;}}catch(e){}
@@ -2215,6 +2892,7 @@ async function boot(){
   try{const r=await storage.get('forge:extra');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))EXTRA=x.filter(y=>y&&y.d&&isFinite(y.m));}}catch(e){}
   try{const r=await storage.get('forge:camps');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))CAMPS=x.filter(y=>y&&typeof y==='object');}}catch(e){}
   try{const r=await storage.get('forge:finish');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object')FINISH=x;}}catch(e){}
+  try{const r=await storage.get('forge:more');if(r&&r.value)applyMore(JSON.parse(r.value));}catch(e){}
   try{const r=await storage.get('forge:bench');if(r&&r.value){const x=JSON.parse(r.value);if(Array.isArray(x))BENCH=x.filter(y=>y&&y.d&&y.t&&isFinite(y.v));}}catch(e){}
   try{const r=await storage.get('forge:bk');if(r&&r.value&&parseISO(r.value))BK=r.value;}catch(e){}
   try{const r=await storage.get('forge:resume');if(r&&r.value){const x=JSON.parse(r.value);if(x&&typeof x==='object'&&x.start&&Array.isArray(x.added))RESUME=x;}}catch(e){}

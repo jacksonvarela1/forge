@@ -31,6 +31,8 @@ for (const pool of Object.keys(JSON.parse(g('JSON.stringify(VP)')))) {
 add('Get set.');
 add('Back with you.');
 add('Three. Two. One.');
+add('Free shadow.');
+for (const o of JSON.parse(g('JSON.stringify(ARCH)'))) add(o.line);
 
 // caller vocabularies
 for (const name of ['CALLCUE', 'FREECALL', 'DEFPAIR', 'DEFATK']) {

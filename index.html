@@ -36,6 +36,8 @@
   <div class="wrap">
     <div id="onboard"></div>
     <div id="hero"></div>
+    <div id="checkin"></div>
+    <div id="a2hs"></div>
     <div id="campbar"></div>
     <div class="wlabel"><span>Week</span><button class="backtoday" id="backtoday" type="button" style="display:none"></button></div>
     <div class="weekstrip" id="weekstrip"></div>
@@ -64,27 +66,30 @@
 <div id="movesView" style="display:none">
   <div class="catbar"><div class="wrap"><div class="inr" id="catbar"></div></div></div>
   <div class="wrap">
+    <div class="mtoggle" id="mtoggle"><button class="sw on" data-act="movemode" data-m="cards" type="button">Cards</button><button class="sw" data-act="movemode" data-m="tree" type="button">Skill tree</button></div>
     <input class="srch" id="srch" type="search" placeholder="Search 86 moves. Try check hook, teep, wrap...">
     <p class="mintro">Every technique in all 10 weeks. Tag says what it is, bullets say what video will not tell you, CUE is the error, VIDEO is the exact search.</p>
     <div class="empty" id="nomoves" style="display:none"><b>No move by that name</b>Try a shorter word: teep, check, slip, wrap.</div>
     <div id="moves"></div>
+    <div id="tree" style="display:none"></div>
     <footer>Learn it here, drill it in the Week tab.</footer>
   </div>
 </div>
 
 <div id="gearView" style="display:none">
   <div class="wrap">
-    <p class="mintro">Trimmed to what the program actually needs. You already own the big two.</p>
+    <p class="mintro">Trimmed to what the program actually needs.</p>
     <div class="gsec">Owned</div>
-    <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">16 oz gloves</div><div class="gwhy">Done. They cover bag work now and sparring later.</div></div></div>
+    <div class="gitem gown" data-eq="gl"><div class="gwk">&#10003;</div><div><div class="gname">16 oz gloves</div><div class="gwhy">Done. They cover bag work now and sparring later.</div></div></div>
     <div class="gitem gown"><div class="gwk">&#10003;</div><div><div class="gname">Mirror</div><div class="gwhy">Done. Live-feed coach. Phone film stays the weekly review.</div></div></div>
     <div class="gsec">Essential</div>
     <div class="gitem"><div class="gwk">NOW</div><div><div class="gname">Hand wraps, 180 inch <span class="gprice">$10-20</span></div><div class="gwhy">Two pairs so one is always dry. Practice wrapping before the bag lands. How-to is under Bag Work in Moves.</div><a class="glink" href="https://www.amazon.com/s?k=180+inch+boxing+hand+wraps" target="_blank" rel="noopener">amazon.com/s?k=180+inch+boxing+hand+wraps</a></div></div>
     <div class="gitem"><div class="gwk">WK 5</div><div><div class="gname">Heavy bag <span class="gprice">$55-250</span></div><div class="gwhy">Hunt or order early so it is hanging by Friday of week 5. Cheapest real path: a used 70-100 lb bag on Facebook Marketplace for $40-100 plus a $15 hanging kit on a garage joist, porch beam, or thick branch. New with a stand runs $150-250. Skip the $350 free-standing unless you truly have nowhere to hang one.</div><a class="glink" href="https://www.facebook.com/marketplace/search?query=heavy%20bag" target="_blank" rel="noopener">facebook.com/marketplace: heavy bag</a><br><a class="glink" href="https://www.amazon.com/s?k=heavy+bag+hanging+kit" target="_blank" rel="noopener">amazon.com/s?k=heavy+bag+hanging+kit</a><br><a class="glink" href="https://www.amazon.com/s?k=100lb+heavy+bag+with+stand" target="_blank" rel="noopener">amazon.com/s?k=100lb+heavy+bag+with+stand</a></div></div>
-    <div class="gitem"><div class="gwk">WK 10</div><div><div class="gname">A trial class <span class="gprice">free to $25</span></div><div class="gwhy">The whole camp points here. Bring your own gloves, wraps and mouthguard. Expect to be paired with someone in the first ten minutes, and say up front that you are a BJJ guy who has done ten weeks of solo striking: it tells them exactly where to start you and it stops you getting thrown into the wrong group. Go on a weekday beginner or fundamentals slot, not an open mat.</div><a class="glink" href="https://www.google.com/maps/search/muay+thai+Fayetteville+AR" target="_blank" rel="noopener">maps: muay thai Fayetteville AR</a><br><a class="glink" href="https://www.google.com/maps/search/MMA+gym+Fayetteville+AR" target="_blank" rel="noopener">maps: MMA gym Fayetteville AR</a></div></div><div class="gitem"><div class="gwk">WK 9</div><div><div class="gname">Mouthguard <span class="gprice">$10-25</span></div><div class="gwhy">Essential only once the gym starts. Boil-and-bite is fine.</div><a class="glink" href="https://www.amazon.com/s?k=boil+and+bite+mouthguard" target="_blank" rel="noopener">amazon.com/s?k=boil+and+bite+mouthguard</a></div></div>
+    <div class="gitem"><div class="gwk">WK 10</div><div><div class="gname">A trial class <span class="gprice">free to $25</span></div><div class="gwhy">The whole camp points here. Bring your own gloves, wraps and mouthguard. Expect to be paired with someone in the first ten minutes, and say up front <span class="jx">that you are a BJJ guy who has done ten weeks of solo striking</span><span class="jy" style="display:none">how long you have trained and what you have done</span>: it tells them exactly where to start you and it stops you getting thrown into the wrong group. Go on a weekday beginner or fundamentals slot, not an open mat.</div><a class="glink" href="https://www.google.com/maps/search/muay+thai+Fayetteville+AR" target="_blank" rel="noopener">maps: muay thai Fayetteville AR</a><br><a class="glink" href="https://www.google.com/maps/search/MMA+gym+Fayetteville+AR" target="_blank" rel="noopener">maps: MMA gym Fayetteville AR</a></div></div><div class="gitem"><div class="gwk">WK 9</div><div><div class="gname">Mouthguard <span class="gprice">$10-25</span></div><div class="gwhy">Essential only once the gym starts. Boil-and-bite is fine.</div><a class="glink" href="https://www.amazon.com/s?k=boil+and+bite+mouthguard" target="_blank" rel="noopener">amazon.com/s?k=boil+and+bite+mouthguard</a></div></div>
     <div class="gsec">Nonessential</div>
     <div class="gitem gnon"><div class="gwk">ANY</div><div><div class="gname">Reflex ball <span class="gprice">$15-25</span></div><div class="gwhy">Timing toy for study breaks. Fun, fully skippable.</div><a class="glink" href="https://www.amazon.com/s?k=boxing+reflex+ball" target="_blank" rel="noopener">amazon.com/s?k=boxing+reflex+ball</a></div></div>
-    <div class="gtotal"><b>Cash to finish the camp:</b> about $90-150 if you hunt the bag used, $185-295 buying new. Everything else you own or is free.</div>
+    <div class="gtotal"><b>Cash to finish the camp:</b> about $90-150 if you hunt the bag used, $185-295 buying new. Everything else you own or is free.<span id="gloveadd" style="display:none"> Gloves are not on that list yet and add about $40-80.</span></div>
+    <div id="gymkit"></div>
     <footer>Nonessential means exactly that.</footer>
   </div>
 </div>
@@ -104,6 +109,7 @@
 
 <div id="iqView" style="display:none">
   <div class="wrap">
+    <div class="mtoggle" id="iqmodes"><button class="sw on" data-act="iqmode" data-m="cards" type="button">Cards</button><button class="sw" data-act="iqmode" data-m="numbers" type="button">Combo tap</button><button class="sw" data-act="iqmode" data-m="street" type="button">Street rules</button></div>
     <div class="stats" id="iqstats"></div>
     <p class="mintro" id="iqnote">Think of the fix, reveal, grade yourself honestly.</p>
     <div id="card"></div>
