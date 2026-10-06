@@ -1,5 +1,7 @@
 # Five-day split: Chest/Bi, Back/Tri, Hamstrings, rest, Upper, Quads, rest
 
+The split itself, in your format, is in `five-day-split.txt`. This file holds the reasoning: rules, weekly volume check, trade-offs and sources.
+
 > Growth work is the six numbered slots: deep reps with a held stretch at moderate loads, built from cable, machine and chest-supported picks in the Nippard style, with set counts and RIR in the Renaissance Periodization (RP) style. Add-ons are the primers, Nordic, Copenhagen, tibialis, the forearm or abs block and the stretch line, a light ankle, hamstring and adductor layer. Each day is shaped by what sits before and after it. It gives up overhead pressing, high-end calf, rear-delt and abs volume, and heavy grip work the day before D6.
 
 ## The week
@@ -23,7 +25,7 @@ Every training day has the same shape: a short primer, **6 main exercises**, the
 - **Depth and hold.** Hold 1-2 s at the stretched end of every rep (the cue overrides; nothing longer than 3 s). Compounds hold on set 1, then touch at the same depth with no hold, because holding every set costs load (my design choice, see Sources); dips are a 1 s touch. Jumps are never paused. Half-reps: 5 partials from the stretch after the last full rep, on the last set of laterals, leg extension and calves only.
 - **Pain rule.** Train to the deepest pain-free controlled position. A joint (not muscle burn) that pinches in the stretch means shorten the range, lighten, or use the swap. This applies to knee pain on squats, elbow ache on curls and extensions, and low-back rounding.
 - **Progression.** Depth and hold stay fixed. When every set tops the rep range at the row RIR in two sessions running, add the smallest load and restart low. Timed holds: +5 s a session within ramp caps.
-- **Deload.** W6: same loads, one set fewer on every 2-3 set exercise (min 1), 4-5 RIR. D6 jumps: pogo 1 × 10, box jump 2 × 3, no rim attempts. D3 pogo 1 × 10, plyo push-ups 1 × 5, pull-aparts 1 × 20. Nordic 1 × 4. Copenhagen back to knee on bench, 20-25 s.
+- **Deload.** W6: same loads, one set fewer on every 2-3 set exercise (min 1), 4-5 RIR. D6 jumps: box jump 2 × 3, no rim attempts. Pogo 1 × 10 on D3 and D6; plyo push-ups 1 × 5 and band pull-aparts 1 × 20 on D1 and D5. Nordic 1 × 4. Copenhagen back to knee on bench, 20-25 s.
 - **Warm-up, loads, logging.** Warm-up: 3-5 min easy cardio, then 2 ramp sets before the first compound (about 50% × 5, 75% × 3) and 1 before the next; none count. W1: pick loads leaving 4 reps in reserve; log load × reps every set. Missed day: skip it, never double up; miss 2 or more, repeat that ramp week.
 
 **Ramp (first 6 weeks)**
@@ -224,14 +226,6 @@ Direct hard sets per week at full dose (week 5 and later). A set counts for the 
 - Forearms read 12 sets: 8 dynamic plus 4 grip-hold sets (suitcase hold, towel hang).
 - No direct neck, glute, erector or cuff slot; band pull-aparts and the stretch lines carry shoulder health, and the format has no room for more. Also out: reverse Nordic and sissy squat; Copenhagen stays at slot 6; D6 stays the heaviest leg session.
 - The Nordic is an athletic drill and is not counted: hamstrings are 7 direct sets (RDL 3 and curl 2 on D3, curl 2 on D6), or 9 with the Nordic, so D3 carries 7 hard hamstring sets; there is no direct glute or erector slot.
-
-## If you run this inside the Forge camp
-
-Optional; the program stands alone. Map D1 to D7 onto Mon to Sun. D3, D5 and D6 match your current Wed, Fri and Sat lift days; Thu and Sun stay lift-free.
-
-Collisions: D2 (Tue) lands on the camp's low technique day, so it is grip-free, leg-sparing and the first to trim. Thu's hands session follows the heaviest hamstring session, so the suitcase hold stops 5 s short. Judge Copenhagen groin soreness at 48 h, before Monday kicks. Sat's lift runs before the hands session.
-
-The app was NOT modified. Wiring this in needs new DAYMETA lift strings for Mon, Tue (flips from "No lift"), Wed (forearms now, not abs) and Fri (landmine rotation moved to Sat); 'tue' in LIFTDAYS at test/run.js:552; reworded copy (Friday landmine rotation, "Upper A", the low days); and the MILESTONES week-6 deload nudge, an existing off-by-one (key 6 shows in week 7), moved to key 5.
 
 ## Sources and honesty
 
